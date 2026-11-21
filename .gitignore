@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+# Dados locais: snapshot do AD (dados pessoais) e banco de desenvolvimento
+data/
+# Chaves do Google nunca entram no repositório
+*.json.key
+*service-account*.json

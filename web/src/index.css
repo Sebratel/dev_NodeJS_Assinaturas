@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Tema escuro pela classe `dark` no <html> (padroes-frontend). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens na estrutura do design system (padroes-frontend). Desvio consciente: a marca é o vinho Sebratel
+ * como ACENTO (cabeçalho claro com filete, vinho só em ação/estado) e cantos menores (UI compacta).
+ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #880f17;
+  --color-primary-hover: #6f0c13;
+  --color-primary-ink: #880f17;
+  --color-primary-soft: #f6e7e8;
+  --color-on-primary: #ffffff;
+
+  --color-surface: #f6f4f1;
+  --color-surface-container-low: #efecea;
+  --color-surface-container-lowest: #ffffff;
+  --color-table-head: #f7f4f3;
+
+  --color-on-surface: #1f1b1a;
+  --color-on-surface-variant: #6b6461;
+  --color-outline-variant: rgba(31, 27, 26, 0.1);
+
+  --animate-fade-in-up: fade-in-up 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-slide-in-right: slide-in-right 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark {
+  --color-primary: #a3222b;
+  --color-primary-hover: #b8303a;
+  --color-primary-ink: #f0959a;
+  --color-primary-soft: rgba(240, 149, 154, 0.12);
+  --color-on-primary: #ffffff;
+
+  --color-surface: #1b1814;
+  --color-surface-container-low: #2b2620;
+  --color-surface-container-lowest: #38322b;
+  --color-table-head: #322c26;
+
+  --color-on-surface: #f5f1e9;
+  --color-on-surface-variant: #c3bbad;
+  --color-outline-variant: rgba(255, 255, 255, 0.14);
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased;
+    font-size: 14px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-ink);
+    outline-offset: 2px;
+  }
+}
