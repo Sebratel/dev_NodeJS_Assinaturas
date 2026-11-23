@@ -12,6 +12,8 @@ import { Badge, type BadgeTone } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 
+const LARGE_BATCH = 20;
+
 const TONES: Record<ApplicationStatus, BadgeTone> = {
   APPLIED: 'success',
   UNCHANGED: 'neutral',
@@ -33,6 +35,7 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
   const google = useQuery({ queryKey: queryKeys.googleIntegration, queryFn: googleIntegrationService.status });
   const [includePending, setIncludePending] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   const start = useMutation({
     mutationFn: () => signatureApplicationService.startBatch({ ...target, includePending }),
@@ -53,6 +56,8 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
   const scope = google.data?.applyScope;
   const allowlist = scope?.mode === 'LIST' ? scope.emails : [];
   const notReady = google.data && !google.data.applyEnabled;
+  // Liberado para todos e lote grande: um clique a mais antes de trocar a assinatura de muita gente.
+  const needsConfirmation = scope?.mode === 'ALL' && count > LARGE_BATCH;
   const startError = start.error instanceof ApiError ? start.error.message : null;
   const progress = batch.data ? Math.round((batch.data.processed / Math.max(1, batch.data.total)) * 100) : 0;
 
@@ -69,7 +74,13 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
         ) : (
           <>
             <Button onClick={close}>Cancelar</Button>
-            <Button variant="primary" icon={<Mail className="size-4" />} loading={start.isPending} disabled={Boolean(notReady)} onClick={() => start.mutate()}>
+            <Button
+              variant="primary"
+              icon={<Mail className="size-4" />}
+              loading={start.isPending}
+              disabled={Boolean(notReady) || (needsConfirmation && !confirmed)}
+              onClick={() => start.mutate()}
+            >
               Gravar {formatNumber(count)} {count === 1 ? 'assinatura' : 'assinaturas'}
             </Button>
           </>
@@ -106,6 +117,14 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
                 Gravação liberada para todos: vai trocar a assinatura no Gmail de até <strong>{formatNumber(count)}</strong> pessoas.
               </span>
             </p>
+          )}
+          {needsConfirmation && (
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+              <span>
+                Entendi: a assinatura de até {formatNumber(count)} pessoas vai mudar agora.
+              </span>
+            </label>
           )}
           {notReady && <p className="text-xs text-rose-700 dark:text-rose-300">Google não autorizado: {google.data?.error ?? google.data?.status}</p>}
           {startError && <p className="text-xs text-rose-700 dark:text-rose-300">{startError}</p>}
