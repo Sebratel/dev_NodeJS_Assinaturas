@@ -3,7 +3,9 @@
 .github
 **/node_modules
 **/dist
-**/coverage
+# Relatório de testes só na raiz de cada pacote: "**/coverage" tirava da imagem a tela web/src/pages/coverage.
+api/coverage
+web/coverage
 **/*.tsbuildinfo
 **/*.log
 **/.env
