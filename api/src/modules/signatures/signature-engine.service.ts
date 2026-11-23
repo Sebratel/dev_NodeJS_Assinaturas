@@ -157,9 +157,13 @@ export class SignatureEngineService {
     return this.teamPhrase(collaborator, phrases) ?? phrases.defaultPhrase;
   }
 
+  /** Frase da área + time; se não houver, a do time sem área definida. */
   private teamPhrase(collaborator: Collaborator, phrases: TeamPhrases): string | null {
     const team = TextHelper.normalize(collaborator.team);
-    return phrases.byTeam.find((p) => TextHelper.normalize(p.team) === team && p.phrase.trim())?.phrase ?? null;
+    const area = TextHelper.normalize(collaborator.area);
+    const candidates = phrases.byTeam.filter((p) => TextHelper.normalize(p.team) === team && p.phrase.trim());
+    const exact = candidates.find((p) => p.area && TextHelper.normalize(p.area) === area);
+    return (exact ?? candidates.find((p) => !p.area?.trim()))?.phrase ?? null;
   }
 
   private collectIssues(

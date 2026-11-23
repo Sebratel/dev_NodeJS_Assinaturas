@@ -86,14 +86,21 @@ export class SignaturesService {
 
   async getFacets(): Promise<{
     areas: string[];
-    teams: Array<{ area: string; team: string }>;
+    teams: Array<{ area: string; team: string; count: number }>;
     levels: CollaboratorLevelEnum[];
     companies: Array<{ company: string; count: number }>;
   }> {
     const collaborators = await this.directoryService.findAll();
     const sort = (a: string, b: string) => a.localeCompare(b, 'pt-BR');
-    const teams = new Map<string, { area: string; team: string }>();
-    collaborators.filter((c) => c.team).forEach((c) => teams.set(`${c.area}|${c.team}`, { area: c.area, team: c.team }));
+    const teams = new Map<string, { area: string; team: string; count: number }>();
+    collaborators
+      .filter((c) => c.team)
+      .forEach((c) => {
+        const key = `${c.area}|${c.team}`;
+        const current = teams.get(key) ?? { area: c.area, team: c.team, count: 0 };
+        current.count++;
+        teams.set(key, current);
+      });
     const companies = new Map<string, number>();
     collaborators.filter((c) => c.company).forEach((c) => companies.set(c.company, (companies.get(c.company) ?? 0) + 1));
     return {

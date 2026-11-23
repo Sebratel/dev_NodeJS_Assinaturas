@@ -11,9 +11,16 @@ export type LevelSynonyms = Array<{ level: CollaboratorLevelEnum; words: string[
 /** De-para de grafias de área e time ("Suporte Tecnico" → "Suporte Técnico"). */
 export type ValueAliases = Array<{ field: 'area' | 'team'; from: string; to: string }>;
 
+/** Frase de um time. Com área, vale só para aquele time daquela área; sem área, para o time em qualquer área. */
+export interface TeamPhrase {
+  area?: string;
+  team: string;
+  phrase: string;
+}
+
 export interface TeamPhrases {
   defaultPhrase: string;
-  byTeam: Array<{ team: string; phrase: string }>;
+  byTeam: TeamPhrase[];
 }
 
 export interface DirectoryFilters {

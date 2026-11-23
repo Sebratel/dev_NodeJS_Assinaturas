@@ -6,10 +6,11 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   footer?: ReactNode;
+  size?: 'md' | 'lg';
   children: ReactNode;
 }
 
-export function Modal({ open, title, onClose, footer, children }: ModalProps) {
+export function Modal({ open, title, onClose, footer, size = 'md', children }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
@@ -25,7 +26,7 @@ export function Modal({ open, title, onClose, footer, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-lg border border-outline-variant bg-surface-container-lowest shadow-2xl animate-fade-in-up motion-reduce:animate-none"
+        className={`relative flex max-h-[90dvh] w-full ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} flex-col rounded-lg border border-outline-variant bg-surface-container-lowest shadow-2xl animate-fade-in-up motion-reduce:animate-none`}
       >
         <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-4 py-3">
           <h2 className="text-base font-semibold">{title}</h2>

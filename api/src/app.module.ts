@@ -11,6 +11,7 @@ import { SignatureApplicationsModule } from './modules/signature-applications/si
 import { SignatureRulesModule } from './modules/signature-rules/signature-rules.module.js';
 import { SignatureTemplatesModule } from './modules/signature-templates/signature-templates.module.js';
 import { SignaturesModule } from './modules/signatures/signatures.module.js';
+import { TeamPhrasesModule } from './modules/team-phrases/team-phrases.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SignaturesModule } from './modules/signatures/signatures.module.js';
     SignaturesModule,
     GoogleIntegrationModule,
     SignatureApplicationsModule,
+    TeamPhrasesModule,
     HealthModule,
   ],
 })

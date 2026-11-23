@@ -14,7 +14,7 @@ type TabKey = 'campos' | 'niveis' | 'times' | 'diretorio' | 'google';
 const TABS: Array<{ value: TabKey; label: string }> = [
   { value: 'campos', label: 'Origem dos campos' },
   { value: 'niveis', label: 'Níveis do cargo' },
-  { value: 'times', label: 'Times e frases' },
+  { value: 'times', label: 'De-para de times' },
   { value: 'diretorio', label: 'Diretório' },
   { value: 'google', label: 'Google' },
 ];
@@ -35,7 +35,7 @@ export function SettingsPage() {
         <div key={`${tab}-${revision}`}>
           {tab === 'campos' && <FieldSourcesTab value={settings.data['field-sources']} />}
           {tab === 'niveis' && <LevelSynonymsTab value={settings.data['level-synonyms']} />}
-          {tab === 'times' && <TeamsTab phrases={settings.data['team-phrases']} aliases={settings.data['value-aliases']} />}
+          {tab === 'times' && <TeamsTab aliases={settings.data['value-aliases']} />}
           {tab === 'diretorio' && <DirectoryTab value={settings.data['directory-filters']} />}
           {tab === 'google' && <GoogleTab />}
         </div>

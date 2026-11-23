@@ -63,9 +63,25 @@ export interface CollaboratorListItem {
   issueCodes: IssueCode[];
 }
 
+export interface DirectoryTeam {
+  area: string;
+  team: string;
+  count: number;
+}
+
+export interface PhraseImportMatch {
+  team: string;
+  phrase: string;
+  tooLong: boolean;
+  confidence: 'EXACT' | 'PROBABLE' | 'NONE';
+  best: (DirectoryTeam & { score: number }) | null;
+  sameNameElsewhere: DirectoryTeam[];
+  candidates: Array<DirectoryTeam & { score: number }>;
+}
+
 export interface CollaboratorFacets {
   areas: string[];
-  teams: Array<{ area: string; team: string }>;
+  teams: DirectoryTeam[];
   levels: Level[];
   companies: Array<{ company: string; count: number }>;
 }
@@ -196,7 +212,7 @@ export interface Settings {
   'field-sources': Record<SourceField, string>;
   'level-synonyms': Array<{ level: Level; words: string[] }>;
   'value-aliases': Array<{ field: 'area' | 'team'; from: string; to: string }>;
-  'team-phrases': { defaultPhrase: string; byTeam: Array<{ team: string; phrase: string }> };
+  'team-phrases': { defaultPhrase: string; byTeam: Array<{ area?: string; team: string; phrase: string }> };
   'directory-filters': { excludedOuKeywords: string[]; requireEmail: boolean };
 }
 export type SettingKey = keyof Settings;
