@@ -52,7 +52,13 @@ export function TemplatesPage() {
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {templates.data.map((template) => (
-                <tr key={template.id} className="cursor-pointer align-top hover:bg-surface-container-low" onClick={() => setEditor({ template, initial: template })}>
+                <tr
+                  key={template.id}
+                  className="cursor-pointer align-top hover:bg-surface-container-low"
+                  onClick={() =>
+                    setEditor({ template, initial: { name: template.name, description: template.description, html: template.html, isDefault: template.isDefault } })
+                  }
+                >
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5 font-medium">
                       {template.name}

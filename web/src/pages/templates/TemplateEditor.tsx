@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash2 } from 'lucide-react';
+import { AlignLeft, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SignaturePreview } from '../../components/signature/SignaturePreview';
+import { TemplateCodeEditor, type TemplateCodeEditorHandle } from '../../components/templates/TemplateCodeEditor';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/ui/Drawer';
 import { Field } from '../../components/ui/Field';
-import { Input, Select, Textarea } from '../../components/ui/Input';
+import { Input, Select } from '../../components/ui/Input';
 import { Spinner } from '../../components/ui/Spinner';
 import { Switch } from '../../components/ui/Switch';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
@@ -16,6 +17,7 @@ import { derivedQueryRoots, queryKeys } from '../../services/query-keys';
 import { signatureTemplateService } from '../../services/signature-template.service';
 import type { SignatureTemplate, SignatureTemplateInput } from '../../types/api';
 import { formatNumber } from '../../utils/format';
+import { formatTemplateHtml } from '../../utils/format-template-html';
 
 interface TemplateEditorProps {
   template: SignatureTemplate | null;
@@ -23,11 +25,14 @@ interface TemplateEditorProps {
   onClose: () => void;
 }
 
+/** Só os campos que a API aceita (o modelo da lista traz id e datas, que a API recusa). */
+const toInput = (t: SignatureTemplateInput): SignatureTemplateInput => ({ name: t.name, description: t.description, html: t.html, isDefault: t.isDefault });
+
 export function TemplateEditor({ template, initial, onClose }: TemplateEditorProps) {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<SignatureTemplateInput>(initial);
+  const [draft, setDraft] = useState<SignatureTemplateInput>(() => ({ ...toInput(initial), html: formatTemplateHtml(initial.html) }));
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const codeRef = useRef<TemplateCodeEditorHandle>(null);
   const variables = useQuery({ queryKey: queryKeys.templateVariables, queryFn: signatureTemplateService.variables });
 
   // Pessoa da prévia: busca por nome, começa pelo primeiro da lista.
@@ -57,23 +62,10 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
     onClose();
   };
   const save = useMutation({
-    mutationFn: () => (template ? signatureTemplateService.update(template.id, draft) : signatureTemplateService.create(draft)),
+    mutationFn: () => (template ? signatureTemplateService.update(template.id, toInput(draft)) : signatureTemplateService.create(toInput(draft))),
     onSuccess: afterChange,
   });
   const remove = useMutation({ mutationFn: () => signatureTemplateService.remove(template!.id), onSuccess: afterChange });
-
-  const insertVariable = (key: string) => {
-    const area = textareaRef.current;
-    const token = `{{${key}}}`;
-    const start = area?.selectionStart ?? draft.html.length;
-    const end = area?.selectionEnd ?? draft.html.length;
-    const html = draft.html.slice(0, start) + token + draft.html.slice(end);
-    setDraft({ ...draft, html });
-    requestAnimationFrame(() => {
-      area?.focus();
-      area?.setSelectionRange(start + token.length, start + token.length);
-    });
-  };
 
   const apiError = save.error instanceof ApiError ? save.error : remove.error instanceof ApiError ? remove.error : null;
   const problems = preview.data?.problems ?? [];
@@ -90,14 +82,18 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
         <>
           {template && !template.isDefault &&
             (confirmDelete ? (
-              <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()} className="mr-auto">
+              <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
                 Confirmar exclusão
               </Button>
             ) : (
-              <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => setConfirmDelete(true)} className="mr-auto">
+              <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => setConfirmDelete(true)}>
                 Excluir
               </Button>
             ))}
+          <span className="mr-auto min-w-0 flex-1 text-xs text-rose-700 dark:text-rose-300" role="alert">
+            {apiError && `${apiError.message} ${apiError.details.map((d) => d.message).join(' ')}`}
+            {!apiError && problems.length > 0 && 'Corrija os problemas do modelo para salvar.'}
+          </span>
           <Button onClick={onClose}>Cancelar</Button>
           <Button variant="primary" loading={save.isPending} disabled={!draft.name.trim() || problems.length > 0} onClick={() => save.mutate()}>
             Salvar modelo
@@ -106,11 +102,6 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
       }
     >
       <div className="grid gap-4">
-        {apiError && (
-          <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
-            {apiError.message} {apiError.details.map((d) => d.message).join(' ')}
-          </p>
-        )}
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <Field label="Nome" htmlFor="tpl-name">
             <Input id="tpl-name" value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
@@ -150,17 +141,11 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
               {formatNumber(preview.data.htmlLength)} de {formatNumber(preview.data.gmailLimit)} caracteres do Gmail
             </p>
           )}
-          {problems.length > 0 && (
-            <ul className="grid gap-1">
-              {problems.map((problem) => (
-                <li key={problem}>
-                  <Badge tone="danger" className="whitespace-normal py-1">
-                    {problem}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
+          {problems.map((problem) => (
+            <Badge key={problem} tone="danger" className="whitespace-normal py-1">
+              {problem}
+            </Badge>
+          ))}
         </section>
 
         <div className="grid gap-1.5">
@@ -171,25 +156,21 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
                 key={v.key}
                 type="button"
                 title={v.description}
-                onClick={() => insertVariable(v.key)}
+                onClick={() => codeRef.current?.insert(`{{${v.key}}}`)}
                 className="rounded border border-outline-variant px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant hover:border-primary-ink hover:text-primary-ink"
               >
                 {`{{${v.key}}}`}
               </button>
             ))}
+            <Button size="sm" variant="ghost" className="ml-auto" icon={<AlignLeft className="size-3.5" />} onClick={() => setDraft({ ...draft, html: formatTemplateHtml(draft.html) })}>
+              Organizar código
+            </Button>
           </div>
           <p className="text-[11px] text-on-surface-variant">
-            <code className="font-mono">{'{{#frase}}…{{/frase}}'}</code> só aparece se houver frase; <code className="font-mono">{'{{^frase}}…{{/frase}}'}</code> só se não houver.
+            <code className="font-mono">{'{{#frase}}…{{/frase}}'}</code> só aparece se houver frase; <code className="font-mono">{'{{^frase}}…{{/frase}}'}</code> só se não houver. A
+            indentação não conta no limite do Gmail.
           </p>
-          <Textarea
-            ref={textareaRef}
-            aria-label="HTML do modelo"
-            value={draft.html}
-            onChange={(e) => setDraft({ ...draft, html: e.target.value })}
-            spellCheck={false}
-            rows={16}
-            className="font-mono text-xs leading-relaxed"
-          />
+          <TemplateCodeEditor ref={codeRef} value={draft.html} onChange={(html) => setDraft((d) => ({ ...d, html }))} />
         </div>
       </div>
     </Drawer>

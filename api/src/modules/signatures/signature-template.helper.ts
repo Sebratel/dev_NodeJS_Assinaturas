@@ -26,6 +26,19 @@ export class SignatureTemplateHelper {
   }
 
   static render(content: SignatureContent, imageBaseUrl: string, templateHtml: string): string {
-    return TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl)).trim();
+    return SignatureTemplateHelper.minify(TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl)));
+  }
+
+  /**
+   * Tira a indentação do modelo organizado (quebras de linha entre tags e nas bordas das células).
+   * Espaço sem quebra de linha é mantido, então o que aparece na assinatura não muda; só não gasta o limite do Gmail.
+   */
+  static minify(html: string): string {
+    return html
+      .replace(/>\s*\n\s*</g, '><')
+      .replace(/>\s*\n\s*/g, '>')
+      .replace(/\s*\n\s*</g, '<')
+      .replace(/\s*\n\s*/g, ' ')
+      .trim();
   }
 }
