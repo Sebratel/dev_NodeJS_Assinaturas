@@ -12,7 +12,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
 | Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Quem recebe: a lista de teste ou todos (Configurações › Google). |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
-| Login (SSO) | Google pelo Firebase (projeto `authentication-assinaturas`), token conferido na própria API. Só entra quem está em `AUTH_ADMIN_EMAILS`. Em desenvolvimento, `AUTH_ENABLED=false`. |
+| Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Só entra quem está em `AUTH_ADMIN_EMAILS`. Em desenvolvimento, `AUTH_ENABLED=false`. |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). |
 | Entrega | Uma imagem só (a API serve a tela), compose do Portainer e CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stacks ainda não criadas. |
@@ -125,7 +125,8 @@ Modelo padrão da empresa: o Portainer constrói a imagem direto do Git. O CI s�
 
 São os que sempre esquecem. Nenhum deles está no código.
 
-1. **Firebase** [PADRÃO]. Projeto `authentication-assinaturas`, só deste sistema (nunca reaproveitar o de outro setor).
+1. **Firebase** [PADRÃO]. Projeto `sistema-gestor-assinatur-9be62` (criado no console em 23/11/2026), só deste sistema (nunca reaproveitar o de outro setor). O app Web já existe; o Analytics que o console sugere não é usado.
+   Conferir de fora, sem console: `GET https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=<VITE_FIREBASE_API_KEY>` devolve os domínios autorizados e os provedores ativos.
    1. Authentication › Sign-in method › **Google › Ativar**. Projeto novo vem com tudo desligado.
    2. Authentication › Settings › **Authorized domains**: adicionar o domínio do sistema. Só `localhost` vem liberado. Sem isso o login falha com `auth/unauthorized-domain`, e só no primeiro clique real.
    3. Configurações do projeto › Seus apps › **Web**: copiar `apiKey`, `authDomain` e `appId` para as variáveis `VITE_FIREBASE_*`.
@@ -182,9 +183,9 @@ Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no ar
 | `AD_BIND_PASSWORD` | sim | | **sim** |
 | `AD_URL`, `AD_BASE_DN` | não | `ldap://10.0.11.251`, `DC=corp,DC=sebratel,DC=com,DC=br` | |
 | `AUTH_ADMIN_EMAILS` | sim | e-mails separados por vírgula | |
-| `FIREBASE_PROJECT_ID` | não | `authentication-assinaturas` | |
+| `FIREBASE_PROJECT_ID` | não | `sistema-gestor-assinatur-9be62` | |
 | `VITE_FIREBASE_API_KEY` | sim | do app Web do Firebase (público por design) | |
-| `VITE_FIREBASE_AUTH_DOMAIN` | sim | `authentication-assinaturas.firebaseapp.com` | |
+| `VITE_FIREBASE_AUTH_DOMAIN` | não | `sistema-gestor-assinatur-9be62.firebaseapp.com` | |
 | `VITE_FIREBASE_APP_ID` | sim | do app Web do Firebase | |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | sim | JSON da chave, em base64 | **sim** |
 | `GOOGLE_DELEGATION_TEST_USER` | sim | um e-mail do domínio (só testa a delegação) | |
