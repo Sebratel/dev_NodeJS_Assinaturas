@@ -1,0 +1,173 @@
+import { HttpStatus, Logger } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
+import { createHmac, createSign, generateKeyPairSync } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import { BusinessException } from '../../common/exceptions/business.exception.js';
+import { AuthService, LOCAL_USER } from './auth.service.js';
+import type { CertificateMap, FirebaseCertsStore } from './firebase-certs.store.js';
+
+// Os avisos de recusa são esperados aqui; sem isso poluem a saída do teste.
+Logger.overrideLogger(false);
+
+const PROJECT_ID = 'authentication-assinaturas';
+const KID = 'chave-de-teste';
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const PUBLIC_PEM = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+const attacker = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const NOW = Math.floor(Date.now() / 1000);
+
+const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+
+function claims(overrides: Record<string, unknown> = {}) {
+  return {
+    iss: `https://securetoken.google.com/${PROJECT_ID}`,
+    aud: PROJECT_ID,
+    sub: 'uid-1',
+    iat: NOW - 60,
+    exp: NOW + 3600,
+    email: 'Misael.Cruz@sebratel.com.br',
+    email_verified: true,
+    name: 'Misael Cruz',
+    ...overrides,
+  };
+}
+
+function signRs256(payload: object, header: object = { alg: 'RS256', kid: KID, typ: 'JWT' }, key = privateKey): string {
+  const unsigned = `${encode(header)}.${encode(payload)}`;
+  return `${unsigned}.${createSign('RSA-SHA256').update(unsigned).sign(key).toString('base64url')}`;
+}
+
+function buildService(env: Record<string, string> = {}, keys: CertificateMap = { [KID]: PUBLIC_PEM }): AuthService {
+  const values: Record<string, string> = {
+    AUTH_ENABLED: 'true',
+    FIREBASE_PROJECT_ID: PROJECT_ID,
+    AUTH_ALLOWED_DOMAIN: 'sebratel.com.br',
+    AUTH_ADMIN_EMAILS: 'misael.cruz@sebratel.com.br, outra.pessoa@sebratel.com.br',
+    ...env,
+  };
+  const config = { get: (key: string) => values[key] } as unknown as ConfigService;
+  const certs = { getKeys: async () => keys, refreshIfOlderThan: async () => keys } as unknown as FirebaseCertsStore;
+  return new AuthService(config, certs);
+}
+
+async function rejection(promise: Promise<unknown>): Promise<{ status: number; code: string }> {
+  try {
+    await promise;
+  } catch (error) {
+    if (error instanceof BusinessException) return { status: error.getStatus(), code: error.code };
+    throw error;
+  }
+  throw new Error('o token deveria ter sido recusado');
+}
+
+const bearer = (token: string) => `Bearer ${token}`;
+const INVALID = { status: HttpStatus.UNAUTHORIZED, code: 'AUTH_TOKEN_INVALID' };
+const FORBIDDEN = { status: HttpStatus.FORBIDDEN, code: 'AUTH_FORBIDDEN' };
+
+describe('AuthService.authenticate (ID token do Firebase)', () => {
+  it('aceita token válido e devolve o e-mail em minúsculas', async () => {
+    const user = await buildService().authenticate(bearer(signRs256(claims())));
+    expect(user).toEqual({ email: 'misael.cruz@sebratel.com.br', name: 'Misael Cruz' });
+  });
+
+  it('recusa requisição sem Authorization ou sem Bearer (401 AUTH_REQUIRED)', async () => {
+    const service = buildService();
+    const required = { status: HttpStatus.UNAUTHORIZED, code: 'AUTH_REQUIRED' };
+    expect(await rejection(service.authenticate(undefined))).toEqual(required);
+    expect(await rejection(service.authenticate(signRs256(claims())))).toEqual(required);
+  });
+
+  it('recusa alg none, com ou sem assinatura', async () => {
+    const unsigned = `${encode({ alg: 'none', kid: KID })}.${encode(claims())}`;
+    expect(await rejection(buildService().authenticate(bearer(`${unsigned}.`)))).toEqual(INVALID);
+    expect(await rejection(buildService().authenticate(bearer(`${unsigned}.qualquer`)))).toEqual(INVALID);
+  });
+
+  it('recusa HS256 assinado com a chave pública como segredo (troca de algoritmo)', async () => {
+    const unsigned = `${encode({ alg: 'HS256', kid: KID })}.${encode(claims())}`;
+    const signature = createHmac('sha256', PUBLIC_PEM).update(unsigned).digest('base64url');
+    expect(await rejection(buildService().authenticate(bearer(`${unsigned}.${signature}`)))).toEqual(INVALID);
+  });
+
+  it('recusa assinatura adulterada (payload trocado depois de assinar)', async () => {
+    const [header, , signature] = signRs256(claims({ email: 'estagiario@sebratel.com.br' })).split('.');
+    const forged = `${header}.${encode(claims())}.${signature}`;
+    expect(await rejection(buildService().authenticate(bearer(forged)))).toEqual(INVALID);
+  });
+
+  it('recusa token assinado por outra chave com o mesmo kid', async () => {
+    const token = signRs256(claims(), { alg: 'RS256', kid: KID }, attacker.privateKey);
+    expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(INVALID);
+  });
+
+  it('recusa kid que não está entre os certificados do Google', async () => {
+    const token = signRs256(claims(), { alg: 'RS256', kid: 'kid-desconhecido' });
+    expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(INVALID);
+  });
+
+  it('recusa token de outro projeto Firebase (aud e iss)', async () => {
+    const otherAudience = signRs256(claims({ aud: 'authentication-data-hub' }));
+    const otherIssuer = signRs256(claims({ iss: 'https://securetoken.google.com/authentication-data-hub' }));
+    expect(await rejection(buildService().authenticate(bearer(otherAudience)))).toEqual(INVALID);
+    expect(await rejection(buildService().authenticate(bearer(otherIssuer)))).toEqual(INVALID);
+  });
+
+  it('recusa token expirado com código próprio (o frontend renova e tenta de novo)', async () => {
+    const expired = signRs256(claims({ iat: NOW - 7200, exp: NOW - 10 }));
+    expect(await rejection(buildService().authenticate(bearer(expired)))).toEqual({
+      status: HttpStatus.UNAUTHORIZED,
+      code: 'AUTH_TOKEN_EXPIRED',
+    });
+  });
+
+  it('recusa iat mais de 5 minutos no futuro e aceita dentro da tolerância', async () => {
+    const future = signRs256(claims({ iat: NOW + 600 }));
+    expect(await rejection(buildService().authenticate(bearer(future)))).toEqual(INVALID);
+    await expect(buildService().authenticate(bearer(signRs256(claims({ iat: NOW + 120 }))))).resolves.toBeTruthy();
+  });
+
+  it('recusa e-mail não verificado (403)', async () => {
+    const token = signRs256(claims({ email_verified: false }));
+    expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(FORBIDDEN);
+  });
+
+  it('recusa conta de outro domínio, inclusive com o domínio no meio do e-mail (403)', async () => {
+    const gmail = signRs256(claims({ email: 'misael.cruz@gmail.com' }));
+    const lookalike = signRs256(claims({ email: 'misael.cruz@sebratel.com.br.evil.com' }));
+    const service = buildService({ AUTH_ADMIN_EMAILS: 'misael.cruz@gmail.com, misael.cruz@sebratel.com.br.evil.com' });
+    expect(await rejection(service.authenticate(bearer(gmail)))).toEqual(FORBIDDEN);
+    expect(await rejection(service.authenticate(bearer(lookalike)))).toEqual(FORBIDDEN);
+  });
+
+  it('recusa e-mail do domínio fora de AUTH_ADMIN_EMAILS (403)', async () => {
+    const token = signRs256(claims({ email: 'colaborador@sebratel.com.br' }));
+    expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(FORBIDDEN);
+  });
+
+  it('AUTH_ADMIN_EMAILS vazio não libera ninguém (403)', async () => {
+    const token = signRs256(claims());
+    expect(await rejection(buildService({ AUTH_ADMIN_EMAILS: '' }).authenticate(bearer(token)))).toEqual(FORBIDDEN);
+  });
+
+  it('sem certificados disponíveis responde 503, não 401', async () => {
+    const config = { get: (key: string) => ({ FIREBASE_PROJECT_ID: PROJECT_ID })[key] } as unknown as ConfigService;
+    const failing = {
+      getKeys: async () => {
+        throw new Error('rede bloqueada');
+      },
+    } as unknown as FirebaseCertsStore;
+    expect(await rejection(new AuthService(config, failing).authenticate(bearer(signRs256(claims()))))).toEqual({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      code: 'AUTH_UNAVAILABLE',
+    });
+  });
+
+  it('AUTH_ENABLED=false devolve o usuário local sem olhar o token', async () => {
+    const service = buildService({ AUTH_ENABLED: 'false', FIREBASE_PROJECT_ID: '' });
+    await expect(service.authenticate(undefined)).resolves.toEqual(LOCAL_USER);
+  });
+
+  it('AUTH_ENABLED=true sem FIREBASE_PROJECT_ID não sobe', () => {
+    expect(() => buildService({ FIREBASE_PROJECT_ID: '' })).toThrow(/FIREBASE_PROJECT_ID/);
+  });
+});

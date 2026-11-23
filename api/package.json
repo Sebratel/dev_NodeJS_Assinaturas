@@ -6,10 +6,13 @@
   "description": "API do sistema de assinaturas corporativas do Gmail: lê o AD, aplica regras e grava no Gmail.",
   "scripts": {
     "build": "nest build",
-    "start": "node dist/main.js",
+    "start": "node -r ./apm.cjs dist/main.js",
     "dev": "nest start --watch",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write src apm.cjs eslint.config.js",
+    "format:check": "prettier --check src apm.cjs eslint.config.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.6.0",
@@ -20,19 +23,29 @@
     "@nestjs/typeorm": "^12.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "elastic-apm-node": "^4.18.0",
     "google-auth-library": "^11.3.4",
     "ldapts": "^9.3.1",
     "mysql2": "^3.24.6",
+    "pino": "^10.4.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sql.js": "^1.17.0",
     "typeorm": "^1.1.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.15",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0",
     "vitest": "^5.1.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

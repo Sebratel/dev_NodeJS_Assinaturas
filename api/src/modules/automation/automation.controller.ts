@@ -1,6 +1,8 @@
 import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiResponseHelper } from '../../common/helpers/api-response.helper.js';
+import { CurrentUser } from '../auth/auth.decorators.js';
+import type { AuthUser } from '../auth/auth.service.js';
 import { DirectoryService } from '../directory/directory.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { SettingKeyEnum } from '../settings/types/setting-key.enum.js';
@@ -43,17 +45,17 @@ export class AutomationController {
     });
   }
 
-  /** Lê o AD agora e roda a automação (se ligada). */
+  /** Lê o AD agora e roda a automação (se ligada), em nome de quem clicou. */
   @Post('run')
   @HttpCode(200)
-  async runNow() {
-    await this.directoryService.sync();
-    return ApiResponseHelper.ok(await this.autoApplyService.run('MANUAL'));
+  async runNow(@CurrentUser() user: AuthUser) {
+    await this.directoryService.sync({ notifyListeners: false });
+    return ApiResponseHelper.ok(await this.autoApplyService.run('MANUAL', user.email));
   }
 
   @Post('approve')
   @HttpCode(200)
-  async approve() {
-    return ApiResponseHelper.ok(await this.autoApplyService.approve());
+  async approve(@CurrentUser() user: AuthUser) {
+    return ApiResponseHelper.ok(await this.autoApplyService.approve(user.email));
   }
 }

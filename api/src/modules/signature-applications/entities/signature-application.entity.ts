@@ -31,6 +31,10 @@ export class SignatureApplicationEntity {
   @Column({ name: 'trigger_type', type: 'varchar', length: 16, default: 'MANUAL' })
   trigger: ApplicationTrigger;
 
+  /** Quem pediu: e-mail do usuário (tela, aprovação, desfazer) ou AUTO (gravação automática). Nulo em registros antigos. */
+  @Column({ name: 'requested_by', type: 'varchar', length: 160, nullable: true })
+  requestedBy: string | null;
+
   @Column({ type: 'varchar', length: 500, default: '' })
   reason: string;
 

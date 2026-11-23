@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { buildDatabaseConfig } from './config/database.config.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { DirectoryModule } from './modules/directory/directory.module.js';
 import { GoogleIntegrationModule } from './modules/google-integration/google-integration.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -20,6 +21,7 @@ import { AutomationModule } from './modules/automation/automation.module.js';
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({ inject: [ConfigService], useFactory: buildDatabaseConfig }),
+    AuthModule,
     SettingsModule,
     DirectoryModule,
     SignatureTemplatesModule,

@@ -1,5 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiResponseHelper } from '../../common/helpers/api-response.helper.js';
+import { CurrentUser } from '../auth/auth.decorators.js';
+import type { AuthUser } from '../auth/auth.service.js';
 import { CreateApplicationBatchDTO } from './dto/create-application-batch.dto.js';
 import { SignatureApplicationsService } from './signature-applications.service.js';
 
@@ -10,8 +12,8 @@ export class SignatureApplicationsController {
   /** Começa a gravar no Gmail e devolve o lote; o andamento sai em GET batches/:id. */
   @Post('batches')
   @HttpCode(202)
-  async startBatch(@Body() dto: CreateApplicationBatchDTO) {
-    return ApiResponseHelper.ok(await this.signatureApplicationsService.startBatch(dto));
+  async startBatch(@Body() dto: CreateApplicationBatchDTO, @CurrentUser() user: AuthUser) {
+    return ApiResponseHelper.ok(await this.signatureApplicationsService.startBatch(dto, { trigger: 'MANUAL', requestedBy: user.email }));
   }
 
   @Get('batches/:id')
@@ -26,7 +28,7 @@ export class SignatureApplicationsController {
 
   @Post(':id/restore')
   @HttpCode(200)
-  async restore(@Param('id', ParseUUIDPipe) id: string) {
-    return ApiResponseHelper.ok(await this.signatureApplicationsService.restore(id));
+  async restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return ApiResponseHelper.ok(await this.signatureApplicationsService.restore(id, user.email));
   }
 }

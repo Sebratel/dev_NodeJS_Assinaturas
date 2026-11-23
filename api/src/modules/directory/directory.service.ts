@@ -42,14 +42,18 @@ export class DirectoryService {
     this.syncListeners.push(listener);
   }
 
-  /** Lê o diretório de novo. Se falhar, mantém a última leitura boa e registra o erro (não zera a lista). */
-  sync(): Promise<DirectoryStatus> {
+  /**
+   * Lê o diretório de novo. Se falhar, mantém a última leitura boa e registra o erro (não zera a lista).
+   * `notifyListeners: false`: quem chamou roda a automação por conta própria (botão "Verificar agora", que
+   * registra quem clicou). Sem isso a automação dos ouvintes começaria antes, como AUTO.
+   */
+  sync(options: { notifyListeners?: boolean } = {}): Promise<DirectoryStatus> {
     if (this.syncing) return this.syncing;
-    this.syncing = this.runSync().finally(() => (this.syncing = null));
+    this.syncing = this.runSync(options.notifyListeners ?? true).finally(() => (this.syncing = null));
     return this.syncing;
   }
 
-  private async runSync(): Promise<DirectoryStatus> {
+  private async runSync(notifyListeners: boolean): Promise<DirectoryStatus> {
     const started = Date.now();
     try {
       const sources = await this.settingsService.findOne(SettingKeyEnum.FIELD_SOURCES);
@@ -65,7 +69,7 @@ export class DirectoryService {
       this.lastSyncAt = new Date();
       this.lastSyncDurationMs = Date.now() - started;
     }
-    if (!this.lastError) {
+    if (!this.lastError && notifyListeners) {
       // Não espera: a leitura do AD não fica presa à gravação no Gmail.
       for (const listener of this.syncListeners) {
         listener().catch((error) => this.logger.error(`Após a leitura do AD: ${error instanceof Error ? error.message : String(error)}`));

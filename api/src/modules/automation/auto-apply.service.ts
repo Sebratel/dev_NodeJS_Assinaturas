@@ -5,6 +5,7 @@ import { GoogleCredentialsService } from '../google-integration/google-credentia
 import { SettingsService } from '../settings/settings.service.js';
 import { SettingKeyEnum } from '../settings/types/setting-key.enum.js';
 import { SignatureApplicationsService } from '../signature-applications/signature-applications.service.js';
+import { AUTOMATION_REQUESTER } from '../signature-applications/types/application-requester.js';
 import { SignaturesService } from '../signatures/signatures.service.js';
 import { SignatureStatusEnum } from '../signatures/types/signature-status.enum.js';
 import { AutoApplyPlanner } from './auto-apply.planner.js';
@@ -56,9 +57,10 @@ export class AutoApplyService implements OnModuleInit {
   }
 
   /** Uma execução por vez: quem chamar durante uma execução recebe o resultado dela. */
-  run(origin: AutoApplyRun['origin']): Promise<AutoApplyRun | null> {
+  /** `requestedBy`: e-mail de quem clicou em "Verificar agora"; AUTO quando veio da leitura do AD. */
+  run(origin: AutoApplyRun['origin'], requestedBy: string = AUTOMATION_REQUESTER): Promise<AutoApplyRun | null> {
     if (this.current) return this.current;
-    this.current = this.execute(origin).finally(() => (this.current = null));
+    this.current = this.execute(origin, requestedBy).finally(() => (this.current = null));
     return this.current;
   }
 
@@ -86,7 +88,7 @@ export class AutoApplyService implements OnModuleInit {
       });
   }
 
-  private async execute(origin: AutoApplyRun['origin']): Promise<AutoApplyRun | null> {
+  private async execute(origin: AutoApplyRun['origin'], requestedBy: string): Promise<AutoApplyRun | null> {
     this.running = true;
     const base = {
       at: new Date().toISOString(),
@@ -146,7 +148,7 @@ export class AutoApplyService implements OnModuleInit {
       }
 
       this.pendingApproval = null;
-      const batchIds = await this.startBatches(plan.newcomers, plan.changes, settings.includePending);
+      const batchIds = await this.startBatches(plan.newcomers, plan.changes, settings.includePending, requestedBy);
       this.logger.log(`Automação: ${plan.newcomers.length} novos e ${plan.changes.length} mudanças enviados para gravação.`);
       return (this.lastRun = { ...base, ...counts, batchIds, outcome: 'STARTED', message: `${total} gravações iniciadas.` });
     } catch (error) {
@@ -159,14 +161,14 @@ export class AutoApplyService implements OnModuleInit {
   }
 
   /** Grava o que ficou acima do limite, depois que alguém conferiu no Monitoramento. */
-  async approve(): Promise<AutoApplyRun> {
+  async approve(requestedBy: string): Promise<AutoApplyRun> {
     if (!this.pendingApproval) {
       throw new BusinessException('AUTOMATION_NOTHING_TO_APPROVE', 'Não há gravações aguardando aprovação.', HttpStatus.CONFLICT);
     }
     const settings = await this.settingsService.findOne(SettingKeyEnum.AUTO_APPLY);
     const { newcomers, changes } = this.pendingApproval;
     this.pendingApproval = null;
-    const batchIds = await this.startBatches(newcomers, changes, settings.includePending);
+    const batchIds = await this.startBatches(newcomers, changes, settings.includePending, requestedBy);
     return (this.lastRun = {
       at: new Date().toISOString(),
       origin: 'MANUAL',
@@ -195,12 +197,18 @@ export class AutoApplyService implements OnModuleInit {
     };
   }
 
-  private async startBatches(newcomers: string[], changes: string[], includePending: boolean): Promise<string[]> {
+  private async startBatches(newcomers: string[], changes: string[], includePending: boolean, requestedBy: string): Promise<string[]> {
     const ids: string[] = [];
     if (newcomers.length)
-      ids.push((await this.applicationsService.startBatch({ collaboratorIds: newcomers, includePending }, 'AUTO_NEW')).id);
+      ids.push(
+        (await this.applicationsService.startBatch({ collaboratorIds: newcomers, includePending }, { trigger: 'AUTO_NEW', requestedBy }))
+          .id,
+      );
     if (changes.length)
-      ids.push((await this.applicationsService.startBatch({ collaboratorIds: changes, includePending }, 'AUTO_CHANGE')).id);
+      ids.push(
+        (await this.applicationsService.startBatch({ collaboratorIds: changes, includePending }, { trigger: 'AUTO_CHANGE', requestedBy }))
+          .id,
+      );
     return ids;
   }
 }

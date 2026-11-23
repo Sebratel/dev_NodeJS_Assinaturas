@@ -25,6 +25,8 @@ export interface ApplicationBatch {
   /** LIST = só a lista de teste recebe; ALL = todos. Lido no início do lote. */
   scopeMode: ApplyScope['mode'];
   trigger: ApplicationTrigger;
+  /** E-mail de quem pediu ou AUTO. */
+  requestedBy: string;
   finished: boolean;
   startedAt: string;
   finishedAt: string | null;
@@ -67,7 +69,11 @@ export class SignatureApplicationsService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async startBatch(dto: CreateApplicationBatchDTO, trigger: ApplicationTrigger = 'MANUAL'): Promise<ApplicationBatch> {
+  async startBatch(
+    dto: CreateApplicationBatchDTO,
+    origin: { trigger: ApplicationTrigger; requestedBy: string },
+  ): Promise<ApplicationBatch> {
+    const { trigger, requestedBy } = origin;
     await this.assertGoogleReady();
     let ids = dto.collaboratorIds ?? [];
     if (!ids.length && dto.filter) {
@@ -87,6 +93,7 @@ export class SignatureApplicationsService {
       includePending: dto.includePending,
       scopeMode: scope.mode,
       trigger,
+      requestedBy,
       finished: false,
       startedAt: new Date().toISOString(),
       finishedAt: null,
@@ -123,6 +130,7 @@ export class SignatureApplicationsService {
         signatureStatus: true,
         templateId: true,
         trigger: true,
+        requestedBy: true,
         createdAt: true,
       },
     });
@@ -151,7 +159,7 @@ export class SignatureApplicationsService {
   }
 
   /** Devolve ao Gmail a assinatura que existia antes desta gravação. */
-  async restore(applicationId: string): Promise<SignatureApplicationEntity> {
+  async restore(applicationId: string, requestedBy: string): Promise<SignatureApplicationEntity> {
     await this.assertGoogleReady();
     const application = await this.applicationRepository.findOneBy({ id: applicationId });
     if (!application) throw new BusinessException('APPLICATION_NOT_FOUND', 'Gravação não encontrada.', HttpStatus.NOT_FOUND);
@@ -184,6 +192,7 @@ export class SignatureApplicationsService {
         email: application.email,
         sendAsEmail: primary.sendAsEmail,
         status: ApplicationStatusEnum.RESTORED,
+        requestedBy,
         reason: `Desfeita a gravação de ${application.createdAt.toISOString()}.`,
         previousSignature: primary.signature,
         renderedSignature: application.previousSignature,
@@ -272,7 +281,9 @@ export class SignatureApplicationsService {
     status: ApplicationStatusEnum,
     reason: string,
   ): Promise<void> {
-    await this.applicationRepository.save(this.applicationRepository.create({ ...data, status, reason, trigger: batch.trigger }));
+    await this.applicationRepository.save(
+      this.applicationRepository.create({ ...data, status, reason, trigger: batch.trigger, requestedBy: batch.requestedBy }),
+    );
     batch.processed++;
     batch.counts[status]++;
     batch.items.push({

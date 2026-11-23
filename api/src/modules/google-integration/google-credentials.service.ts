@@ -18,7 +18,8 @@ export type DelegationStatus = 'NOT_CONFIGURED' | 'AUTHORIZED' | 'NOT_AUTHORIZED
 
 /**
  * Conta de serviço com delegação em todo o domínio. Cada chamada "age como" um usuário (subject).
- * A chave é lida do arquivo em GOOGLE_SERVICE_ACCOUNT_KEY_FILE (fora do repositório) e nunca vai para log ou resposta.
+ * A chave vem de GOOGLE_SERVICE_ACCOUNT_KEY_JSON (JSON puro ou base64; é o que vai no painel do Portainer) ou do
+ * arquivo em GOOGLE_SERVICE_ACCOUNT_KEY_FILE (fora do repositório). Nunca vai para log nem para resposta.
  */
 @Injectable()
 export class GoogleCredentialsService {
@@ -32,7 +33,12 @@ export class GoogleCredentialsService {
     return this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_KEY_FILE') ?? '';
   }
 
+  private keyJson(): string {
+    return (this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_KEY_JSON') ?? '').trim();
+  }
+
   isConfigured(): boolean {
+    if (this.keyJson()) return true;
     const path = this.keyFilePath();
     return Boolean(path) && existsSync(path);
   }
@@ -80,15 +86,33 @@ export class GoogleCredentialsService {
     if (!this.isConfigured()) {
       throw new BusinessException(
         'GOOGLE_NOT_CONFIGURED',
-        'Chave da conta de serviço não configurada (GOOGLE_SERVICE_ACCOUNT_KEY_FILE).',
+        'Chave da conta de serviço não configurada (GOOGLE_SERVICE_ACCOUNT_KEY_JSON ou GOOGLE_SERVICE_ACCOUNT_KEY_FILE).',
         HttpStatus.CONFLICT,
       );
     }
-    const parsed = JSON.parse(readFileSync(this.keyFilePath(), 'utf8')) as ServiceAccountKey;
-    if (!parsed.client_email || !parsed.private_key) {
-      throw new BusinessException('GOOGLE_KEY_INVALID', 'O arquivo da chave não é de uma conta de serviço.', HttpStatus.CONFLICT);
+    const fromEnv = Boolean(this.keyJson());
+    let parsed: Partial<ServiceAccountKey>;
+    try {
+      parsed = JSON.parse(
+        fromEnv ? GoogleCredentialsService.decodeKeyJson(this.keyJson()) : readFileSync(this.keyFilePath(), 'utf8'),
+      ) as Partial<ServiceAccountKey>;
+    } catch {
+      // Nunca repassar a mensagem do JSON.parse: ela cita trechos do conteúdo (a chave privada).
+      throw new BusinessException(
+        'GOOGLE_KEY_INVALID',
+        `A chave em ${fromEnv ? 'GOOGLE_SERVICE_ACCOUNT_KEY_JSON' : 'GOOGLE_SERVICE_ACCOUNT_KEY_FILE'} não é um JSON válido.`,
+        HttpStatus.CONFLICT,
+      );
     }
-    this.key = parsed;
-    return parsed;
+    if (!parsed.client_email || !parsed.private_key) {
+      throw new BusinessException('GOOGLE_KEY_INVALID', 'A chave informada não é de uma conta de serviço.', HttpStatus.CONFLICT);
+    }
+    this.key = parsed as ServiceAccountKey;
+    return this.key;
+  }
+
+  /** JSON puro (começa com "{") ou o mesmo JSON em base64, para caber numa linha do painel Environment. */
+  private static decodeKeyJson(value: string): string {
+    return value.startsWith('{') ? value : Buffer.from(value, 'base64').toString('utf8');
   }
 }
