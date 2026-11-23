@@ -18,12 +18,33 @@ function person(overrides: Partial<Collaborator>): Collaborator {
   return {
     id: 'p1', login: 'p1', name: 'Fulano', email: 'fulano@sebratel.com.br', title: 'Analista', department: '',
     area: 'Técnica', team: 'Operacional', level: CollaboratorLevelEnum.MEMBER, company: 'Sebratel', segment: '',
-    corporateMobile: '', extension: '', informedMobile: '', state: 'RS', office: '', createdAt: null, changedAt: null,
+    corporateMobile: '', extension: '', informedMobile: '', phone0800: '0800 655 1000', state: 'RS', office: '', createdAt: null, changedAt: null,
     ...overrides,
   };
 }
 
 describe('SignatureEngineService', () => {
+  it('0800 vem do AD (Telephone number), formatado; valor que não é 0800 não vai para a assinatura', () => {
+    expect(engine.evaluate(person({ phone0800: '08006551000' }), rules, phrases).content.phone0800).toBe('0800 655 1000');
+
+    const celularNoCampo = engine.evaluate(person({ phone0800: '55996651254' }), rules, phrases);
+    expect(celularNoCampo.content.phone0800).toBe('');
+    expect(celularNoCampo.status).toBe(SignatureStatusEnum.PENDING);
+    expect(celularNoCampo.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.INVALID_PHONE_0800);
+
+    const trocado = engine.evaluate(person({ phone0800: '655 0800 1000' }), rules, phrases);
+    expect(trocado.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.INVALID_PHONE_0800);
+
+    const vazio = engine.evaluate(person({ phone0800: '' }), rules, phrases);
+    expect(vazio.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.MISSING_PHONE_0800);
+    expect(vazio.status).toBe(SignatureStatusEnum.PENDING);
+  });
+
+  it('B2B usa o 0800 fixo da regra mesmo com outro 0800 no AD', () => {
+    const result = engine.evaluate(person({ segment: 'B2B', corporateMobile: '51988887777' }), rules, phrases);
+    expect(result.content.phone0800).toBe('0800 365 8000');
+  });
+
   it('membro sem regra específica fica só com a regra geral: 0800, frase padrão, sem contato', () => {
     const result = engine.evaluate(person({}), rules, phrases);
     expect(result.status).toBe(SignatureStatusEnum.READY);

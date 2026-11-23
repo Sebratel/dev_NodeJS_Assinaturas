@@ -1,11 +1,17 @@
 import type { SignatureEvaluation, SignatureSlot } from '../../types/api';
-import { CONTACT_LABELS, PHRASE_MODE_LABELS, SECTOR_LABELS, SLOT_LABELS } from '../../utils/labels';
+import { CONTACT_LABELS, PHONE0800_MODE_LABELS, PHRASE_MODE_LABELS, SECTOR_LABELS, SLOT_LABELS } from '../../utils/labels';
 
 /** "Por que saiu assim": cada parte da assinatura, o valor e a regra que decidiu. */
-export function DecisionList({ evaluation }: { evaluation: SignatureEvaluation }) {
+export function DecisionList({ evaluation, templateName }: { evaluation: SignatureEvaluation; templateName: string }) {
   const { decisions, content } = evaluation;
   const rows: Array<{ slot: SignatureSlot; value: string; detail: string; rule: string | null; priority: number | null }> = [
-    { slot: 'phone0800', value: content.phone0800 || '—', detail: '', rule: decisions.phone0800?.ruleName ?? null, priority: decisions.phone0800?.priority ?? null },
+    {
+      slot: 'phone0800',
+      value: content.phone0800 || '—',
+      detail: decisions.phone0800 ? PHONE0800_MODE_LABELS[decisions.phone0800.value.mode] : '',
+      rule: decisions.phone0800?.ruleName ?? null,
+      priority: decisions.phone0800?.priority ?? null,
+    },
     {
       slot: 'contact',
       value: CONTACT_LABELS[content.contactType],
@@ -26,6 +32,13 @@ export function DecisionList({ evaluation }: { evaluation: SignatureEvaluation }
       detail: content.phrase,
       rule: decisions.phrase?.ruleName ?? null,
       priority: decisions.phrase?.priority ?? null,
+    },
+    {
+      slot: 'template',
+      value: templateName,
+      detail: decisions.template ? '' : 'modelo padrão',
+      rule: decisions.template?.ruleName ?? null,
+      priority: decisions.template?.priority ?? null,
     },
   ];
 

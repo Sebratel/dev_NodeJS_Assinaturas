@@ -11,13 +11,17 @@ export function describeCondition(condition: RuleCondition): string {
   return `${FIELD_LABELS[condition.field]} ${OPERATOR_LABELS[condition.operator]}${tail}`;
 }
 
-export function describeOutputs(outputs: RuleOutputs): string[] {
+/** Partes que a regra define, em texto curto. `templateNames` traduz o id do modelo. */
+export function describeOutputs(outputs: RuleOutputs, templateNames: Map<string, string> = new Map()): string[] {
   const parts: string[] = [];
-  if (outputs.phone0800) parts.push(`0800: ${outputs.phone0800}`);
+  const phoneMode = outputs.phone0800Mode ?? (outputs.phone0800 ? 'FIXED' : null);
+  if (phoneMode === 'DIRECTORY') parts.push('0800 do AD');
+  if (phoneMode === 'FIXED') parts.push(`0800: ${outputs.phone0800 ?? ''}`);
   if (outputs.contact) parts.push(`Contato: ${CONTACT_LABELS[outputs.contact]}`);
   if (outputs.sectorLabel) parts.push(`Mostra: ${SECTOR_LABELS[outputs.sectorLabel]}`);
   if (outputs.phraseMode) {
     parts.push(outputs.phraseMode === 'FIXED' ? `Frase: "${outputs.phraseText ?? ''}"` : PHRASE_MODE_LABELS[outputs.phraseMode]);
   }
+  if (outputs.templateId) parts.push(`Modelo: ${templateNames.get(outputs.templateId) ?? 'excluído'}`);
   return parts;
 }

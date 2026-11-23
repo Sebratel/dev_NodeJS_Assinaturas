@@ -17,7 +17,9 @@ export const ruleFormSchema = z
       }),
     ),
     outputs: z.object({
+      phone0800Mode: z.enum(['', 'DIRECTORY', 'FIXED']),
       phone0800: z.string().max(20, 'Até 20 caracteres.'),
+      templateId: z.string(),
       contact: z.enum(['', 'NONE', 'CORPORATE_MOBILE', 'INFORMED_MOBILE', 'EXTENSION']),
       sectorLabel: z.enum(['', 'AREA', 'TEAM']),
       phraseMode: z.enum(['', 'TEAM', 'FIXED', 'NONE']),
@@ -31,8 +33,11 @@ export const ruleFormSchema = z
       }
     });
     const o = form.outputs;
-    if (![o.phone0800.trim(), o.contact, o.sectorLabel, o.phraseMode].some(Boolean)) {
+    if (![o.phone0800Mode, o.contact, o.sectorLabel, o.phraseMode, o.templateId].some(Boolean)) {
       ctx.addIssue({ code: 'custom', path: ['outputs'], message: 'A regra precisa definir pelo menos uma parte da assinatura.' });
+    }
+    if (o.phone0800Mode === 'FIXED' && !o.phone0800.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['outputs', 'phone0800'], message: 'Informe o 0800.' });
     }
     if (o.phraseMode === 'FIXED' && !o.phraseText.trim()) {
       ctx.addIssue({ code: 'custom', path: ['outputs', 'phraseText'], message: 'Escreva a frase.' });
@@ -48,7 +53,7 @@ export function emptyRuleForm(priority = 20): RuleFormValues {
     priority,
     active: true,
     conditions: [{ field: 'team', operator: 'IN', values: [] }],
-    outputs: { phone0800: '', contact: '', sectorLabel: '', phraseMode: '', phraseText: '' },
+    outputs: { phone0800Mode: '', phone0800: '', templateId: '', contact: '', sectorLabel: '', phraseMode: '', phraseText: '' },
   };
 }
 
@@ -61,7 +66,9 @@ export function ruleToForm(rule: SignatureRule): RuleFormValues {
     active: rule.active,
     conditions: rule.conditions.map((c) => ({ ...c, values: [...c.values] })),
     outputs: {
+      phone0800Mode: o.phone0800Mode ?? (o.phone0800 ? 'FIXED' : ''),
       phone0800: o.phone0800 ?? '',
+      templateId: o.templateId ?? '',
       contact: o.contact ?? '',
       sectorLabel: o.sectorLabel ?? '',
       phraseMode: o.phraseMode ?? '',
@@ -80,7 +87,9 @@ export function formToInput(form: RuleFormValues): SignatureRuleInput {
     active: form.active,
     conditions: form.conditions.map((c) => ({ ...c, values: VALUELESS.includes(c.operator) ? [] : c.values })),
     outputs: {
-      phone0800: o.phone0800.trim() || null,
+      phone0800Mode: o.phone0800Mode || null,
+      phone0800: o.phone0800Mode === 'FIXED' ? o.phone0800.trim() || null : null,
+      templateId: o.templateId || null,
       contact: o.contact || null,
       sectorLabel: o.sectorLabel || null,
       phraseMode: o.phraseMode || null,

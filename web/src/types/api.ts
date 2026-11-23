@@ -5,9 +5,10 @@ export type SignatureStatus = 'READY' | 'PENDING' | 'CONFLICT' | 'NO_RULE';
 export type ContactType = 'NONE' | 'CORPORATE_MOBILE' | 'INFORMED_MOBILE' | 'EXTENSION';
 export type SectorLabel = 'AREA' | 'TEAM';
 export type PhraseMode = 'TEAM' | 'FIXED' | 'NONE';
+export type Phone0800Mode = 'DIRECTORY' | 'FIXED';
 export type RuleOperator = 'IN' | 'NOT_IN' | 'CONTAINS' | 'IS_EMPTY' | 'IS_NOT_EMPTY';
 export type RuleField = 'area' | 'team' | 'level' | 'title' | 'company' | 'segment' | 'state' | 'office';
-export type SignatureSlot = 'phone0800' | 'contact' | 'sectorLabel' | 'phrase';
+export type SignatureSlot = 'phone0800' | 'contact' | 'sectorLabel' | 'phrase' | 'template';
 export type IssueCode =
   | 'NO_RULE'
   | 'RULE_CONFLICT'
@@ -15,6 +16,7 @@ export type IssueCode =
   | 'MISSING_INFORMED_MOBILE'
   | 'MISSING_EXTENSION'
   | 'MISSING_PHONE_0800'
+  | 'INVALID_PHONE_0800'
   | 'ONLY_GENERAL_RULES'
   | 'DEFAULT_PHRASE';
 export type IssueSeverity = 'ERROR' | 'WARNING' | 'INFO';
@@ -41,6 +43,7 @@ export interface Collaborator {
   corporateMobile: string;
   extension: string;
   informedMobile: string;
+  phone0800: string;
   state: string;
   office: string;
   createdAt: string | null;
@@ -78,10 +81,11 @@ export interface SignatureEvaluation {
   status: SignatureStatus;
   matchedRules: Array<{ id: string; name: string; priority: number; general: boolean }>;
   decisions: {
-    phone0800: SlotDecision<string> | null;
+    phone0800: SlotDecision<{ mode: Phone0800Mode; text: string | null }> | null;
     contact: SlotDecision<ContactType> | null;
     sectorLabel: SlotDecision<SectorLabel> | null;
     phrase: SlotDecision<{ mode: PhraseMode; text: string | null }> | null;
+    template: SlotDecision<string> | null;
   };
   conflicts: Array<{ slot: SignatureSlot; ruleNames: string[] }>;
   issues: Array<{ code: IssueCode; severity: IssueSeverity; message: string }>;
@@ -100,6 +104,7 @@ export interface SignatureEvaluation {
 export interface CollaboratorSignature {
   collaborator: Collaborator;
   evaluation: SignatureEvaluation;
+  template: { id: string; name: string; fallback: boolean };
   html: string;
   htmlLength: number;
   gmailLimit: number;
@@ -112,11 +117,13 @@ export interface RuleCondition {
 }
 
 export interface RuleOutputs {
+  phone0800Mode?: Phone0800Mode | null;
   phone0800?: string | null;
   contact?: ContactType | null;
   sectorLabel?: SectorLabel | null;
   phraseMode?: PhraseMode | null;
   phraseText?: string | null;
+  templateId?: string | null;
 }
 
 export interface SignatureRule {
@@ -163,7 +170,7 @@ export interface RuleSimulation {
 }
 
 export interface DirectoryStatus {
-  source: 'SNAPSHOT' | 'LDAP';
+  source: 'SNAPSHOT' | 'LDAP' | 'WINDOWS_LOGIN';
   lastSyncAt: string | null;
   lastSyncDurationMs: number | null;
   lastError: string | null;
@@ -180,6 +187,7 @@ export type SourceField =
   | 'segment'
   | 'corporateMobile'
   | 'extension'
+  | 'phone0800'
   | 'state'
   | 'office';
 
@@ -193,10 +201,67 @@ export interface Settings {
 export type SettingKey = keyof Settings;
 
 export interface GoogleIntegrationStatus {
-  status: 'NOT_CONFIGURED' | 'AWAITING_AUTHORIZATION' | 'AUTHORIZED';
+  status: 'NOT_CONFIGURED' | 'AUTHORIZED' | 'NOT_AUTHORIZED';
+  error: string | null;
   projectId: string | null;
   clientId: string | null;
   keyFilePresent: boolean;
+  testUser: string | null;
   scopes: string[];
+  applyAllowlist: string[];
   applyEnabled: boolean;
+}
+
+export interface SignatureTemplate {
+  id: string;
+  name: string;
+  description: string;
+  html: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type SignatureTemplateInput = Pick<SignatureTemplate, 'name' | 'description' | 'html' | 'isDefault'>;
+
+export interface TemplatePreview {
+  html: string;
+  htmlLength: number;
+  gmailLimit: number;
+  problems: string[];
+}
+
+export type ApplicationStatus = 'APPLIED' | 'UNCHANGED' | 'SKIPPED' | 'FAILED' | 'RESTORED';
+
+export interface ApplicationBatch {
+  id: string;
+  total: number;
+  processed: number;
+  counts: Record<ApplicationStatus, number>;
+  includePending: boolean;
+  finished: boolean;
+  startedAt: string;
+  finishedAt: string | null;
+  items: Array<{ collaboratorId: string; name: string; email: string; status: ApplicationStatus; reason: string }>;
+}
+
+export interface SignatureApplication {
+  id: string;
+  batchId: string;
+  collaboratorId: string;
+  collaboratorName: string;
+  email: string;
+  sendAsEmail: string | null;
+  status: ApplicationStatus;
+  reason: string;
+  signatureStatus: SignatureStatus | null;
+  templateId: string | null;
+  createdAt: string;
+}
+
+export interface CollaboratorFilterParams {
+  search?: string;
+  area?: string;
+  team?: string;
+  level?: Level;
+  status?: SignatureStatus;
 }

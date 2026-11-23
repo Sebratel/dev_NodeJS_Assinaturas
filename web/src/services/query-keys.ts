@@ -9,6 +9,9 @@ export const queryKeys = {
   settings: ['settings'] as const,
   directoryStatus: ['directory-status'] as const,
   googleIntegration: ['google-integration'] as const,
+  templates: ['signature-templates'] as const,
+  templateVariables: ['signature-template-variables'] as const,
+  applications: (collaboratorId: string) => ['signature-applications', collaboratorId] as const,
 };
 
 /** Tudo que depende de regra/configuração/diretório e precisa recalcular depois de uma gravação. */

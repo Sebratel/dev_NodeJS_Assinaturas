@@ -3,9 +3,11 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { resolve } from 'node:path';
 import { CollaboratorOverrideEntity } from '../modules/directory/entities/collaborator-override.entity.js';
 import { SettingEntity } from '../modules/settings/entities/setting.entity.js';
+import { SignatureApplicationEntity } from '../modules/signature-applications/entities/signature-application.entity.js';
 import { SignatureRuleEntity } from '../modules/signature-rules/entities/signature-rule.entity.js';
+import { SignatureTemplateEntity } from '../modules/signature-templates/entities/signature-template.entity.js';
 
-const ENTITIES = [SettingEntity, SignatureRuleEntity, CollaboratorOverrideEntity];
+const ENTITIES = [SettingEntity, SignatureRuleEntity, CollaboratorOverrideEntity, SignatureTemplateEntity, SignatureApplicationEntity];
 
 /**
  * DB_TYPE=sqljs → arquivo local (desenvolvimento, sem servidor de banco; cria as tabelas sozinho).

@@ -32,13 +32,20 @@ export class SettingsService implements OnModuleInit {
   async findAll(): Promise<SettingsValues> {
     const rows = await this.settingRepository.find();
     const result = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
-    for (const row of rows) result[row.key] = row.value;
+    for (const row of rows) result[row.key] = SettingsService.withDefaults(row.key as SettingKeyEnum, row.value);
     return result as unknown as SettingsValues;
   }
 
   async findOne<K extends SettingKeyEnum>(key: K): Promise<SettingsValues[K]> {
     const row = await this.settingRepository.findOneBy({ key });
-    return (row?.value ?? DEFAULT_SETTINGS[key]) as SettingsValues[K];
+    return SettingsService.withDefaults(key, row?.value ?? DEFAULT_SETTINGS[key]) as SettingsValues[K];
+  }
+
+  /** Configuração em objeto gravada antes de um campo novo existir recebe o padrão desse campo. */
+  private static withDefaults(key: SettingKeyEnum, value: unknown): unknown {
+    const fallback = DEFAULT_SETTINGS[key] as unknown;
+    const isPlainObject = (v: unknown) => typeof v === 'object' && v !== null && !Array.isArray(v);
+    return isPlainObject(fallback) && isPlainObject(value) ? { ...(fallback as object), ...(value as object) } : value;
   }
 
   async update(key: string, value: unknown): Promise<unknown> {

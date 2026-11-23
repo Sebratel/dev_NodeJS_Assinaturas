@@ -1,4 +1,4 @@
-import { BarChart3, Settings2, SlidersHorizontal, Users } from 'lucide-react';
+import { BarChart3, LayoutTemplate, Settings2, SlidersHorizontal, Users } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { Topbar } from './Topbar';
@@ -6,6 +6,7 @@ import { Topbar } from './Topbar';
 export const NAV_ITEMS = [
   { to: '/colaboradores', label: 'Colaboradores', icon: Users },
   { to: '/regras', label: 'Regras', icon: SlidersHorizontal },
+  { to: '/modelos', label: 'Modelos', icon: LayoutTemplate },
   { to: '/cobertura', label: 'Cobertura', icon: BarChart3 },
   { to: '/configuracoes', label: 'Configurações', icon: Settings2 },
 ];

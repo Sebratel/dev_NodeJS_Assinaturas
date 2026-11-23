@@ -37,6 +37,8 @@ export const CONTACT_LABELS: Record<ContactType, string> = {
 
 export const SECTOR_LABELS: Record<SectorLabel, string> = { AREA: 'Área', TEAM: 'Time' };
 
+export const PHONE0800_MODE_LABELS = { DIRECTORY: 'Do AD (Telephone number)', FIXED: 'Número fixo' } as const;
+
 export const PHRASE_MODE_LABELS: Record<PhraseMode, string> = {
   TEAM: 'Frase do time',
   FIXED: 'Frase fixa',
@@ -67,6 +69,15 @@ export const SLOT_LABELS: Record<SignatureSlot, string> = {
   contact: 'Contato',
   sectorLabel: 'Área ou time',
   phrase: 'Frase',
+  template: 'Modelo',
+};
+
+export const APPLICATION_STATUS_LABELS: Record<import('../types/api').ApplicationStatus, string> = {
+  APPLIED: 'Gravada',
+  UNCHANGED: 'Já estava igual',
+  SKIPPED: 'Pulada',
+  FAILED: 'Falhou',
+  RESTORED: 'Desfeita',
 };
 
 export const ISSUE_LABELS: Record<IssueCode, string> = {
@@ -76,6 +87,7 @@ export const ISSUE_LABELS: Record<IssueCode, string> = {
   MISSING_INFORMED_MOBILE: 'Aguardando celular da pessoa',
   MISSING_EXTENSION: 'Sem ramal no AD',
   MISSING_PHONE_0800: 'Sem 0800',
+  INVALID_PHONE_0800: '0800 errado no AD',
   ONLY_GENERAL_RULES: 'Só a regra geral vale',
   DEFAULT_PHRASE: 'Usa a frase padrão',
 };
@@ -87,8 +99,9 @@ export const SOURCE_FIELD_LABELS: Record<SourceField, { label: string; hint: str
   department: { label: 'Departamento', hint: '"Grupo Área - Time"' },
   company: { label: 'Empresa', hint: '' },
   segment: { label: 'Segmento (B2B)', hint: 'campo a criar no AD' },
-  corporateMobile: { label: 'Celular corporativo', hint: 'hoje vazio no AD' },
-  extension: { label: 'Ramal', hint: 'hoje vazio no AD' },
+  corporateMobile: { label: 'Celular corporativo', hint: 'Telefones › Celular' },
+  extension: { label: 'Ramal', hint: 'Telefones › IP phone' },
+  phone0800: { label: '0800', hint: 'Geral › Telephone number' },
   state: { label: 'UF', hint: '' },
   office: { label: 'Escritório', hint: '' },
 };

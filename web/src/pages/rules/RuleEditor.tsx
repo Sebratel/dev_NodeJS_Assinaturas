@@ -13,8 +13,9 @@ import { ApiError } from '../../services/api-client';
 import { collaboratorService } from '../../services/collaborator.service';
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys';
 import { signatureRuleService } from '../../services/signature-rule.service';
+import { signatureTemplateService } from '../../services/signature-template.service';
 import type { RuleField, RuleOperator, SignatureRule } from '../../types/api';
-import { CONTACT_LABELS, FIELD_LABELS, OPERATOR_LABELS, PHRASE_MODE_LABELS, SECTOR_LABELS } from '../../utils/labels';
+import { CONTACT_LABELS, FIELD_LABELS, OPERATOR_LABELS, PHONE0800_MODE_LABELS, PHRASE_MODE_LABELS, SECTOR_LABELS } from '../../utils/labels';
 import { emptyRuleForm, formToInput, ruleFormSchema, ruleToForm, type RuleFormValues } from './rule-form';
 import { RuleImpact } from './RuleImpact';
 
@@ -27,6 +28,7 @@ interface RuleEditorProps {
 export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
   const queryClient = useQueryClient();
   const facets = useQuery({ queryKey: queryKeys.facets, queryFn: collaboratorService.facets });
+  const templates = useQuery({ queryKey: queryKeys.templates, queryFn: signatureTemplateService.list });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const form = useForm<RuleFormValues>({
@@ -174,8 +176,20 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
             <p className="text-xs text-on-surface-variant">Deixe "não muda" no que esta regra não decide.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="0800" htmlFor="out-0800" error={errors.outputs?.phone0800?.message}>
-              <Input id="out-0800" {...register('outputs.phone0800')} placeholder="não muda" />
+            <Field label="0800" htmlFor="out-0800-mode" error={errors.outputs?.phone0800?.message}>
+              <div className="flex gap-1.5">
+                <Select id="out-0800-mode" {...register('outputs.phone0800Mode')} className={values.outputs?.phone0800Mode === 'FIXED' ? 'w-36 shrink-0' : ''}>
+                  <option value="">não muda</option>
+                  {Object.entries(PHONE0800_MODE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                {values.outputs?.phone0800Mode === 'FIXED' && (
+                  <Input aria-label="Número do 0800" {...register('outputs.phone0800')} placeholder="0800 365 8000" aria-invalid={Boolean(errors.outputs?.phone0800)} />
+                )}
+              </div>
             </Field>
             <Field label="Contato" htmlFor="out-contact">
               <Select id="out-contact" {...register('outputs.contact')}>
@@ -212,6 +226,17 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
                 <Input id="out-phrase-text" maxLength={140} {...register('outputs.phraseText')} />
               </Field>
             )}
+            <Field label="Modelo" htmlFor="out-template" hint="layout da assinatura" className="sm:col-span-2">
+              <Select id="out-template" {...register('outputs.templateId')}>
+                <option value="">não muda</option>
+                {templates.data?.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.isDefault ? ' (padrão)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
           {errors.outputs?.root?.message && <p className="text-xs text-rose-700 dark:text-rose-300">{errors.outputs.root.message}</p>}
           {!errors.outputs?.root && errors.outputs?.message && <p className="text-xs text-rose-700 dark:text-rose-300">{errors.outputs.message}</p>}

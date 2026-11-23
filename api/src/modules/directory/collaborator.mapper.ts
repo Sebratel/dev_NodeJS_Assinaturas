@@ -41,6 +41,7 @@ export class CollaboratorMapper {
       corporateMobile: read(sources.corporateMobile),
       extension: read(sources.extension),
       informedMobile,
+      phone0800: read(sources.phone0800),
       state: read(sources.state),
       office: read(sources.office),
       createdAt: read('whenCreated') || null,

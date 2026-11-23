@@ -8,6 +8,8 @@ import { cn } from '../../utils/cn';
 import { formatRelative } from '../../utils/format';
 import { getPreferredTheme, toggleTheme, type ThemeMode } from '../../utils/theme';
 
+const SOURCE_LABELS = { SNAPSHOT: '(arquivo local)', LDAP: '(LDAP)', WINDOWS_LOGIN: '(ao vivo)' } as const;
+
 export function Topbar({ pageTitle }: { pageTitle: string }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => getPreferredTheme());
   const queryClient = useQueryClient();
@@ -45,7 +47,7 @@ export function Topbar({ pageTitle }: { pageTitle: string }) {
         <Database className="size-3.5" aria-hidden />
         {dir ? (
           <>
-            AD {dir.source === 'SNAPSHOT' ? '(arquivo local)' : '(LDAP)'} · {dir.collaborators} pessoas · {failed ? 'falhou' : 'lido'} {formatRelative(dir.lastSyncAt)}
+            AD {SOURCE_LABELS[dir.source]} · {dir.collaborators} pessoas · {failed ? 'falhou' : 'lido'} {formatRelative(dir.lastSyncAt)}
           </>
         ) : (
           'AD…'

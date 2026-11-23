@@ -11,6 +11,8 @@ import { SignatureRuleEntity } from '../signature-rules/entities/signature-rule.
 import { SignatureRulesService } from '../signature-rules/signature-rules.service.js';
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
+import { SignatureTemplatesService } from '../signature-templates/signature-templates.service.js';
+import { TemplateRenderHelper } from '../signature-templates/template-render.helper.js';
 import { CoverageReportBuilder } from './coverage-report.builder.js';
 import { ListCollaboratorsQueryDTO } from './dto/list-collaborators-query.dto.js';
 import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
@@ -34,6 +36,15 @@ export interface CollaboratorListItem {
   issueCodes: SignatureIssueCodeEnum[];
 }
 
+export interface CollaboratorSignature {
+  collaborator: Collaborator;
+  evaluation: SignatureEvaluation;
+  template: { id: string; name: string; fallback: boolean };
+  html: string;
+  htmlLength: number;
+  gmailLimit: number;
+}
+
 const DEFAULT_IMAGE_BASE_URL = 'https://raw.githubusercontent.com/Sebratel/dev_Sebratel_Images/main/';
 
 /** Junta diretório + regras + configurações e entrega o que as telas precisam. */
@@ -44,6 +55,7 @@ export class SignaturesService {
     private readonly signatureRulesService: SignatureRulesService,
     private readonly settingsService: SettingsService,
     private readonly signatureEngine: SignatureEngineService,
+    private readonly signatureTemplatesService: SignatureTemplatesService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -84,11 +96,39 @@ export class SignaturesService {
     };
   }
 
-  async getCollaboratorSignature(id: string) {
+  /** Assinatura final da pessoa: avaliação das regras + modelo escolhido + HTML. */
+  async getCollaboratorSignature(id: string): Promise<CollaboratorSignature> {
     const [collaborator, rules, phrases] = await Promise.all([this.directoryService.findOne(id), this.loadRules(), this.loadPhrases()]);
     const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases);
-    const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl());
-    return { collaborator, evaluation, html, htmlLength: html.length, gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH };
+    const template = await this.resolveTemplate(evaluation.decisions.template?.value ?? null);
+    const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), template.html);
+    return {
+      collaborator,
+      evaluation,
+      template: { id: template.id, name: template.name, fallback: template.fallback },
+      html,
+      htmlLength: html.length,
+      gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
+    };
+  }
+
+  /** Prévia de um modelo (ainda não salvo) com os dados de uma pessoa real. */
+  async previewTemplate(templateHtml: string, collaboratorId: string): Promise<{ html: string; htmlLength: number; gmailLimit: number; problems: string[] }> {
+    const [collaborator, rules, phrases] = await Promise.all([this.directoryService.findOne(collaboratorId), this.loadRules(), this.loadPhrases()]);
+    const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases);
+    const problems = TemplateRenderHelper.validate(templateHtml);
+    const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), templateHtml);
+    return { html, htmlLength: html.length, gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH, problems };
+  }
+
+  /** Modelo da regra; se foi excluído depois, cai no padrão e avisa. */
+  private async resolveTemplate(templateId: string | null): Promise<{ id: string; name: string; html: string; fallback: boolean }> {
+    if (templateId) {
+      const chosen = (await this.signatureTemplatesService.findAll()).find((t) => t.id === templateId);
+      if (chosen) return { id: chosen.id, name: chosen.name, html: chosen.html, fallback: false };
+    }
+    const fallback = await this.signatureTemplatesService.findDefault();
+    return { id: fallback.id, name: fallback.name, html: fallback.html, fallback: Boolean(templateId) };
   }
 
   async getCoverage(): Promise<CoverageReport> {

@@ -1,6 +1,6 @@
 import { RawDirectoryEntry } from '../types/collaborator.js';
 
-export type DirectorySourceKind = 'SNAPSHOT' | 'LDAP';
+export type DirectorySourceKind = 'SNAPSHOT' | 'LDAP' | 'WINDOWS_LOGIN';
 
 /** De onde vêm as contas: LDAP no servidor, arquivo exportado no modo local. */
 export interface DirectorySource {

@@ -12,4 +12,6 @@ export const directoryService = {
 
 export const googleIntegrationService = {
   status: () => unwrap<GoogleIntegrationStatus>(httpClient.get('/v1/google-integration')),
+  /** Refaz o teste de delegação (só pede token, não grava). */
+  check: () => unwrap<GoogleIntegrationStatus>(httpClient.post('/v1/google-integration/check')),
 };

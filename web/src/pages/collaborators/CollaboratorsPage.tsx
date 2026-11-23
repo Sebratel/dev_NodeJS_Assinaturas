@@ -1,6 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ApplyDialog } from '../../components/signature/ApplyDialog';
 import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
@@ -8,12 +10,14 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { collaboratorService, type CollaboratorFilters } from '../../services/collaborator.service';
 import { queryKeys } from '../../services/query-keys';
-import type { Level, SignatureStatus } from '../../types/api';
+import { googleIntegrationService } from '../../services/report.service';
+import type { CollaboratorFilterParams, Level, SignatureStatus } from '../../types/api';
 import { formatNumber } from '../../utils/format';
 import { CONTACT_LABELS, ISSUE_LABELS, LEVEL_LABELS, STATUS_LABELS } from '../../utils/labels';
 import { CollaboratorDrawer } from './CollaboratorDrawer';
 
 const PAGE_SIZE = 25;
+const CHECKBOX = 'size-4 cursor-pointer accent-[var(--color-primary)]';
 
 /** Filtros vivem na URL: dá para mandar o link de "pendentes do Suporte" para alguém. */
 export function CollaboratorsPage() {
@@ -39,18 +43,57 @@ export function CollaboratorsPage() {
   };
 
   const facets = useQuery({ queryKey: queryKeys.facets, queryFn: collaboratorService.facets });
+  const google = useQuery({ queryKey: queryKeys.googleIntegration, queryFn: googleIntegrationService.status });
   const list = useQuery({
     queryKey: queryKeys.collaborators(filters),
     queryFn: () => collaboratorService.list(filters),
     placeholderData: keepPreviousData,
   });
 
-  const teams = (facets.data?.teams ?? []).filter((t) => !filters.area || t.area === filters.area);
+  // Seleção: ids marcados (valem entre páginas) ou "todos do filtro".
+  const filterKey = JSON.stringify({ ...filters, page: undefined });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allMatching, setAllMatching] = useState(false);
+  const [applying, setApplying] = useState(false);
+  useEffect(() => {
+    setSelected(new Set());
+    setAllMatching(false);
+  }, [filterKey]);
+
+  const items = list.data?.items ?? [];
   const meta = list.data?.meta;
+  const pageIds = items.map((p) => p.id);
+  const pageAllSelected = allMatching || (pageIds.length > 0 && pageIds.every((id) => selected.has(id)));
+  const selectionCount = allMatching ? (meta?.totalItems ?? 0) : selected.size;
+
+  const toggleOne = (id: string) => {
+    if (allMatching) return;
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  const togglePage = () => {
+    if (allMatching) return clearSelection();
+    const next = new Set(selected);
+    pageIds.forEach((id) => (pageAllSelected ? next.delete(id) : next.add(id)));
+    setSelected(next);
+  };
+  const clearSelection = () => {
+    setSelected(new Set());
+    setAllMatching(false);
+  };
+
+  const filterParams = useMemo<CollaboratorFilterParams>(() => {
+    const { search: s, area, team, level, status } = filters;
+    return Object.fromEntries(Object.entries({ search: s, area, team, level, status }).filter(([, v]) => v)) as CollaboratorFilterParams;
+  }, [filterKey]);
+
+  const teams = (facets.data?.teams ?? []).filter((t) => !filters.area || t.area === filters.area);
   const hasFilters = Boolean(search || filters.area || filters.team || filters.level || filters.status);
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3 pb-16">
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5">
         <label className="relative min-w-56 flex-[2]">
           <span className="sr-only">Buscar</span>
@@ -97,14 +140,36 @@ export function CollaboratorsPage() {
 
       {list.isError && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.isLoading && <LoadingState />}
-      {list.data && list.data.items.length === 0 && <EmptyState title="Ninguém com esses filtros." />}
+      {list.data && items.length === 0 && <EmptyState title="Ninguém com esses filtros." />}
 
-      {list.data && list.data.items.length > 0 && (
+      {list.data && items.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+          {pageAllSelected && meta && meta.totalItems > items.length && (
+            <div className="flex flex-wrap items-center justify-center gap-2 border-b border-outline-variant bg-primary-soft/50 px-3 py-1.5 text-xs">
+              {allMatching ? (
+                <>
+                  Todos os <strong className="tabular-nums">{formatNumber(meta.totalItems)}</strong> do filtro estão marcados.
+                  <button type="button" className="font-medium text-primary-ink underline" onClick={clearSelection}>
+                    Desmarcar
+                  </button>
+                </>
+              ) : (
+                <>
+                  Os {items.length} desta página estão marcados.
+                  <button type="button" className="font-medium text-primary-ink underline" onClick={() => setAllMatching(true)}>
+                    Marcar todos os {formatNumber(meta.totalItems)} do filtro
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[800px] text-sm">
               <thead>
                 <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+                  <th className="w-10 px-3 py-2">
+                    <input type="checkbox" className={CHECKBOX} checked={pageAllSelected} onChange={togglePage} aria-label="Marcar a página" />
+                  </th>
                   <th className="px-3 py-2 font-semibold">Colaborador</th>
                   <th className="px-3 py-2 font-semibold">Time</th>
                   <th className="px-3 py-2 font-semibold">Cargo</th>
@@ -113,46 +178,59 @@ export function CollaboratorsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {list.data.items.map((person) => (
-                  <tr
-                    key={person.id}
-                    onClick={() => update({ pessoa: person.id }, true)}
-                    className="cursor-pointer align-top hover:bg-surface-container-low"
-                  >
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        className="text-left font-medium hover:text-primary-ink"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          update({ pessoa: person.id }, true);
-                        }}
-                      >
-                        {person.name}
-                      </button>
-                      <div className="text-xs text-on-surface-variant">{person.email}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div>{person.team || '—'}</div>
-                      <div className="text-xs text-on-surface-variant">{person.area}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="max-w-64 truncate" title={person.title}>
-                        {person.title || '—'}
-                      </div>
-                      <div className="text-xs text-on-surface-variant">{LEVEL_LABELS[person.level]}</div>
-                    </td>
-                    <td className="px-3 py-2 text-on-surface-variant">{CONTACT_LABELS[person.contactType]}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        <StatusBadge status={person.status} />
-                        {person.issueCodes.map((code) => (
-                          <Badge key={code}>{ISSUE_LABELS[code]}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {items.map((person) => {
+                  const checked = allMatching || selected.has(person.id);
+                  return (
+                    <tr
+                      key={person.id}
+                      onClick={() => update({ pessoa: person.id }, true)}
+                      className={`cursor-pointer align-top hover:bg-surface-container-low ${checked ? 'bg-primary-soft/30' : ''}`}
+                    >
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className={CHECKBOX}
+                          checked={checked}
+                          disabled={allMatching}
+                          onChange={() => toggleOne(person.id)}
+                          aria-label={`Marcar ${person.name}`}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-left font-medium hover:text-primary-ink"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            update({ pessoa: person.id }, true);
+                          }}
+                        >
+                          {person.name}
+                        </button>
+                        <div className="text-xs text-on-surface-variant">{person.email}</div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div>{person.team || '—'}</div>
+                        <div className="text-xs text-on-surface-variant">{person.area}</div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="max-w-64 truncate" title={person.title}>
+                          {person.title || '—'}
+                        </div>
+                        <div className="text-xs text-on-surface-variant">{LEVEL_LABELS[person.level]}</div>
+                      </td>
+                      <td className="px-3 py-2 text-on-surface-variant">{CONTACT_LABELS[person.contactType]}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <StatusBadge status={person.status} />
+                          {person.issueCodes.map((code) => (
+                            <Badge key={code}>{ISSUE_LABELS[code]}</Badge>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -172,6 +250,40 @@ export function CollaboratorsPage() {
             </footer>
           )}
         </div>
+      )}
+
+      {selectionCount > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md lg:left-52">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 lg:px-6">
+            <span className="text-sm">
+              <strong className="tabular-nums">{formatNumber(selectionCount)}</strong> {selectionCount === 1 ? 'selecionado' : 'selecionados'}
+            </span>
+            <Button size="sm" variant="ghost" onClick={clearSelection}>
+              Limpar seleção
+            </Button>
+            <Button
+              variant="primary"
+              className="ml-auto"
+              icon={<Mail className="size-4" />}
+              disabled={!google.data?.applyEnabled}
+              title={google.data?.applyEnabled ? undefined : 'Google não autorizado. Veja Configurações › Google.'}
+              onClick={() => setApplying(true)}
+            >
+              Aplicar no Gmail
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {applying && (
+        <ApplyDialog
+          target={allMatching ? { filter: filterParams } : { collaboratorIds: [...selected] }}
+          count={selectionCount}
+          onClose={() => {
+            setApplying(false);
+            clearSelection();
+          }}
+        />
       )}
 
       <CollaboratorDrawer collaboratorId={selectedId} onClose={() => update({ pessoa: '' }, true)} />

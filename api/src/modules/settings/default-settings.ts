@@ -3,8 +3,8 @@ import { SettingKeyEnum } from './types/setting-key.enum.js';
 import { SettingsValues } from './types/settings-values.js';
 
 /**
- * Valores iniciais, gravados no banco só na primeira subida. Medidos no AD em 20/11/2026:
- * celular (mobile) e ramal (ipPhone) estão vazios; telephoneNumber é o 0800 para todos, por isso não é usado.
+ * Valores iniciais, gravados no banco só na primeira subida. Medidos no AD em 20/11/2026: celular (mobile) e
+ * ramal (IP phone) quase vazios; o 0800 vem de General › Telephone number (decisão de 23/11/2026).
  */
 export const DEFAULT_SETTINGS: SettingsValues = {
   [SettingKeyEnum.FIELD_SOURCES]: {
@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: SettingsValues = {
     segment: 'extensionAttribute1',
     corporateMobile: 'mobile',
     extension: 'ipPhone',
+    phone0800: 'telephoneNumber',
     state: 'st',
     office: 'physicalDeliveryOfficeName',
   },

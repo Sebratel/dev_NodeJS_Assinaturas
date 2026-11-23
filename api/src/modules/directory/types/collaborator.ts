@@ -19,6 +19,8 @@ export interface Collaborator {
   corporateMobile: string;
   extension: string;
   informedMobile: string;
+  /** 0800 lido do AD (General › Telephone number). */
+  phone0800: string;
   state: string;
   office: string;
   createdAt: string | null;
@@ -35,6 +37,7 @@ export const SOURCE_FIELDS = [
   'segment',
   'corporateMobile',
   'extension',
+  'phone0800',
   'state',
   'office',
 ] as const;

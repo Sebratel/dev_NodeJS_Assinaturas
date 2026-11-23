@@ -9,6 +9,7 @@ import { Switch } from '../../components/ui/Switch';
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys';
 import { reportService } from '../../services/report.service';
 import { signatureRuleService } from '../../services/signature-rule.service';
+import { signatureTemplateService } from '../../services/signature-template.service';
 import type { Level, SignatureRule } from '../../types/api';
 import { formatNumber } from '../../utils/format';
 import { emptyRuleForm, formToInput, ruleToForm, type RuleFormValues } from './rule-form';
@@ -28,6 +29,7 @@ export function RulesPage() {
   const navigate = useNavigate();
   const rules = useQuery({ queryKey: queryKeys.rules, queryFn: signatureRuleService.list });
   const coverage = useQuery({ queryKey: queryKeys.coverage, queryFn: reportService.coverage });
+  const templates = useQuery({ queryKey: queryKeys.templates, queryFn: signatureTemplateService.list });
   const [editor, setEditor] = useState<EditorState>(null);
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export function RulesPage() {
   });
 
   const statsById = new Map((coverage.data?.rules ?? []).map((r) => [r.id, r]));
+  const templateNames = new Map((templates.data ?? []).map((t) => [t.id, t.name]));
 
   return (
     <div className="grid gap-3">
@@ -111,7 +114,7 @@ export function RulesPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex max-w-80 flex-wrap gap-1">
-                          {describeOutputs(rule.outputs).map((part) => (
+                          {describeOutputs(rule.outputs, templateNames).map((part) => (
                             <Badge key={part}>{part}</Badge>
                           ))}
                         </div>

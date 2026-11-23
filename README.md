@@ -2,14 +2,15 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. A gravação automática no Gmail entra quando o Google Workspace autorizar a conta de serviço.
 
-## Estado (v0.1, local)
+## Estado (v0.2, local)
 
 | Parte | Situação |
 |---|---|
-| Leitura do AD | Funciona pelo arquivo exportado (`scripts/exportar-ad.ps1`). A leitura direta por LDAP está escrita, mas ainda não foi testada contra o AD (falta uma conta só de leitura). |
+| Leitura do AD | Local: AD ao vivo com o login do Windows (`DIRECTORY_SOURCE=windows`, a cada 5 min e pelo botão ↻). A leitura direta por LDAP (`ldap`), para o servidor, está escrita mas ainda não foi testada contra o AD. |
+| Campos do AD | 0800 = General › Telephone number (só sai se for um 0800 válido). Ramal = Telephones › IP phone. Celular = Telephones › Mobile. |
 | Regras, motor e simulação | Prontos, com testes |
-| Prévia da assinatura | Pronta (mesmo layout do protótipo "Assinaturas Sebratel") |
-| Gravar no Gmail | Aguardando autorização: delegação em todo o domínio para o client ID `113892655020718818138` |
+| Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
+| Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Em teste: só grava para quem está em `GOOGLE_APPLY_ALLOWLIST`. |
 | Login (SSO) | Não tem. A API só escuta em 127.0.0.1 |
 | Banco | Arquivo local (sql.js). MariaDB já configurável, mas ainda sem migrations |
 

@@ -1,27 +1,39 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { existsSync } from 'node:fs';
 import { ApiResponseHelper } from '../../common/helpers/api-response.helper.js';
+import { DIRECTORY_USER_SCOPE, GMAIL_SETTINGS_SCOPE, GoogleCredentialsService } from './google-credentials.service.js';
 
-/**
- * Estado da integração com o Google. Nesta versão só informa: a gravação no Gmail entra quando o superadmin
- * autorizar a delegação em todo o domínio para a conta de serviço.
- */
 @Controller('v1/google-integration')
 export class GoogleIntegrationController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly credentials: GoogleCredentialsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get()
-  getStatus() {
-    const keyFile = this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_KEY_FILE') ?? '';
-    const keyFilePresent = Boolean(keyFile) && existsSync(keyFile);
-    return ApiResponseHelper.ok({
-      status: keyFilePresent ? 'AWAITING_AUTHORIZATION' : 'NOT_CONFIGURED',
+  async getStatus() {
+    return ApiResponseHelper.ok(await this.buildStatus(false));
+  }
+
+  /** Refaz o teste de delegação agora (não grava nada no Gmail). */
+  @Post('check')
+  @HttpCode(200)
+  async check() {
+    return ApiResponseHelper.ok(await this.buildStatus(true));
+  }
+
+  private async buildStatus(force: boolean) {
+    const delegation = await this.credentials.checkDelegation(force);
+    return {
+      status: delegation.status,
+      error: delegation.error,
       projectId: this.configService.get<string>('GOOGLE_PROJECT_ID') ?? null,
-      clientId: this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_CLIENT_ID') ?? null,
-      keyFilePresent,
-      scopes: ['https://www.googleapis.com/auth/gmail.settings.basic', 'https://www.googleapis.com/auth/admin.directory.user'],
-      applyEnabled: false,
-    });
+      clientId: this.credentials.clientId(),
+      keyFilePresent: this.credentials.isConfigured(),
+      testUser: this.credentials.testSubject() || null,
+      scopes: [GMAIL_SETTINGS_SCOPE, DIRECTORY_USER_SCOPE],
+      applyAllowlist: this.credentials.applyAllowlist(),
+      applyEnabled: delegation.status === 'AUTHORIZED',
+    };
   }
 }

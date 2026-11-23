@@ -3,6 +3,7 @@ import { TextHelper } from '../../common/helpers/text.helper.js';
 import { Collaborator } from '../directory/types/collaborator.js';
 import { TeamPhrases } from '../settings/types/settings-values.js';
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
+import { Phone0800ModeEnum } from '../signature-rules/types/phone0800-mode.enum.js';
 import { PhraseModeEnum } from '../signature-rules/types/phrase-mode.enum.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
 import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
@@ -10,6 +11,7 @@ import { RuleCondition, SignatureRule } from '../signature-rules/types/signature
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
 import {
+  Phone0800Choice,
   PhraseChoice,
   SignatureConflict,
   SignatureDecisions,
@@ -32,18 +34,21 @@ export class SignatureEngineService {
       .filter((rule) => rule.active && this.matches(collaborator, rule))
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'pt-BR'));
 
-    const decisions: SignatureDecisions = { phone0800: null, contact: null, sectorLabel: null, phrase: null };
+    const decisions: SignatureDecisions = { phone0800: null, contact: null, sectorLabel: null, phrase: null, template: null };
     const bySlot = decisions as unknown as Record<SignatureSlot, SlotDecision<unknown> | null>;
     const ties: Array<SignatureConflict & { priority: number }> = [];
 
     for (const rule of matched) {
       const o = rule.outputs;
       const phrase: PhraseChoice | null = o.phraseMode ? { mode: o.phraseMode, text: o.phraseMode === PhraseModeEnum.FIXED ? o.phraseText ?? '' : null } : null;
+      const phoneMode = o.phone0800Mode ?? (o.phone0800 ? Phone0800ModeEnum.FIXED : null);
+      const phone: Phone0800Choice | null = phoneMode ? { mode: phoneMode, text: phoneMode === Phone0800ModeEnum.FIXED ? o.phone0800 ?? '' : null } : null;
       const proposals: Array<[SignatureSlot, unknown]> = [
-        ['phone0800', o.phone0800 || null],
+        ['phone0800', phone],
         ['contact', o.contact ?? null],
         ['sectorLabel', o.sectorLabel ?? null],
         ['phrase', phrase],
+        ['template', o.templateId || null],
       ];
       for (const [slot, value] of proposals) {
         if (value === null) continue;
@@ -123,12 +128,27 @@ export class SignatureEngineService {
       name: collaborator.name,
       email: collaborator.email,
       sectorText,
+      area: collaborator.area,
+      team: collaborator.team,
       title: collaborator.title,
       contactType,
       contactText,
       phrase: this.resolvePhrase(collaborator, decisions.phrase?.value ?? null, phrases),
-      phone0800: decisions.phone0800?.value ?? '',
+      phone0800: this.resolvePhone0800(collaborator, decisions.phone0800?.value ?? null),
     };
+  }
+
+  /** Do AD só sai se for um 0800 de verdade; número errado no AD não vai para a assinatura. */
+  private resolvePhone0800(collaborator: Collaborator, choice: Phone0800Choice | null): string {
+    if (!choice) return '';
+    if (choice.mode === Phone0800ModeEnum.FIXED) return choice.text ?? '';
+    return SignatureEngineService.format0800(collaborator.phone0800) ?? '';
+  }
+
+  /** "08006551000" / "0800 655 1000" → "0800 655 1000"; outro formato → null. */
+  static format0800(raw: string): string | null {
+    const digits = String(raw ?? '').replace(/\D/g, '');
+    return /^0800\d{7}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : null;
   }
 
   private resolvePhrase(collaborator: Collaborator, choice: PhraseChoice | null, phrases: TeamPhrases): string {
@@ -171,8 +191,15 @@ export class SignatureEngineService {
       const issue = missing[content.contactType];
       if (issue) issues.push(issue);
     }
-    if (!content.phone0800) {
+    const phone = decisions.phone0800?.value;
+    if (!phone) {
       issues.push({ code: SignatureIssueCodeEnum.MISSING_PHONE_0800, severity: 'WARNING', message: 'Nenhuma regra definiu o 0800.' });
+    } else if (phone.mode === Phone0800ModeEnum.DIRECTORY && !content.phone0800) {
+      issues.push(
+        collaborator.phone0800.trim()
+          ? { code: SignatureIssueCodeEnum.INVALID_PHONE_0800, severity: 'ERROR', message: `Telephone number do AD não é um 0800: "${collaborator.phone0800}".` }
+          : { code: SignatureIssueCodeEnum.MISSING_PHONE_0800, severity: 'ERROR', message: 'Telephone number (0800) vazio no AD.' },
+      );
     }
     if (matched.every((r) => r.conditions.length === 0)) {
       issues.push({ code: SignatureIssueCodeEnum.ONLY_GENERAL_RULES, severity: 'INFO', message: 'Só a regra geral vale para esta pessoa.' });
@@ -189,4 +216,5 @@ export const SLOT_LABELS: Record<SignatureSlot, string> = {
   contact: 'Contato',
   sectorLabel: 'Área ou time',
   phrase: 'Frase',
+  template: 'Modelo',
 };

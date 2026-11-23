@@ -1,5 +1,6 @@
 import { CollaboratorLevelEnum } from '../directory/types/collaborator-level.enum.js';
 import { ContactTypeEnum } from './types/contact-type.enum.js';
+import { Phone0800ModeEnum } from './types/phone0800-mode.enum.js';
 import { PhraseModeEnum } from './types/phrase-mode.enum.js';
 import { RuleOperatorEnum } from './types/rule-operator.enum.js';
 import { SectorLabelEnum } from './types/sector-label.enum.js';
@@ -12,12 +13,12 @@ import { SignatureRule } from './types/signature-rule.types.js';
 export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
   {
     name: 'Geral: 0800 e frase do time',
-    description: 'Vale para todos. As regras de prioridade maior trocam só o que definirem.',
+    description: 'Vale para todos: 0800 do AD (Telephone number). As regras de prioridade maior trocam só o que definirem.',
     priority: 0,
     active: true,
     conditions: [],
     outputs: {
-      phone0800: '0800 655 1000',
+      phone0800Mode: Phone0800ModeEnum.DIRECTORY,
       contact: ContactTypeEnum.NONE,
       sectorLabel: SectorLabelEnum.TEAM,
       phraseMode: PhraseModeEnum.TEAM,
@@ -29,7 +30,12 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     priority: 10,
     active: true,
     conditions: [{ field: 'segment', operator: RuleOperatorEnum.IN, values: ['B2B'] }],
-    outputs: { phone0800: '0800 365 8000', contact: ContactTypeEnum.CORPORATE_MOBILE, sectorLabel: SectorLabelEnum.TEAM },
+    outputs: {
+      phone0800Mode: Phone0800ModeEnum.FIXED,
+      phone0800: '0800 365 8000',
+      contact: ContactTypeEnum.CORPORATE_MOBILE,
+      sectorLabel: SectorLabelEnum.TEAM,
+    },
   },
   {
     name: 'Direção e Gerência',
