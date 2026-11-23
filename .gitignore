@@ -9,3 +9,5 @@ data/
 # Chaves do Google nunca entram no repositório
 *.json.key
 *service-account*.json
+# Logs de ferramentas (firebase-tools, pglite)
+*-debug.log
