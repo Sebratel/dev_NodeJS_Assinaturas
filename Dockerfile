@@ -40,6 +40,10 @@ RUN npm run build
 # ── Stage 3: runtime ─────────────────────────────────────────────
 FROM node:22-alpine
 
+# Versão visível no Portainer (vem do compose: ${APP_VERSION:-X.Y.Z}). Ver validacoes-ci › versão.
+ARG APP_VERSION=dev
+LABEL org.opencontainers.image.version=$APP_VERSION
+
 RUN apk add --no-cache wget tzdata          # wget para o healthcheck, tzdata para TZ
 ENV TZ=America/Sao_Paulo
 ENV NODE_ENV=production

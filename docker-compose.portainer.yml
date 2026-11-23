@@ -1,6 +1,7 @@
 # Stack do Portainer, construída a partir do Git (sem registry). Ver README › Deploy no Portainer.
-# `name` = nome da stack = nome do repositório no GitHub em minúsculas. Renomear depois cria volume NOVO e vazio.
-name: assinaturas
+# `name` = nome do repositório no GitHub (Sebratel/dev_NodeJS_Assinaturas) em minúsculas = nome da stack no Portainer.
+# Renomear depois cria volume NOVO e vazio.
+name: dev_nodejs_assinaturas
 
 services:
   backend:                            # papel do serviço; sem container_name (o Compose gera assinaturas-backend-1)
@@ -9,6 +10,7 @@ services:
       dockerfile: Dockerfile
       # Públicos por design (vão para o JavaScript do navegador). Mudar exige rebuild da stack.
       args:
+        APP_VERSION: ${APP_VERSION:-1.0.0}
         VITE_API_BASE_URL: /api
         VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-true}
         VITE_AUTH_HOSTED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-sebratel.com.br}
@@ -16,9 +18,9 @@ services:
         VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
         VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-authentication-assinaturas}
         VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
-    image: assinaturas-backend:${APP_VERSION:-0.1.0}
+    image: assinaturas-backend:${APP_VERSION:-1.0.0}
     labels:
-      org.opencontainers.image.version: ${APP_VERSION:-0.1.0}
+      org.opencontainers.image.version: ${APP_VERSION:-1.0.0}
     mem_limit: 1g
     memswap_limit: 1g                 # igual ao mem_limit = sem swap
     environment:
