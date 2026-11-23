@@ -1,18 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Mail } from 'lucide-react';
-import { useState } from 'react';
-import { ApiError } from '../../services/api-client';
-import { queryKeys } from '../../services/query-keys';
-import { googleIntegrationService } from '../../services/report.service';
-import { signatureApplicationService, type StartBatchInput } from '../../services/signature-application.service';
-import type { ApplicationStatus } from '../../types/api';
-import { formatNumber } from '../../utils/format';
-import { APPLICATION_STATUS_LABELS } from '../../utils/labels';
-import { Badge, type BadgeTone } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { Modal } from '../ui/Modal';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, Mail } from 'lucide-react'
+import { useState } from 'react'
+import { ApiError } from '../../services/api-client'
+import { queryKeys } from '../../services/query-keys'
+import { googleIntegrationService } from '../../services/report.service'
+import {
+  signatureApplicationService,
+  type StartBatchInput,
+} from '../../services/signature-application.service'
+import type { ApplicationStatus } from '../../types/api'
+import { formatNumber } from '../../utils/format'
+import { APPLICATION_STATUS_LABELS } from '../../utils/labels'
+import { Badge, type BadgeTone } from '../ui/Badge'
+import { Button } from '../ui/Button'
+import { Modal } from '../ui/Modal'
 
-const LARGE_BATCH = 20;
+const LARGE_BATCH = 20
 
 const TONES: Record<ApplicationStatus, BadgeTone> = {
   APPLIED: 'success',
@@ -20,46 +23,54 @@ const TONES: Record<ApplicationStatus, BadgeTone> = {
   SKIPPED: 'warning',
   FAILED: 'danger',
   RESTORED: 'info',
-};
+}
 
 interface ApplyDialogProps {
   /** Quem recebe: ids ou filtro (todos que casam). */
-  target: Omit<StartBatchInput, 'includePending'>;
-  count: number;
-  onClose: () => void;
+  target: Omit<StartBatchInput, 'includePending'>
+  count: number
+  onClose: () => void
 }
 
 /** Confirma, grava no Gmail e acompanha o lote até o fim. */
 export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
-  const queryClient = useQueryClient();
-  const google = useQuery({ queryKey: queryKeys.googleIntegration, queryFn: googleIntegrationService.status });
-  const [includePending, setIncludePending] = useState(false);
-  const [batchId, setBatchId] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const queryClient = useQueryClient()
+  const google = useQuery({
+    queryKey: queryKeys.googleIntegration,
+    queryFn: googleIntegrationService.status,
+  })
+  const [includePending, setIncludePending] = useState(false)
+  const [batchId, setBatchId] = useState<string | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
 
   const start = useMutation({
-    mutationFn: () => signatureApplicationService.startBatch({ ...target, includePending }),
+    mutationFn: () =>
+      signatureApplicationService.startBatch({ ...target, includePending }),
     onSuccess: (batch) => setBatchId(batch.id),
-  });
+  })
   const batch = useQuery({
     queryKey: ['application-batch', batchId],
     queryFn: () => signatureApplicationService.getBatch(batchId!),
     enabled: Boolean(batchId),
     refetchInterval: (query) => (query.state.data?.finished ? false : 800),
-  });
+  })
 
-  const finished = batch.data?.finished ?? false;
+  const finished = batch.data?.finished ?? false
   const close = () => {
-    if (batchId) queryClient.invalidateQueries({ queryKey: ['signature-applications'] });
-    onClose();
-  };
-  const scope = google.data?.applyScope;
-  const allowlist = scope?.mode === 'LIST' ? scope.emails : [];
-  const notReady = google.data && !google.data.applyEnabled;
+    if (batchId)
+      queryClient.invalidateQueries({ queryKey: ['signature-applications'] })
+    onClose()
+  }
+  const scope = google.data?.applyScope
+  const allowlist = scope?.mode === 'LIST' ? scope.emails : []
+  const notReady = google.data && !google.data.applyEnabled
   // Liberado para todos e lote grande: um clique a mais antes de trocar a assinatura de muita gente.
-  const needsConfirmation = scope?.mode === 'ALL' && count > LARGE_BATCH;
-  const startError = start.error instanceof ApiError ? start.error.message : null;
-  const progress = batch.data ? Math.round((batch.data.processed / Math.max(1, batch.data.total)) * 100) : 0;
+  const needsConfirmation = scope?.mode === 'ALL' && count > LARGE_BATCH
+  const startError =
+    start.error instanceof ApiError ? start.error.message : null
+  const progress = batch.data
+    ? Math.round((batch.data.processed / Math.max(1, batch.data.total)) * 100)
+    : 0
 
   return (
     <Modal
@@ -81,7 +92,8 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
               disabled={Boolean(notReady) || (needsConfirmation && !confirmed)}
               onClick={() => start.mutate()}
             >
-              Gravar {formatNumber(count)} {count === 1 ? 'assinatura' : 'assinaturas'}
+              Gravar {formatNumber(count)}{' '}
+              {count === 1 ? 'assinatura' : 'assinaturas'}
             </Button>
           </>
         )
@@ -90,23 +102,38 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
       {!batchId && (
         <div className="grid gap-3 text-sm">
           <p>
-            Grava a assinatura gerada no <strong>endereço principal</strong> do Gmail de <strong className="tabular-nums">{formatNumber(count)}</strong>{' '}
-            {count === 1 ? 'pessoa' : 'pessoas'}. A assinatura anterior fica guardada e dá para desfazer pelo painel da pessoa.
+            Grava a assinatura gerada no <strong>endereço principal</strong> do
+            Gmail de{' '}
+            <strong className="tabular-nums">{formatNumber(count)}</strong>{' '}
+            {count === 1 ? 'pessoa' : 'pessoas'}. A assinatura anterior fica
+            guardada e dá para desfazer pelo painel da pessoa.
           </p>
           <label className="flex items-start gap-2">
-            <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={includePending} onChange={(e) => setIncludePending(e.target.checked)} />
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-[var(--color-primary)]"
+              checked={includePending}
+              onChange={(e) => setIncludePending(e.target.checked)}
+            />
             <span>
               Incluir pendentes
-              <span className="block text-xs text-on-surface-variant">Saem sem a parte que falta (ex.: sem celular). Conflito e “sem regra” nunca são gravados.</span>
+              <span className="block text-xs text-on-surface-variant">
+                Saem sem a parte que falta (ex.: sem celular). Conflito e “sem
+                regra” nunca são gravados.
+              </span>
             </span>
           </label>
           {scope?.mode === 'LIST' && (
             <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span>
-                Modo de teste: só grava para a lista de teste ({allowlist.length}{' '}
+                Modo de teste: só grava para a lista de teste (
+                {allowlist.length}{' '}
                 {allowlist.length === 1 ? 'pessoa' : 'pessoas'}
-                {allowlist.length > 0 && allowlist.length <= 5 ? `: ${allowlist.join(', ')}` : ''}). Os demais aparecem como “Pulada”.
+                {allowlist.length > 0 && allowlist.length <= 5
+                  ? `: ${allowlist.join(', ')}`
+                  : ''}
+                ). Os demais aparecem como “Pulada”.
               </span>
             </p>
           )}
@@ -114,20 +141,35 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
             <p className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span>
-                Gravação liberada para todos: vai trocar a assinatura no Gmail de até <strong>{formatNumber(count)}</strong> pessoas.
+                Gravação liberada para todos: vai trocar a assinatura no Gmail
+                de até <strong>{formatNumber(count)}</strong> pessoas.
               </span>
             </p>
           )}
           {needsConfirmation && (
             <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-[var(--color-primary)]"
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
               <span>
-                Entendi: a assinatura de até {formatNumber(count)} pessoas vai mudar agora.
+                Entendi: a assinatura de até {formatNumber(count)} pessoas vai
+                mudar agora.
               </span>
             </label>
           )}
-          {notReady && <p className="text-xs text-rose-700 dark:text-rose-300">Google não autorizado: {google.data?.error ?? google.data?.status}</p>}
-          {startError && <p className="text-xs text-rose-700 dark:text-rose-300">{startError}</p>}
+          {notReady && (
+            <p className="text-xs text-rose-700 dark:text-rose-300">
+              Google não autorizado: {google.data?.error ?? google.data?.status}
+            </p>
+          )}
+          {startError && (
+            <p className="text-xs text-rose-700 dark:text-rose-300">
+              {startError}
+            </p>
+          )}
         </div>
       )}
 
@@ -137,11 +179,15 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
             <div className="flex justify-between text-xs text-on-surface-variant">
               <span>{finished ? 'Concluído' : 'Gravando…'}</span>
               <span className="tabular-nums">
-                {formatNumber(batch.data.processed)} de {formatNumber(batch.data.total)}
+                {formatNumber(batch.data.processed)} de{' '}
+                {formatNumber(batch.data.total)}
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-container-low">
-              <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress}%` }} />
+              <div
+                className="h-full rounded-full bg-primary transition-[width]"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -149,7 +195,8 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
               .filter((status) => batch.data.counts[status] > 0)
               .map((status) => (
                 <Badge key={status} tone={TONES[status]}>
-                  {APPLICATION_STATUS_LABELS[status]}: {formatNumber(batch.data.counts[status])}
+                  {APPLICATION_STATUS_LABELS[status]}:{' '}
+                  {formatNumber(batch.data.counts[status])}
                 </Badge>
               ))}
           </div>
@@ -158,12 +205,21 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
               {batch.data.items
                 .filter((i) => i.status !== 'APPLIED')
                 .map((item) => (
-                  <li key={item.collaboratorId} className="flex items-start justify-between gap-2 px-2.5 py-1.5">
+                  <li
+                    key={item.collaboratorId}
+                    className="flex items-start justify-between gap-2 px-2.5 py-1.5"
+                  >
                     <span className="min-w-0">
-                      <span className="font-medium">{item.name || item.email}</span>
-                      <span className="block text-on-surface-variant">{item.reason}</span>
+                      <span className="font-medium">
+                        {item.name || item.email}
+                      </span>
+                      <span className="block text-on-surface-variant">
+                        {item.reason}
+                      </span>
                     </span>
-                    <Badge tone={TONES[item.status]}>{APPLICATION_STATUS_LABELS[item.status]}</Badge>
+                    <Badge tone={TONES[item.status]}>
+                      {APPLICATION_STATUS_LABELS[item.status]}
+                    </Badge>
                   </li>
                 ))}
             </ul>
@@ -171,5 +227,5 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
         </div>
       )}
     </Modal>
-  );
+  )
 }

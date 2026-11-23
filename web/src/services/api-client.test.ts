@@ -1,4 +1,8 @@
-import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
+import {
+  AxiosError,
+  AxiosHeaders,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getIdToken = vi.fn<(force?: boolean) => Promise<string | null>>()
@@ -13,9 +17,8 @@ vi.mock('./firebase-auth.service', () => ({
   firebaseAuthService: { getIdToken: (force?: boolean) => getIdToken(force) },
 }))
 
-const { httpClient, setSessionExpiredHandler, ApiError } = await import(
-  './api-client'
-)
+const { httpClient, setSessionExpiredHandler, ApiError } =
+  await import('./api-client')
 
 type Reply = { status: number; data?: unknown }
 
@@ -25,8 +28,7 @@ function fakeServer(replies: Reply[]) {
   httpClient.defaults.adapter = async (request: InternalAxiosRequestConfig) => {
     seenTokens.push(
       AxiosHeaders.from(request.headers).get('Authorization') as
-        | string
-        | undefined
+        string | undefined
     )
     const reply = replies.shift() ?? { status: 500 }
     const response = {

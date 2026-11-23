@@ -11,11 +11,19 @@ export const queryKeys = {
   googleIntegration: ['google-integration'] as const,
   templates: ['signature-templates'] as const,
   templateVariables: ['signature-template-variables'] as const,
-  applications: (collaboratorId: string) => ['signature-applications', collaboratorId] as const,
+  applications: (collaboratorId: string) =>
+    ['signature-applications', collaboratorId] as const,
   phraseProfiles: ['phrase-profiles'] as const,
   automation: ['automation'] as const,
   me: ['me'] as const,
-};
+}
 
 /** Tudo que depende de regra/configuração/diretório e precisa recalcular depois de uma gravação. */
-export const derivedQueryRoots = [['collaborators'], ['collaborator'], ['coverage'], ['collaborator-facets'], ['directory-status'], ['automation']];
+export const derivedQueryRoots = [
+  ['collaborators'],
+  ['collaborator'],
+  ['coverage'],
+  ['collaborator-facets'],
+  ['directory-status'],
+  ['automation'],
+]

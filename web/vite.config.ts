@@ -8,7 +8,10 @@ const VENDOR_GROUPS = [
     name: 'vendor-react',
     test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
   },
-  { name: 'vendor-firebase', test: /node_modules[\\/](firebase|@firebase)[\\/]/ },
+  {
+    name: 'vendor-firebase',
+    test: /node_modules[\\/](firebase|@firebase)[\\/]/,
+  },
   {
     name: 'vendor-editor-lang',
     test: /node_modules[\\/](@codemirror[\\/]lang-|@lezer[\\/](html|css|javascript))/,

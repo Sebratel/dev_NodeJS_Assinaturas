@@ -1,5 +1,5 @@
 /** Variáveis do frontend vão para o bundle: nunca colocar segredo aqui (padroes-frontend › variáveis). */
-const env = import.meta.env;
+const env = import.meta.env
 
 export const config = {
   apiBaseUrl: env.VITE_API_BASE_URL || '/api',
@@ -15,4 +15,4 @@ export const config = {
       appId: env.VITE_FIREBASE_APP_ID ?? '',
     },
   },
-};
+}
