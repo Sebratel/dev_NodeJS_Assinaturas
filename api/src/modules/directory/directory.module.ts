@@ -29,7 +29,9 @@ function buildDirectorySource(config: ConfigService): DirectorySource {
     return new SnapshotDirectorySource(resolve(config.get('DIRECTORY_SNAPSHOT_PATH') ?? '../data/ad-snapshot.json'));
   }
   if (kind === 'windows') {
-    const server = String(config.get('AD_URL') ?? 'ldap://10.0.11.251').replace(/^ldaps?:\/\//, '').replace(/:\d+$/, '');
+    const server = String(config.get('AD_URL') ?? 'ldap://10.0.11.251')
+      .replace(/^ldaps?:\/\//, '')
+      .replace(/:\d+$/, '');
     return new WindowsLoginDirectorySource(resolve(config.get('AD_EXPORT_SCRIPT') ?? '../scripts/exportar-ad.ps1'), server);
   }
   throw new Error(`DIRECTORY_SOURCE inválido: "${kind}" (use ldap, windows ou snapshot).`);
@@ -38,11 +40,7 @@ function buildDirectorySource(config: ConfigService): DirectorySource {
 @Module({
   imports: [SettingsModule, TypeOrmModule.forFeature([CollaboratorOverrideEntity])],
   controllers: [DirectoryController],
-  providers: [
-    { provide: DIRECTORY_SOURCE, inject: [ConfigService], useFactory: buildDirectorySource },
-    DirectoryService,
-    DirectorySyncJob,
-  ],
+  providers: [{ provide: DIRECTORY_SOURCE, inject: [ConfigService], useFactory: buildDirectorySource }, DirectoryService, DirectorySyncJob],
   exports: [DirectoryService],
 })
 export class DirectoryModule {}

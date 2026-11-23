@@ -42,9 +42,13 @@ export class SignatureEngineService {
 
     for (const rule of matched) {
       const o = rule.outputs;
-      const phrase: PhraseChoice | null = o.phraseMode ? { mode: o.phraseMode, text: o.phraseMode === PhraseModeEnum.FIXED ? o.phraseText ?? '' : null } : null;
+      const phrase: PhraseChoice | null = o.phraseMode
+        ? { mode: o.phraseMode, text: o.phraseMode === PhraseModeEnum.FIXED ? (o.phraseText ?? '') : null }
+        : null;
       const phoneMode = o.phone0800Mode ?? (o.phone0800 ? Phone0800ModeEnum.FIXED : null);
-      const phone: Phone0800Choice | null = phoneMode ? { mode: phoneMode, text: phoneMode === Phone0800ModeEnum.FIXED ? o.phone0800 ?? '' : null } : null;
+      const phone: Phone0800Choice | null = phoneMode
+        ? { mode: phoneMode, text: phoneMode === Phone0800ModeEnum.FIXED ? (o.phone0800 ?? '') : null }
+        : null;
       const proposals: Array<[SignatureSlot, unknown]> = [
         ['phone0800', phone],
         ['contact', o.contact ?? null],
@@ -124,8 +128,10 @@ export class SignatureEngineService {
 
     const contactType = decisions.contact?.value ?? ContactTypeEnum.NONE;
     let contactText = '';
-    if (contactType === ContactTypeEnum.CORPORATE_MOBILE && collaborator.corporateMobile) contactText = TextHelper.formatPhone(collaborator.corporateMobile);
-    if (contactType === ContactTypeEnum.INFORMED_MOBILE && collaborator.informedMobile) contactText = TextHelper.formatPhone(collaborator.informedMobile);
+    if (contactType === ContactTypeEnum.CORPORATE_MOBILE && collaborator.corporateMobile)
+      contactText = TextHelper.formatPhone(collaborator.corporateMobile);
+    if (contactType === ContactTypeEnum.INFORMED_MOBILE && collaborator.informedMobile)
+      contactText = TextHelper.formatPhone(collaborator.informedMobile);
     if (contactType === ContactTypeEnum.EXTENSION && collaborator.extension) contactText = `Ramal ${collaborator.extension}`;
 
     return {
@@ -167,12 +173,14 @@ export class SignatureEngineService {
   ): { text: string; origin: PhraseOrigin } {
     const choice = decision?.value;
     if (!choice || choice.mode === PhraseModeEnum.NONE) return { text: '', origin: { kind: 'NONE', label: 'Sem frase', id: null } };
-    if (choice.mode === PhraseModeEnum.FIXED) return { text: choice.text ?? '', origin: { kind: 'FIXED', label: decision.ruleName, id: null } };
+    if (choice.mode === PhraseModeEnum.FIXED)
+      return { text: choice.text ?? '', origin: { kind: 'FIXED', label: decision.ruleName, id: null } };
 
     const profile = this.pickProfile(collaborator, profiles);
     if (profile) return { text: profile.phrase, origin: { kind: 'PROFILE', label: profile.name, id: profile.id } };
     const team = this.teamPhrase(collaborator, phrases);
-    if (team) return { text: team, origin: { kind: 'TEAM', label: [collaborator.team, collaborator.area].filter(Boolean).join(' · '), id: null } };
+    if (team)
+      return { text: team, origin: { kind: 'TEAM', label: [collaborator.team, collaborator.area].filter(Boolean).join(' · '), id: null } };
     return { text: phrases.defaultPhrase, origin: { kind: 'DEFAULT', label: 'Frase padrão', id: null } };
   }
 
@@ -180,7 +188,8 @@ export class SignatureEngineService {
     return (
       profiles
         .filter((p) => p.active && p.phrase.trim() && this.matches(collaborator, p))
-        .sort((a, b) => b.priority - a.priority || b.conditions.length - a.conditions.length || a.name.localeCompare(b.name, 'pt-BR'))[0] ?? null
+        .sort((a, b) => b.priority - a.priority || b.conditions.length - a.conditions.length || a.name.localeCompare(b.name, 'pt-BR'))[0] ??
+      null
     );
   }
 
@@ -215,8 +224,16 @@ export class SignatureEngineService {
     }
     if (!content.contactText) {
       const missing: Partial<Record<ContactTypeEnum, SignatureIssue>> = {
-        [ContactTypeEnum.CORPORATE_MOBILE]: { code: SignatureIssueCodeEnum.MISSING_CORPORATE_MOBILE, severity: 'ERROR', message: 'Celular corporativo vazio no AD.' },
-        [ContactTypeEnum.INFORMED_MOBILE]: { code: SignatureIssueCodeEnum.MISSING_INFORMED_MOBILE, severity: 'ERROR', message: 'Aguardando a pessoa informar o celular.' },
+        [ContactTypeEnum.CORPORATE_MOBILE]: {
+          code: SignatureIssueCodeEnum.MISSING_CORPORATE_MOBILE,
+          severity: 'ERROR',
+          message: 'Celular corporativo vazio no AD.',
+        },
+        [ContactTypeEnum.INFORMED_MOBILE]: {
+          code: SignatureIssueCodeEnum.MISSING_INFORMED_MOBILE,
+          severity: 'ERROR',
+          message: 'Aguardando a pessoa informar o celular.',
+        },
         [ContactTypeEnum.EXTENSION]: { code: SignatureIssueCodeEnum.MISSING_EXTENSION, severity: 'ERROR', message: 'Ramal vazio no AD.' },
       };
       const issue = missing[content.contactType];
@@ -228,15 +245,27 @@ export class SignatureEngineService {
     } else if (phone.mode === Phone0800ModeEnum.DIRECTORY && !content.phone0800) {
       issues.push(
         collaborator.phone0800.trim()
-          ? { code: SignatureIssueCodeEnum.INVALID_PHONE_0800, severity: 'ERROR', message: `Telephone number do AD não é um 0800: "${collaborator.phone0800}".` }
+          ? {
+              code: SignatureIssueCodeEnum.INVALID_PHONE_0800,
+              severity: 'ERROR',
+              message: `Telephone number do AD não é um 0800: "${collaborator.phone0800}".`,
+            }
           : { code: SignatureIssueCodeEnum.MISSING_PHONE_0800, severity: 'ERROR', message: 'Telephone number (0800) vazio no AD.' },
       );
     }
     if (matched.every((r) => r.conditions.length === 0)) {
-      issues.push({ code: SignatureIssueCodeEnum.ONLY_GENERAL_RULES, severity: 'INFO', message: 'Só a regra geral vale para esta pessoa.' });
+      issues.push({
+        code: SignatureIssueCodeEnum.ONLY_GENERAL_RULES,
+        severity: 'INFO',
+        message: 'Só a regra geral vale para esta pessoa.',
+      });
     }
     if (phraseOrigin.kind === 'DEFAULT') {
-      issues.push({ code: SignatureIssueCodeEnum.DEFAULT_PHRASE, severity: 'INFO', message: 'Nenhum perfil nem o time têm frase: usa a frase padrão.' });
+      issues.push({
+        code: SignatureIssueCodeEnum.DEFAULT_PHRASE,
+        severity: 'INFO',
+        message: 'Nenhum perfil nem o time têm frase: usa a frase padrão.',
+      });
     }
     return issues;
   }

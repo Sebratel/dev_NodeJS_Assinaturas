@@ -32,8 +32,12 @@ describe('CollaboratorMapper', () => {
 
   it('deixa de fora conta em OU de serviço e conta sem e-mail', () => {
     const base = { objectGUID: 'g1', sAMAccountName: 'x', displayName: 'X', mail: 'x@sebratel.com.br', department: 'Grupo Ti - Dev' };
-    expect(CollaboratorMapper.toCollaborator({ ...base, distinguishedName: 'CN=X,OU=Grupo Conta de Serviço,DC=corp' }, settings)).toBeNull();
-    expect(CollaboratorMapper.toCollaborator({ ...base, mail: '', distinguishedName: 'CN=X,OU=Grupo Ti - Dev,DC=corp' }, settings)).toBeNull();
+    expect(
+      CollaboratorMapper.toCollaborator({ ...base, distinguishedName: 'CN=X,OU=Grupo Conta de Serviço,DC=corp' }, settings),
+    ).toBeNull();
+    expect(
+      CollaboratorMapper.toCollaborator({ ...base, mail: '', distinguishedName: 'CN=X,OU=Grupo Ti - Dev,DC=corp' }, settings),
+    ).toBeNull();
     expect(CollaboratorMapper.toCollaborator({ ...base, distinguishedName: 'CN=X,OU=Grupo Ti - Dev,DC=corp' }, settings)?.team).toBe('Dev');
   });
 });

@@ -72,7 +72,12 @@ export class SignaturesService {
       .map((c, i) => ({ c, e: evaluations[i] }))
       .filter(({ c, e }) => {
         if (search && ![c.name, c.email, c.title, c.team, c.area].some((v) => TextHelper.normalize(v).includes(search))) return false;
-        return same(c.area, query.area) && same(c.team, query.team) && (!query.level || c.level === query.level) && (!query.status || e.status === query.status);
+        return (
+          same(c.area, query.area) &&
+          same(c.team, query.team) &&
+          (!query.level || c.level === query.level) &&
+          (!query.status || e.status === query.status)
+        );
       })
       .map(({ c, e }) => ({
         id: c.id,
@@ -151,7 +156,10 @@ export class SignaturesService {
   }
 
   /** Prévia de um modelo (ainda não salvo) com os dados de uma pessoa real. */
-  async previewTemplate(templateHtml: string, collaboratorId: string): Promise<{ html: string; htmlLength: number; gmailLimit: number; problems: string[] }> {
+  async previewTemplate(
+    templateHtml: string,
+    collaboratorId: string,
+  ): Promise<{ html: string; htmlLength: number; gmailLimit: number; problems: string[] }> {
     const [collaborator, rules, phrases, profiles] = await Promise.all([
       this.directoryService.findOne(collaboratorId),
       this.loadRules(),

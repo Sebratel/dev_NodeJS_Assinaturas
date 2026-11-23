@@ -54,7 +54,8 @@ export class TemplateRenderHelper {
       }
     }
     opened.forEach((key) => problems.push(`Bloco {{#${key}}} sem {{/${key}}}.`));
-    if (/<script\b|\son\w+\s*=|javascript:/i.test(template)) problems.push('Script e eventos (onclick etc.) não são permitidos: o Gmail remove e é risco.');
+    if (/<script\b|\son\w+\s*=|javascript:/i.test(template))
+      problems.push('Script e eventos (onclick etc.) não são permitidos: o Gmail remove e é risco.');
     return [...new Set(problems)];
   }
 }

@@ -83,10 +83,13 @@ export class CoverageReportBuilder {
       })),
       conflicts: [...conflicts.values()].sort((a, b) => b.count - a.count),
       groupsOnlyGeneral: [...onlyGeneral.values()].sort((a, b) => b.count - a.count).slice(0, 40),
-      phraseOrigins: evaluations.reduce(
-        (acc, e) => ((acc[e.phraseOrigin.kind] += 1), acc),
-        { PROFILE: 0, TEAM: 0, DEFAULT: 0, FIXED: 0, NONE: 0 } as CoverageReport['phraseOrigins'],
-      ),
+      phraseOrigins: evaluations.reduce((acc, e) => ((acc[e.phraseOrigin.kind] += 1), acc), {
+        PROFILE: 0,
+        TEAM: 0,
+        DEFAULT: 0,
+        FIXED: 0,
+        NONE: 0,
+      } as CoverageReport['phraseOrigins']),
       phraseProfiles: [],
     };
   }

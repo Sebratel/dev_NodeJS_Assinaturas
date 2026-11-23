@@ -10,7 +10,7 @@ export class SnapshotDirectorySource implements DirectorySource {
 
   async fetchEntries(): Promise<RawDirectoryEntry[]> {
     const text = await readFile(this.filePath, 'utf8');
-    const parsed: unknown = JSON.parse(text.replace(/^﻿/, ''));
+    const parsed: unknown = JSON.parse(text.replace(/^\uFEFF/, ''));
     if (!Array.isArray(parsed)) throw new Error(`Snapshot do AD inválido em ${this.filePath}: esperado um array.`);
     return parsed as RawDirectoryEntry[];
   }

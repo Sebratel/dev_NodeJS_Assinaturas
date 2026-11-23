@@ -27,7 +27,9 @@ export class SignatureTemplatesService implements OnModuleInit {
   }
 
   async findDefault(): Promise<SignatureTemplateEntity> {
-    const template = (await this.templateRepository.findOneBy({ isDefault: true })) ?? (await this.templateRepository.findOne({ where: {}, order: { createdAt: 'ASC' } }));
+    const template =
+      (await this.templateRepository.findOneBy({ isDefault: true })) ??
+      (await this.templateRepository.findOne({ where: {}, order: { createdAt: 'ASC' } }));
     if (!template) throw new BusinessException('SIGNATURE_TEMPLATE_NOT_FOUND', 'Nenhum modelo cadastrado.', HttpStatus.CONFLICT);
     return template;
   }
@@ -43,7 +45,11 @@ export class SignatureTemplatesService implements OnModuleInit {
     const template = await this.findOne(id);
     SignatureTemplatesService.assertValid(dto.html);
     if (template.isDefault && !dto.isDefault) {
-      throw new BusinessException('SIGNATURE_TEMPLATE_DEFAULT_REQUIRED', 'Escolha outro modelo como padrão antes de tirar este.', HttpStatus.CONFLICT);
+      throw new BusinessException(
+        'SIGNATURE_TEMPLATE_DEFAULT_REQUIRED',
+        'Escolha outro modelo como padrão antes de tirar este.',
+        HttpStatus.CONFLICT,
+      );
     }
     const saved = await this.templateRepository.save(Object.assign(template, this.clean(dto)));
     if (saved.isDefault) await this.makeOnlyDefault(saved.id);
@@ -53,7 +59,11 @@ export class SignatureTemplatesService implements OnModuleInit {
   async remove(id: string): Promise<void> {
     const template = await this.findOne(id);
     if (template.isDefault) {
-      throw new BusinessException('SIGNATURE_TEMPLATE_DEFAULT_REQUIRED', 'O modelo padrão não pode ser excluído. Escolha outro como padrão antes.', HttpStatus.CONFLICT);
+      throw new BusinessException(
+        'SIGNATURE_TEMPLATE_DEFAULT_REQUIRED',
+        'O modelo padrão não pode ser excluído. Escolha outro como padrão antes.',
+        HttpStatus.CONFLICT,
+      );
     }
     await this.templateRepository.softDelete({ id });
   }
@@ -61,7 +71,12 @@ export class SignatureTemplatesService implements OnModuleInit {
   static assertValid(html: string): void {
     const problems = TemplateRenderHelper.validate(html);
     if (problems.length) {
-      throw new BusinessException('SIGNATURE_TEMPLATE_INVALID', 'Modelo com problemas.', HttpStatus.BAD_REQUEST, problems.map((message) => ({ field: 'html', message })));
+      throw new BusinessException(
+        'SIGNATURE_TEMPLATE_INVALID',
+        'Modelo com problemas.',
+        HttpStatus.BAD_REQUEST,
+        problems.map((message) => ({ field: 'html', message })),
+      );
     }
   }
 

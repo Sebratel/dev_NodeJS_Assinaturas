@@ -16,7 +16,14 @@ export class PhraseProfilesService {
   }
 
   async findAllForEngine(): Promise<PhraseProfile[]> {
-    return (await this.findAll()).map(({ id, name, priority, active, conditions, phrase }) => ({ id, name, priority, active, conditions, phrase }));
+    return (await this.findAll()).map(({ id, name, priority, active, conditions, phrase }) => ({
+      id,
+      name,
+      priority,
+      active,
+      conditions,
+      phrase,
+    }));
   }
 
   async findOne(id: string): Promise<PhraseProfileEntity> {
@@ -48,7 +55,8 @@ export class PhraseProfilesService {
       }
     });
     if (!dto.phrase.trim()) problems.push({ field: 'phrase', message: 'a frase é obrigatória.' });
-    if (problems.length) throw new BusinessException('PHRASE_PROFILE_INVALID', 'Perfil de frase inconsistente.', HttpStatus.BAD_REQUEST, problems);
+    if (problems.length)
+      throw new BusinessException('PHRASE_PROFILE_INVALID', 'Perfil de frase inconsistente.', HttpStatus.BAD_REQUEST, problems);
     return {
       name: dto.name.trim(),
       priority: dto.priority,

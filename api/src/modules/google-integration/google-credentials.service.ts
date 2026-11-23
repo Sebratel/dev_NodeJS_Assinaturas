@@ -78,7 +78,11 @@ export class GoogleCredentialsService {
   private loadKey(): ServiceAccountKey {
     if (this.key) return this.key;
     if (!this.isConfigured()) {
-      throw new BusinessException('GOOGLE_NOT_CONFIGURED', 'Chave da conta de serviço não configurada (GOOGLE_SERVICE_ACCOUNT_KEY_FILE).', HttpStatus.CONFLICT);
+      throw new BusinessException(
+        'GOOGLE_NOT_CONFIGURED',
+        'Chave da conta de serviço não configurada (GOOGLE_SERVICE_ACCOUNT_KEY_FILE).',
+        HttpStatus.CONFLICT,
+      );
     }
     const parsed = JSON.parse(readFileSync(this.keyFilePath(), 'utf8')) as ServiceAccountKey;
     if (!parsed.client_email || !parsed.private_key) {

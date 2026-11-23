@@ -26,7 +26,9 @@ export class SignatureTemplateHelper {
   }
 
   static render(content: SignatureContent, imageBaseUrl: string, templateHtml: string): string {
-    return SignatureTemplateHelper.minify(TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl)));
+    return SignatureTemplateHelper.minify(
+      TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl)),
+    );
   }
 
   /**

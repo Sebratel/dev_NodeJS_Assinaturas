@@ -44,5 +44,12 @@ export const DEFAULT_SETTINGS: SettingsValues = {
   // Começa travado: só a lista de teste (semeada de GOOGLE_APPLY_ALLOWLIST na primeira subida).
   [SettingKeyEnum.APPLY_SCOPE]: { mode: 'LIST', emails: [] },
   // Começa desligada: quem liga é o admin, na tela Monitoramento.
-  [SettingKeyEnum.AUTO_APPLY]: { enabled: false, newCollaborators: true, changes: true, includePending: false, maxPerRun: 30, enabledAt: null },
+  [SettingKeyEnum.AUTO_APPLY]: {
+    enabled: false,
+    newCollaborators: true,
+    changes: true,
+    includePending: false,
+    maxPerRun: 30,
+    enabledAt: null,
+  },
 };

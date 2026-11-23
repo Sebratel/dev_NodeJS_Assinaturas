@@ -33,7 +33,13 @@ describe('TemplateRenderHelper', () => {
   it('o modelo padrão é válido e não deixa marcação sobrando', () => {
     expect(TemplateRenderHelper.validate(DEFAULT_TEMPLATE.html)).toEqual([]);
     const html = TemplateRenderHelper.render(DEFAULT_TEMPLATE.html, {
-      nome: 'Fulano', cargo: 'Analista', setor: 'Suporte', contato_ramal: 'Ramal 4021', frase: 'Oi', telefone_0800: '0800 655 1000', img: 'https://x/',
+      nome: 'Fulano',
+      cargo: 'Analista',
+      setor: 'Suporte',
+      contato_ramal: 'Ramal 4021',
+      frase: 'Oi',
+      telefone_0800: '0800 655 1000',
+      img: 'https://x/',
     });
     expect(html).not.toMatch(/\{\{|\}\}/);
     expect(html).toContain('Ramal 4021');

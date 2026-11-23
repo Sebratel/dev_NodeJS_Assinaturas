@@ -5,9 +5,27 @@ import { SignatureStatusEnum } from '../signatures/types/signature-status.enum.j
 import { AutoApplyPlanner, PlannerPerson } from './auto-apply.planner.js';
 
 const now = new Date('2026-11-23T15:00:00Z');
-const on = { enabled: true, newCollaborators: true, changes: true, includePending: false, maxPerRun: 30, enabledAt: '2026-11-23T12:00:00Z' };
-const person = (id: string, createdAt: string, status = SignatureStatusEnum.READY, html = '<b>nova</b>'): PlannerPerson => ({ id, name: id, createdAt, status, html });
-const entry = (partial: Partial<WriteIndexEntry>): WriteIndexEntry => ({ lastWrite: null, received: false, lastFailureAt: null, ...partial });
+const on = {
+  enabled: true,
+  newCollaborators: true,
+  changes: true,
+  includePending: false,
+  maxPerRun: 30,
+  enabledAt: '2026-11-23T12:00:00Z',
+};
+const person = (id: string, createdAt: string, status = SignatureStatusEnum.READY, html = '<b>nova</b>'): PlannerPerson => ({
+  id,
+  name: id,
+  createdAt,
+  status,
+  html,
+});
+const entry = (partial: Partial<WriteIndexEntry>): WriteIndexEntry => ({
+  lastWrite: null,
+  received: false,
+  lastFailureAt: null,
+  ...partial,
+});
 
 describe('AutoApplyPlanner', () => {
   it('desligada não grava ninguém', () => {
@@ -16,7 +34,12 @@ describe('AutoApplyPlanner', () => {
   });
 
   it('novo = criado no AD depois de ligar e nunca recebeu; antigo sem gravação não entra', () => {
-    const plan = AutoApplyPlanner.plan([person('novo', '2026-11-23T13:00:00Z'), person('antigo', '2025-01-01T00:00:00Z')], new Map(), on, now);
+    const plan = AutoApplyPlanner.plan(
+      [person('novo', '2026-11-23T13:00:00Z'), person('antigo', '2025-01-01T00:00:00Z')],
+      new Map(),
+      on,
+      now,
+    );
     expect(plan.newcomers).toEqual(['novo']);
   });
 
@@ -34,7 +57,10 @@ describe('AutoApplyPlanner', () => {
 
   it('mudança: regrava quem já recebeu e cuja assinatura gerada mudou; igual não regrava', () => {
     const index = new Map([
-      ['mudou', entry({ received: true, lastWrite: { status: ApplicationStatusEnum.APPLIED, renderedSignature: '<b>velha</b>', at: now } })],
+      [
+        'mudou',
+        entry({ received: true, lastWrite: { status: ApplicationStatusEnum.APPLIED, renderedSignature: '<b>velha</b>', at: now } }),
+      ],
       ['igual', entry({ received: true, lastWrite: { status: ApplicationStatusEnum.APPLIED, renderedSignature: '<b>nova</b>', at: now } })],
     ]);
     const plan = AutoApplyPlanner.plan([person('mudou', '2020-01-01T00:00:00Z'), person('igual', '2020-01-01T00:00:00Z')], index, on, now);
@@ -42,7 +68,9 @@ describe('AutoApplyPlanner', () => {
   });
 
   it('quem desfez (última escrita = RESTORED) não é regravado sozinho', () => {
-    const index = new Map([['d', entry({ received: true, lastWrite: { status: ApplicationStatusEnum.RESTORED, renderedSignature: '<b>antiga</b>', at: now } })]]);
+    const index = new Map([
+      ['d', entry({ received: true, lastWrite: { status: ApplicationStatusEnum.RESTORED, renderedSignature: '<b>antiga</b>', at: now } })],
+    ]);
     expect(AutoApplyPlanner.plan([person('d', '2020-01-01T00:00:00Z')], index, on, now).changes).toEqual([]);
   });
 });

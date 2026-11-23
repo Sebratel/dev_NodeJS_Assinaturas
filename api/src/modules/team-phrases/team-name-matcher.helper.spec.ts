@@ -3,11 +3,27 @@ import { DirectoryTeam, TeamNameMatcherHelper } from './team-name-matcher.helper
 
 // Times como estão no AD (derivados de "Grupo <Área> - <Time>") em 23/11/2026.
 const AD: DirectoryTeam[] = [
-  ['Técnica', 'Manut Fttx'], ['Técnica', 'Instalação Fttx'], ['Técnica', 'Suporte Técnico'], ['Administrativo', 'Dp'],
-  ['Marketing', 'Mkt'], ['Comercial', 'Pdv'], ['Técnica', 'Cgr - Centro De Gerencia De Redes'], ['Técnica', 'Cor - Centro De Oper De Rede'],
-  ['Técnica', 'Infra Implan - Backbone'], ['Técnica', 'Infra Manut - Geral'], ['Técnica', 'Infra Manut - Corp Cond'], ['TI', 'Desenvolvimento'],
-  ['Ti-Help Desk', 'Ti'], ['Ti-Infraestrutura', 'Ti'], ['Técnica', 'Infraestrutura'], ['Técnica', 'Auditoria'], ['Comercial', 'Auditoria'],
-  ['Técnica', 'Treinamento E Desenv Técnico'], ['Desenv Humano', 'Dho'], ['Comercial', 'Corporativo'], ['Técnica', 'Operacional'],
+  ['Técnica', 'Manut Fttx'],
+  ['Técnica', 'Instalação Fttx'],
+  ['Técnica', 'Suporte Técnico'],
+  ['Administrativo', 'Dp'],
+  ['Marketing', 'Mkt'],
+  ['Comercial', 'Pdv'],
+  ['Técnica', 'Cgr - Centro De Gerencia De Redes'],
+  ['Técnica', 'Cor - Centro De Oper De Rede'],
+  ['Técnica', 'Infra Implan - Backbone'],
+  ['Técnica', 'Infra Manut - Geral'],
+  ['Técnica', 'Infra Manut - Corp Cond'],
+  ['TI', 'Desenvolvimento'],
+  ['Ti-Help Desk', 'Ti'],
+  ['Ti-Infraestrutura', 'Ti'],
+  ['Técnica', 'Infraestrutura'],
+  ['Técnica', 'Auditoria'],
+  ['Comercial', 'Auditoria'],
+  ['Técnica', 'Treinamento E Desenv Técnico'],
+  ['Desenv Humano', 'Dho'],
+  ['Comercial', 'Corporativo'],
+  ['Técnica', 'Operacional'],
 ].map(([area, team]) => ({ area, team, count: 3 }));
 
 const best = (name: string) => TeamNameMatcherHelper.match(name, AD);

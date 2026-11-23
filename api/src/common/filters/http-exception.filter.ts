@@ -43,7 +43,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    this.logger.error(exception instanceof Error ? exception.stack ?? exception.message : String(exception));
+    this.logger.error(exception instanceof Error ? (exception.stack ?? exception.message) : String(exception));
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente de novo; se continuar, avise a TI.', details: [] },

@@ -75,7 +75,8 @@ export class SignatureApplicationsService {
     }
     ids = [...new Set(ids)];
     if (!ids.length) throw new BusinessException('APPLICATION_EMPTY', 'Nenhum colaborador selecionado.', HttpStatus.BAD_REQUEST);
-    if (ids.length > 2000) throw new BusinessException('APPLICATION_TOO_LARGE', 'Máximo de 2000 colaboradores por lote.', HttpStatus.BAD_REQUEST);
+    if (ids.length > 2000)
+      throw new BusinessException('APPLICATION_TOO_LARGE', 'Máximo de 2000 colaboradores por lote.', HttpStatus.BAD_REQUEST);
 
     const scope = await this.settingsService.findOne(SettingKeyEnum.APPLY_SCOPE);
     const batch: ApplicationBatch = {
@@ -99,7 +100,8 @@ export class SignatureApplicationsService {
 
   getBatch(id: string): ApplicationBatch {
     const batch = this.batches.get(id);
-    if (!batch) throw new BusinessException('APPLICATION_BATCH_NOT_FOUND', 'Lote não encontrado (a API pode ter reiniciado).', HttpStatus.NOT_FOUND);
+    if (!batch)
+      throw new BusinessException('APPLICATION_BATCH_NOT_FOUND', 'Lote não encontrado (a API pode ter reiniciado).', HttpStatus.NOT_FOUND);
     return batch;
   }
 
@@ -139,7 +141,8 @@ export class SignatureApplicationsService {
     for (const row of rows) {
       const entry = index.get(row.collaboratorId) ?? { lastWrite: null, received: false, lastFailureAt: null };
       const isWrite = row.status === ApplicationStatusEnum.APPLIED || row.status === ApplicationStatusEnum.RESTORED;
-      if (isWrite && !entry.lastWrite) entry.lastWrite = { status: row.status, renderedSignature: row.renderedSignature, at: row.createdAt };
+      if (isWrite && !entry.lastWrite)
+        entry.lastWrite = { status: row.status, renderedSignature: row.renderedSignature, at: row.createdAt };
       if (row.status === ApplicationStatusEnum.APPLIED || row.status === ApplicationStatusEnum.UNCHANGED) entry.received = true;
       if (row.status === ApplicationStatusEnum.FAILED && !entry.lastFailureAt) entry.lastFailureAt = row.createdAt;
       index.set(row.collaboratorId, entry);
@@ -153,7 +156,11 @@ export class SignatureApplicationsService {
     const application = await this.applicationRepository.findOneBy({ id: applicationId });
     if (!application) throw new BusinessException('APPLICATION_NOT_FOUND', 'Gravação não encontrada.', HttpStatus.NOT_FOUND);
     if (application.status !== ApplicationStatusEnum.APPLIED || application.previousSignature === null) {
-      throw new BusinessException('APPLICATION_NOT_RESTORABLE', 'Só dá para desfazer uma gravação feita, com cópia da anterior.', HttpStatus.CONFLICT);
+      throw new BusinessException(
+        'APPLICATION_NOT_RESTORABLE',
+        'Só dá para desfazer uma gravação feita, com cópia da anterior.',
+        HttpStatus.CONFLICT,
+      );
     }
     // Desfazer uma gravação antiga apagaria as mais novas: só a última escrita no Gmail pode voltar.
     const lastWrite = await this.applicationRepository.findOne({
@@ -188,7 +195,11 @@ export class SignatureApplicationsService {
   private async assertGoogleReady(): Promise<void> {
     const delegation = await this.credentials.checkDelegation();
     if (delegation.status !== 'AUTHORIZED') {
-      throw new BusinessException('GOOGLE_NOT_AUTHORIZED', `Google não autorizado: ${delegation.error ?? delegation.status}.`, HttpStatus.CONFLICT);
+      throw new BusinessException(
+        'GOOGLE_NOT_AUTHORIZED',
+        `Google não autorizado: ${delegation.error ?? delegation.status}.`,
+        HttpStatus.CONFLICT,
+      );
     }
   }
 
@@ -218,10 +229,16 @@ export class SignatureApplicationsService {
         templateId: signature.template.id,
       });
 
-      const allowed = evaluation.status === SignatureStatusEnum.READY || (evaluation.status === SignatureStatusEnum.PENDING && batch.includePending);
+      const allowed =
+        evaluation.status === SignatureStatusEnum.READY || (evaluation.status === SignatureStatusEnum.PENDING && batch.includePending);
       if (!allowed) return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, `Assinatura ${STATUS_TEXT[evaluation.status]}.`);
       if (signature.htmlLength > GMAIL_SIGNATURE_MAX_LENGTH) {
-        return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, `Passa do limite do Gmail (${signature.htmlLength} caracteres).`);
+        return await this.record(
+          batch,
+          base,
+          ApplicationStatusEnum.SKIPPED,
+          `Passa do limite do Gmail (${signature.htmlLength} caracteres).`,
+        );
       }
       if (batch.scopeMode === 'LIST' && !this.batchAllowlists.get(batch.id)?.has(collaborator.email.toLowerCase())) {
         return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, 'Fora da lista de teste (Configurações › Google).');
@@ -238,16 +255,32 @@ export class SignatureApplicationsService {
       }
 
       const returned = await this.gmail.updateSignature(collaborator.email, primary.sendAsEmail, signature.html);
-      await this.record(batch, { ...base, previousSignature: primary.signature, renderedSignature: signature.html, gmailSignature: returned }, ApplicationStatusEnum.APPLIED, '');
+      await this.record(
+        batch,
+        { ...base, previousSignature: primary.signature, renderedSignature: signature.html, gmailSignature: returned },
+        ApplicationStatusEnum.APPLIED,
+        '',
+      );
     } catch (error) {
       await this.record(batch, base, ApplicationStatusEnum.FAILED, GoogleCredentialsService.errorMessage(error).slice(0, 480));
     }
   }
 
-  private async record(batch: ApplicationBatch, data: Partial<SignatureApplicationEntity>, status: ApplicationStatusEnum, reason: string): Promise<void> {
+  private async record(
+    batch: ApplicationBatch,
+    data: Partial<SignatureApplicationEntity>,
+    status: ApplicationStatusEnum,
+    reason: string,
+  ): Promise<void> {
     await this.applicationRepository.save(this.applicationRepository.create({ ...data, status, reason, trigger: batch.trigger }));
     batch.processed++;
     batch.counts[status]++;
-    batch.items.push({ collaboratorId: data.collaboratorId ?? '', name: data.collaboratorName ?? '', email: data.email ?? '', status, reason });
+    batch.items.push({
+      collaboratorId: data.collaboratorId ?? '',
+      name: data.collaboratorName ?? '',
+      email: data.email ?? '',
+      status,
+      reason,
+    });
   }
 }

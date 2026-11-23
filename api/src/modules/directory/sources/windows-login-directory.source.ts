@@ -26,10 +26,14 @@ export class WindowsLoginDirectorySource implements DirectorySource {
     const folder = await mkdtemp(join(tmpdir(), 'assinaturas-ad-'));
     const out = join(folder, 'ad.json');
     try {
-      await run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', this.scriptPath, '-Server', this.server, '-Out', out], {
-        timeout: 120_000,
-        windowsHide: true,
-      });
+      await run(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', this.scriptPath, '-Server', this.server, '-Out', out],
+        {
+          timeout: 120_000,
+          windowsHide: true,
+        },
+      );
       return await new SnapshotDirectorySource(out).fetchEntries();
     } finally {
       await rm(folder, { recursive: true, force: true });

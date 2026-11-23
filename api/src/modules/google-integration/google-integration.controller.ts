@@ -26,7 +26,10 @@ export class GoogleIntegrationController {
   }
 
   private async buildStatus(force: boolean) {
-    const [delegation, applyScope] = await Promise.all([this.credentials.checkDelegation(force), this.settingsService.findOne(SettingKeyEnum.APPLY_SCOPE)]);
+    const [delegation, applyScope] = await Promise.all([
+      this.credentials.checkDelegation(force),
+      this.settingsService.findOne(SettingKeyEnum.APPLY_SCOPE),
+    ]);
     return {
       status: delegation.status,
       error: delegation.error,

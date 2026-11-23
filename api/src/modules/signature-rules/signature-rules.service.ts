@@ -65,7 +65,9 @@ export class SignatureRulesService implements OnModuleInit {
       }
     });
     const o = dto.outputs;
-    const definesSomething = [o.phone0800Mode, o.phone0800, o.contact, o.sectorLabel, o.phraseMode, o.templateId].some((v) => v !== undefined && v !== null && v !== '');
+    const definesSomething = [o.phone0800Mode, o.phone0800, o.contact, o.sectorLabel, o.phraseMode, o.templateId].some(
+      (v) => v !== undefined && v !== null && v !== '',
+    );
     if (!definesSomething) problems.push({ field: 'outputs', message: 'a regra precisa definir pelo menos uma parte da assinatura.' });
     if (o.phone0800Mode === Phone0800ModeEnum.FIXED && !o.phone0800?.trim()) {
       problems.push({ field: 'outputs.phone0800', message: '0800 fixo precisa do número.' });

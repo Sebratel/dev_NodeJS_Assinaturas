@@ -30,7 +30,8 @@ export class AutoApplyPlanner {
     const plan: AutoApplyPlan = { newcomers: [], changes: [], waitingData: [], retryLater: 0 };
     if (!settings.enabled) return plan;
     const cutoff = settings.enabledAt ? new Date(settings.enabledAt).getTime() : Number.POSITIVE_INFINITY;
-    const allowed = (s: SignatureStatusEnum) => s === SignatureStatusEnum.READY || (s === SignatureStatusEnum.PENDING && settings.includePending);
+    const allowed = (s: SignatureStatusEnum) =>
+      s === SignatureStatusEnum.READY || (s === SignatureStatusEnum.PENDING && settings.includePending);
 
     for (const person of people) {
       const entry = index.get(person.id);
@@ -47,7 +48,8 @@ export class AutoApplyPlanner {
 
       // Quem desfez (última escrita = RESTORED) não é regravado sozinho.
       const lastWrite = entry?.lastWrite;
-      const changed = settings.changes && lastWrite?.status === ApplicationStatusEnum.APPLIED && lastWrite.renderedSignature !== person.html;
+      const changed =
+        settings.changes && lastWrite?.status === ApplicationStatusEnum.APPLIED && lastWrite.renderedSignature !== person.html;
       if (changed && allowed(person.status)) {
         if (failedRecently) plan.retryLater++;
         else plan.changes.push(person.id);

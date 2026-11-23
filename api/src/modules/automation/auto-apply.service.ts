@@ -88,7 +88,15 @@ export class AutoApplyService implements OnModuleInit {
 
   private async execute(origin: AutoApplyRun['origin']): Promise<AutoApplyRun | null> {
     this.running = true;
-    const base = { at: new Date().toISOString(), origin, newcomers: 0, changes: 0, waitingData: 0, retryLater: 0, batchIds: [] as string[] };
+    const base = {
+      at: new Date().toISOString(),
+      origin,
+      newcomers: 0,
+      changes: 0,
+      waitingData: 0,
+      retryLater: 0,
+      batchIds: [] as string[],
+    };
     try {
       const settings = await this.settingsService.findOne(SettingKeyEnum.AUTO_APPLY);
       if (!settings.enabled) {
@@ -98,14 +106,29 @@ export class AutoApplyService implements OnModuleInit {
       }
       const delegation = await this.credentials.checkDelegation();
       if (delegation.status !== 'AUTHORIZED') {
-        return (this.lastRun = { ...base, outcome: 'GOOGLE_NOT_READY', message: `Google não autorizado: ${delegation.error ?? delegation.status}` });
+        return (this.lastRun = {
+          ...base,
+          outcome: 'GOOGLE_NOT_READY',
+          message: `Google não autorizado: ${delegation.error ?? delegation.status}`,
+        });
       }
 
       const [renders, index] = await Promise.all([this.signaturesService.renderAll(), this.applicationsService.writeIndex()]);
-      const people = renders.map((r) => ({ id: r.collaborator.id, name: r.collaborator.name, createdAt: r.collaborator.createdAt, status: r.status, html: r.html }));
+      const people = renders.map((r) => ({
+        id: r.collaborator.id,
+        name: r.collaborator.name,
+        createdAt: r.collaborator.createdAt,
+        status: r.status,
+        html: r.html,
+      }));
       const plan = AutoApplyPlanner.plan(people, index, settings, new Date());
       this.waitingData = plan.waitingData;
-      const counts = { newcomers: plan.newcomers.length, changes: plan.changes.length, waitingData: plan.waitingData.length, retryLater: plan.retryLater };
+      const counts = {
+        newcomers: plan.newcomers.length,
+        changes: plan.changes.length,
+        waitingData: plan.waitingData.length,
+        retryLater: plan.retryLater,
+      };
       const total = plan.newcomers.length + plan.changes.length;
 
       if (!total) {
@@ -162,7 +185,11 @@ export class AutoApplyService implements OnModuleInit {
       running: this.running,
       lastRun: this.lastRun,
       pendingApproval: this.pendingApproval
-        ? { detectedAt: this.pendingApproval.detectedAt, newcomers: this.pendingApproval.newcomers.length, changes: this.pendingApproval.changes.length }
+        ? {
+            detectedAt: this.pendingApproval.detectedAt,
+            newcomers: this.pendingApproval.newcomers.length,
+            changes: this.pendingApproval.changes.length,
+          }
         : null,
       waitingData: this.waitingData.slice(0, 50),
     };
@@ -170,8 +197,10 @@ export class AutoApplyService implements OnModuleInit {
 
   private async startBatches(newcomers: string[], changes: string[], includePending: boolean): Promise<string[]> {
     const ids: string[] = [];
-    if (newcomers.length) ids.push((await this.applicationsService.startBatch({ collaboratorIds: newcomers, includePending }, 'AUTO_NEW')).id);
-    if (changes.length) ids.push((await this.applicationsService.startBatch({ collaboratorIds: changes, includePending }, 'AUTO_CHANGE')).id);
+    if (newcomers.length)
+      ids.push((await this.applicationsService.startBatch({ collaboratorIds: newcomers, includePending }, 'AUTO_NEW')).id);
+    if (changes.length)
+      ids.push((await this.applicationsService.startBatch({ collaboratorIds: changes, includePending }, 'AUTO_CHANGE')).id);
     return ids;
   }
 }

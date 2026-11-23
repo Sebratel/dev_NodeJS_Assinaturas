@@ -99,7 +99,9 @@ export class DirectoryService {
     };
     const overrides = new Map((await this.overrideRepository.find()).map((o) => [o.collaboratorId, o.informedMobile]));
     const collaborators = this.entries
-      .map((raw) => CollaboratorMapper.toCollaborator(raw, settings, overrides.get(String(raw.objectGUID ?? raw.sAMAccountName ?? '')) ?? ''))
+      .map((raw) =>
+        CollaboratorMapper.toCollaborator(raw, settings, overrides.get(String(raw.objectGUID ?? raw.sAMAccountName ?? '')) ?? ''),
+      )
       .filter((c): c is Collaborator => c !== null)
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 

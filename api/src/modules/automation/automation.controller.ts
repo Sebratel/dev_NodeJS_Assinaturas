@@ -29,7 +29,8 @@ export class AutomationController {
       this.directoryService.getStatus(),
     ]);
     const minutes = Number(this.configService.get('DIRECTORY_SYNC_INTERVAL_MINUTES') ?? 10);
-    const nextCheckAt = directory.lastSyncAt && minutes > 0 ? new Date(new Date(directory.lastSyncAt).getTime() + minutes * 60_000).toISOString() : null;
+    const nextCheckAt =
+      directory.lastSyncAt && minutes > 0 ? new Date(new Date(directory.lastSyncAt).getTime() + minutes * 60_000).toISOString() : null;
     return ApiResponseHelper.ok({
       settings,
       ...this.autoApplyService.getState(),

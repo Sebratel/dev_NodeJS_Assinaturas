@@ -79,7 +79,9 @@ export class TeamNameMatcherHelper {
     const best = scored[0] ?? null;
     const confidence: MatchConfidence = !best ? 'NONE' : best.score >= 0.999 ? 'EXACT' : best.score >= 0.6 ? 'PROBABLE' : 'NONE';
     const sameNameElsewhere = best
-      ? scored.filter((t) => t !== best && t.score >= best.score - 0.001 && TextHelper.normalize(t.team) === TextHelper.normalize(best.team))
+      ? scored.filter(
+          (t) => t !== best && t.score >= best.score - 0.001 && TextHelper.normalize(t.team) === TextHelper.normalize(best.team),
+        )
       : [];
     return {
       confidence,

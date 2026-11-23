@@ -18,9 +18,25 @@ const phrases = { defaultPhrase: 'Fico à disposição.', byTeam: [{ team: 'Supo
 
 function person(overrides: Partial<Collaborator>): Collaborator {
   return {
-    id: 'p1', login: 'p1', name: 'Fulano', email: 'fulano@sebratel.com.br', title: 'Analista', department: '',
-    area: 'Técnica', team: 'Operacional', level: CollaboratorLevelEnum.MEMBER, company: 'Sebratel', segment: '',
-    corporateMobile: '', extension: '', informedMobile: '', phone0800: '0800 655 1000', state: 'RS', office: '', createdAt: null, changedAt: null,
+    id: 'p1',
+    login: 'p1',
+    name: 'Fulano',
+    email: 'fulano@sebratel.com.br',
+    title: 'Analista',
+    department: '',
+    area: 'Técnica',
+    team: 'Operacional',
+    level: CollaboratorLevelEnum.MEMBER,
+    company: 'Sebratel',
+    segment: '',
+    corporateMobile: '',
+    extension: '',
+    informedMobile: '',
+    phone0800: '0800 655 1000',
+    state: 'RS',
+    office: '',
+    createdAt: null,
+    changedAt: null,
     ...overrides,
   };
 }
@@ -78,7 +94,11 @@ describe('SignatureEngineService', () => {
     expect(gerente.decisions.sectorLabel?.value).toBe(SectorLabelEnum.AREA);
     expect(gerente.content.contactText).toBe('(51) 99999-0000');
 
-    const aux = engine.evaluate(person({ level: CollaboratorLevelEnum.AUXILIARY, team: 'Suporte Técnico', corporateMobile: '51988887777' }), rules, phrases);
+    const aux = engine.evaluate(
+      person({ level: CollaboratorLevelEnum.AUXILIARY, team: 'Suporte Técnico', corporateMobile: '51988887777' }),
+      rules,
+      phrases,
+    );
     expect(aux.decisions.contact?.value).toBe(ContactTypeEnum.CORPORATE_MOBILE);
     expect(aux.content.contactText).toBe('(51) 98888-7777');
   });
@@ -90,18 +110,30 @@ describe('SignatureEngineService', () => {
   });
 
   it('aponta conflito quando duas regras de mesma prioridade decidem diferente a mesma parte', () => {
-    const result = engine.evaluate(person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }), rules, phrases);
+    const result = engine.evaluate(
+      person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }),
+      rules,
+      phrases,
+    );
     expect(result.status).toBe(SignatureStatusEnum.CONFLICT);
     expect(result.conflicts.map((c) => c.slot).sort()).toEqual(['contact', 'sectorLabel']);
   });
 
   it('conflito some quando uma regra de prioridade maior decide a parte', () => {
     const tieBreaker: SignatureRule = {
-      id: 'tb', name: 'DHO: desempate', description: '', priority: 25, active: true,
+      id: 'tb',
+      name: 'DHO: desempate',
+      description: '',
+      priority: 25,
+      active: true,
       conditions: [{ field: 'team', operator: RuleOperatorEnum.IN, values: ['Dho'] }],
       outputs: { contact: ContactTypeEnum.INFORMED_MOBILE, sectorLabel: SectorLabelEnum.AREA },
     };
-    const result = engine.evaluate(person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }), [...rules, tieBreaker], phrases);
+    const result = engine.evaluate(
+      person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }),
+      [...rules, tieBreaker],
+      phrases,
+    );
     expect(result.status).toBe(SignatureStatusEnum.READY);
     expect(result.conflicts).toEqual([]);
   });
@@ -113,14 +145,22 @@ describe('SignatureEngineService', () => {
 
   describe('perfis de frase', () => {
     const direcaoTecnica: PhraseProfile = {
-      id: 'pf1', name: 'Direção da Técnica', priority: 10, active: true, phrase: 'A rede inteira a gente garante.',
+      id: 'pf1',
+      name: 'Direção da Técnica',
+      priority: 10,
+      active: true,
+      phrase: 'A rede inteira a gente garante.',
       conditions: [
         { field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] },
         { field: 'area', operator: RuleOperatorEnum.IN, values: ['Técnica'] },
       ],
     };
     const todaTecnica: PhraseProfile = {
-      id: 'pf2', name: 'Toda a Técnica', priority: 5, active: true, phrase: 'A técnica a gente garante.',
+      id: 'pf2',
+      name: 'Toda a Técnica',
+      priority: 5,
+      active: true,
+      phrase: 'A técnica a gente garante.',
       conditions: [{ field: 'area', operator: RuleOperatorEnum.IN, values: ['Técnica'] }],
     };
     const profiles = [todaTecnica, direcaoTecnica];
@@ -145,10 +185,16 @@ describe('SignatureEngineService', () => {
 
     it('perfil inativo não vale; regra com frase fixa passa por cima do perfil', () => {
       const inactive = [{ ...direcaoTecnica, active: false }];
-      expect(engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), rules, phrases, inactive).phraseOrigin.kind).toBe('DEFAULT');
+      expect(engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), rules, phrases, inactive).phraseOrigin.kind).toBe(
+        'DEFAULT',
+      );
 
       const fixed: SignatureRule = {
-        id: 'fx', name: 'Frase fixa da diretoria', description: '', priority: 50, active: true,
+        id: 'fx',
+        name: 'Frase fixa da diretoria',
+        description: '',
+        priority: 50,
+        active: true,
         conditions: [{ field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] }],
         outputs: { phraseMode: PhraseModeEnum.FIXED, phraseText: 'Fixa.' },
       };

@@ -104,8 +104,10 @@ export class SettingsService implements OnModuleInit {
         const levels = Object.values(CollaboratorLevelEnum);
         if (!Array.isArray(value)) return [{ message: 'esperada uma lista de níveis.' }];
         value.forEach((item: { level?: unknown; words?: unknown }, i) => {
-          if (!levels.includes(item?.level as CollaboratorLevelEnum)) problems.push({ field: `[${i}].level`, message: 'nível desconhecido.' });
-          if (!Array.isArray(item?.words) || !item.words.every(isText)) problems.push({ field: `[${i}].words`, message: 'lista de palavras inválida.' });
+          if (!levels.includes(item?.level as CollaboratorLevelEnum))
+            problems.push({ field: `[${i}].level`, message: 'nível desconhecido.' });
+          if (!Array.isArray(item?.words) || !item.words.every(isText))
+            problems.push({ field: `[${i}].words`, message: 'lista de palavras inválida.' });
         });
         break;
       }
@@ -127,8 +129,10 @@ export class SettingsService implements OnModuleInit {
         if (!Array.isArray(phrases?.byTeam)) return [...problems, { field: 'byTeam', message: 'esperada uma lista.' }];
         phrases.byTeam.forEach((item: { team?: unknown; phrase?: unknown; area?: unknown }, i: number) => {
           if (!isText(item?.team) || !item.team.trim()) problems.push({ field: `byTeam[${i}].team`, message: 'time obrigatório.' });
-          if (item?.area !== undefined && item.area !== null && !isText(item.area)) problems.push({ field: `byTeam[${i}].area`, message: 'área inválida.' });
-          if (!isText(item?.phrase) || item.phrase.length > 140) problems.push({ field: `byTeam[${i}].phrase`, message: 'até 140 caracteres.' });
+          if (item?.area !== undefined && item.area !== null && !isText(item.area))
+            problems.push({ field: `byTeam[${i}].area`, message: 'área inválida.' });
+          if (!isText(item?.phrase) || item.phrase.length > 140)
+            problems.push({ field: `byTeam[${i}].phrase`, message: 'até 140 caracteres.' });
         });
         break;
       }
@@ -158,7 +162,8 @@ export class SettingsService implements OnModuleInit {
           problems.push({ field: 'emails', message: 'esperada uma lista de até 500 e-mails.' });
         } else {
           scope.emails.forEach((e: unknown, i: number) => {
-            if (!isText(e) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) problems.push({ field: `emails[${i}]`, message: `e-mail inválido: ${String(e)}` });
+            if (!isText(e) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+              problems.push({ field: `emails[${i}]`, message: `e-mail inválido: ${String(e)}` });
           });
         }
         break;

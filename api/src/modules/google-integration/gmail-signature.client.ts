@@ -16,8 +16,14 @@ export class GmailSignatureClient {
 
   async listSendAs(userEmail: string): Promise<SendAsAddress[]> {
     const client = this.credentials.clientFor(userEmail, GMAIL_SETTINGS_SCOPE);
-    const response = await client.request<{ sendAs?: Array<{ sendAsEmail: string; isPrimary?: boolean; signature?: string }> }>({ url: BASE });
-    return (response.data.sendAs ?? []).map((s) => ({ sendAsEmail: s.sendAsEmail, isPrimary: Boolean(s.isPrimary), signature: s.signature ?? '' }));
+    const response = await client.request<{ sendAs?: Array<{ sendAsEmail: string; isPrimary?: boolean; signature?: string }> }>({
+      url: BASE,
+    });
+    return (response.data.sendAs ?? []).map((s) => ({
+      sendAsEmail: s.sendAsEmail,
+      isPrimary: Boolean(s.isPrimary),
+      signature: s.signature ?? '',
+    }));
   }
 
   async getPrimary(userEmail: string): Promise<SendAsAddress> {
