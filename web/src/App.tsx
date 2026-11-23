@@ -1,28 +1,39 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AppShell } from './components/layout/AppShell';
-import { CollaboratorsPage } from './pages/collaborators/CollaboratorsPage';
-import { MonitoringPage } from './pages/monitoring/MonitoringPage';
-import { RulesPage } from './pages/rules/RulesPage';
-import { PhrasesPage } from './pages/phrases/PhrasesPage';
-import { SettingsPage } from './pages/settings/SettingsPage';
-import { TemplatesPage } from './pages/templates/TemplatesPage';
+import { AuthGate } from './components/layout/AuthGate';
+import { RootLayout } from './components/layout/RootLayout';
+import { LoadingState } from './components/ui/States';
+
+// Cada tela num pedaço próprio: o editor de código (Modelos) e as demais só baixam quando abertas.
+const CollaboratorsPage = lazy(() => import('./pages/collaborators/CollaboratorsPage').then((m) => ({ default: m.CollaboratorsPage })));
+const RulesPage = lazy(() => import('./pages/rules/RulesPage').then((m) => ({ default: m.RulesPage })));
+const TemplatesPage = lazy(() => import('./pages/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
+const PhrasesPage = lazy(() => import('./pages/phrases/PhrasesPage').then((m) => ({ default: m.PhrasesPage })));
+const MonitoringPage = lazy(() => import('./pages/monitoring/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+
+function Page({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LoadingState />}>{children}</Suspense>;
+}
 
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<Navigate to="/colaboradores" replace />} />
-          <Route path="/colaboradores" element={<CollaboratorsPage />} />
-          <Route path="/regras" element={<RulesPage />} />
-          <Route path="/modelos" element={<TemplatesPage />} />
-          <Route path="/frases" element={<PhrasesPage />} />
-          <Route path="/monitoramento" element={<MonitoringPage />} />
-          <Route path="/cobertura" element={<Navigate to="/monitoramento?aba=cobertura" replace />} />
-          <Route path="/configuracoes" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/colaboradores" replace />} />
-        </Route>
-      </Routes>
+      <AuthGate>
+        <Routes>
+          <Route element={<RootLayout />}>
+            <Route index element={<Navigate to="/colaboradores" replace />} />
+            <Route path="/colaboradores" element={<Page><CollaboratorsPage /></Page>} />
+            <Route path="/regras" element={<Page><RulesPage /></Page>} />
+            <Route path="/modelos" element={<Page><TemplatesPage /></Page>} />
+            <Route path="/frases" element={<Page><PhrasesPage /></Page>} />
+            <Route path="/monitoramento" element={<Page><MonitoringPage /></Page>} />
+            <Route path="/cobertura" element={<Navigate to="/monitoramento?aba=cobertura" replace />} />
+            <Route path="/configuracoes" element={<Page><SettingsPage /></Page>} />
+            <Route path="*" element={<Navigate to="/colaboradores" replace />} />
+          </Route>
+        </Routes>
+      </AuthGate>
     </BrowserRouter>
   );
 }

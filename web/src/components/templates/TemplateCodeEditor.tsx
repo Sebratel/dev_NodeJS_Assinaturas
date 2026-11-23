@@ -28,7 +28,7 @@ export const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateC
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
   return (
-    <div className="overflow-hidden rounded-md border border-outline-variant text-xs">
+    <div className="overflow-hidden rounded-xl border border-outline-variant text-xs">
       <CodeMirror
         ref={editorRef}
         value={value}

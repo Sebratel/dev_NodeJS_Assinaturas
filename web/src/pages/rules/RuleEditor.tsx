@@ -81,7 +81,7 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
     >
       <form className="grid gap-4" onSubmit={handleSubmit((data) => save.mutate(data))}>
         {apiError && (
-          <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
             {apiError.message} {apiError.details.map((d) => d.message).join(' ')}
           </p>
         )}
@@ -94,7 +94,7 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
             <Input id="rule-priority" type="number" min={0} max={1000} {...register('priority', { valueAsNumber: true })} aria-invalid={Boolean(errors.priority)} />
           </Field>
           <Field label="Ativa">
-            <div className="flex min-h-11 items-center md:min-h-9">
+            <div className="flex min-h-[44px] items-center">
               <Controller control={control} name="active" render={({ field }) => <Switch checked={field.value} onChange={field.onChange} label="Regra ativa" />} />
             </div>
           </Field>
@@ -115,10 +115,10 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
           )}
         />
 
-        <section className="grid gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
+        <section className="grid gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3">
           <div>
             <h3 className="text-sm font-semibold">Define</h3>
-            <p className="text-xs text-on-surface-variant">Deixe "não muda" no que esta regra não decide.</p>
+            <p className="text-xs text-on-surface-variant">Deixe “não muda” no que esta regra não decide.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="0800" htmlFor="out-0800-mode" error={errors.outputs?.phone0800?.message}>
@@ -187,7 +187,7 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
           {!errors.outputs?.root && errors.outputs?.message && <p className="text-xs text-rose-700 dark:text-rose-300">{errors.outputs.message}</p>}
         </section>
 
-        <section className="grid gap-2 rounded-lg border border-primary-ink/20 bg-primary-soft/40 p-3">
+        <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
           <h3 className="text-sm font-semibold">Efeito</h3>
           <RuleImpact input={formToInput(values)} ruleId={rule?.id} ready={draftReady} />
         </section>

@@ -11,9 +11,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+/** Receitas do design system (padroes-frontend §6): alvo de 44 px, transition e focus ring em todo botão. */
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-  secondary: 'border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-low',
+  primary: 'bg-primary text-neutral-900 shadow-sm hover:bg-secondary',
+  secondary:
+    'border border-neutral-200 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low dark:border-white/10',
   ghost: 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
   danger: 'border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200',
 };
@@ -23,15 +25,17 @@ export function Button({ variant = 'secondary', size = 'md', icon, loading, clas
     <button
       type="button"
       className={cn(
-        'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-        size === 'md' ? 'min-h-11 px-3 text-sm md:min-h-9' : 'min-h-9 px-2.5 text-xs md:min-h-7',
+        'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-semibold transition',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        size === 'md' ? 'min-h-[44px] px-4 py-2.5 text-sm' : 'min-h-9 px-3 py-1.5 text-xs',
         VARIANTS[variant],
         className,
       )}
       disabled={disabled || loading}
       {...rest}
     >
-      {loading ? <Spinner className="size-3.5" /> : icon}
+      {loading ? <Spinner className="size-4" /> : icon}
       {children}
     </button>
   );

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlignLeft, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { SignaturePreview } from '../../components/signature/SignaturePreview';
 import { TemplateCodeEditor, type TemplateCodeEditorHandle } from '../../components/templates/TemplateCodeEditor';
 import { Badge } from '../../components/ui/Badge';
@@ -42,11 +42,10 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
     queryKey: queryKeys.collaborators({ search: debouncedPersonSearch, page: 1, pageSize: 8 }),
     queryFn: () => collaboratorService.list({ search: debouncedPersonSearch, page: 1, pageSize: 8 }),
   });
-  const [personId, setPersonId] = useState('');
-  useEffect(() => {
-    const first = people.data?.items[0]?.id;
-    if (first && !people.data?.items.some((p) => p.id === personId)) setPersonId(first);
-  }, [people.data, personId]);
+  const [chosenPersonId, setPersonId] = useState('');
+  // Escolhida, se ainda estiver na lista; senão a primeira. Busca sem resultado mantém a escolhida.
+  const peopleItems = people.data?.items ?? [];
+  const personId = peopleItems.length === 0 || peopleItems.some((p) => p.id === chosenPersonId) ? chosenPersonId : peopleItems[0].id;
 
   const debouncedHtml = useDebouncedValue(draft.html, 400);
   const preview = useQuery({
@@ -107,7 +106,7 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
             <Input id="tpl-name" value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </Field>
           <Field label="Padrão">
-            <div className="flex min-h-11 items-center md:min-h-9">
+            <div className="flex min-h-[44px] items-center">
               <Switch
                 checked={draft.isDefault}
                 disabled={template?.isDefault}
@@ -121,7 +120,7 @@ export function TemplateEditor({ template, initial, onClose }: TemplateEditorPro
           <Input id="tpl-description" value={draft.description} maxLength={300} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="Para quem é (opcional)" />
         </Field>
 
-        <section className="grid gap-2 rounded-lg border border-primary-ink/20 bg-primary-soft/40 p-3">
+        <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h3 className="text-sm font-semibold">Prévia</h3>
             <div className="flex flex-wrap items-center gap-1.5">

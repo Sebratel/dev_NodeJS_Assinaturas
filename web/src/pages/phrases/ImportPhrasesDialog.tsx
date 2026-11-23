@@ -82,7 +82,7 @@ export function ImportPhrasesDialog({ teams, onApply, onClose }: ImportPhrasesDi
       {matches && (
         <ul className="grid gap-2">
           {matches.map((m, i) => (
-            <li key={`${m.team}-${i}`} className="grid gap-1 rounded-md border border-outline-variant p-2">
+            <li key={`${m.team}-${i}`} className="grid gap-1 rounded-xl border border-outline-variant p-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs font-semibold">{m.team}</span>
                 <Badge tone={CONFIDENCE[m.confidence].tone}>{CONFIDENCE[m.confidence].label}</Badge>
@@ -110,7 +110,7 @@ export function ImportPhrasesDialog({ teams, onApply, onClose }: ImportPhrasesDi
               </Select>
               {m.sameNameElsewhere.length > 0 && (
                 <p className="text-[11px] text-amber-800 dark:text-amber-200">
-                  Também existe "{m.best?.team}" em {m.sameNameElsewhere.map((t) => t.area).join(', ')}: ajuste lá na tabela se valer a mesma frase.
+                  Também existe “{m.best?.team}” em {m.sameNameElsewhere.map((t) => t.area).join(', ')}: ajuste lá na tabela se valer a mesma frase.
                 </p>
               )}
             </li>

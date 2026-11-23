@@ -22,7 +22,7 @@ export function InformedMobileForm({ collaboratorId, current }: { collaboratorId
 
   return (
     <form
-      className="flex flex-wrap items-end gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3"
+      className="flex flex-wrap items-end gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3"
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(mobile);

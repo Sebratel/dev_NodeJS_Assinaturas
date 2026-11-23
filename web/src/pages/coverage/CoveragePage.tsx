@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Badge, STATUS_TONES } from '../../components/ui/Badge';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
@@ -11,7 +11,7 @@ import { reportService } from '../../services/report.service';
 import type { ContactType, SignatureStatus } from '../../types/api';
 import { cn } from '../../utils/cn';
 import { formatNumber, formatPercent } from '../../utils/format';
-import { CONTACT_LABELS, ISSUE_LABELS, LEVEL_LABELS, SLOT_LABELS, STATUS_LABELS } from '../../utils/labels';
+import { CONTACT_LABELS, ISSUE_LABELS, LEVEL_LABELS, SLOT_LABELS, STATUS_LABELS, STATUS_TONES } from '../../utils/labels';
 import type { RuleDraftState } from '../rules/RulesPage';
 
 const KPI_ACCENT: Record<SignatureStatus, string> = {
@@ -37,7 +37,7 @@ export function CoveragePage() {
   return (
     <div className="grid gap-3">
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2.5">
+        <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 py-2.5">
           <p className="text-xs text-on-surface-variant">Colaboradores</p>
           <p className="text-2xl font-semibold tabular-nums">{formatNumber(total)}</p>
           <p className="text-[11px] text-on-surface-variant">{formatNumber(report.onlyGeneralRules)} só com a regra geral</p>
@@ -46,7 +46,7 @@ export function CoveragePage() {
           <Link
             key={status}
             to={`/colaboradores?status=${status}`}
-            className={cn('rounded-lg border border-l-[3px] border-outline-variant bg-surface-container-lowest px-3 py-2.5 hover:bg-surface-container-low', KPI_ACCENT[status])}
+            className={cn('rounded-2xl border border-l-[3px] border-outline-variant bg-surface-container-lowest px-3 py-2.5 hover:bg-surface-container-low', KPI_ACCENT[status])}
           >
             <p className="text-xs text-on-surface-variant">{STATUS_LABELS[status]}</p>
             <p className="text-2xl font-semibold tabular-nums">{formatNumber(report.byStatus[status])}</p>
@@ -126,7 +126,7 @@ export function CoveragePage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
-              <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+              <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                 <th className="px-3 py-2 font-semibold">Time</th>
                 <th className="px-3 py-2 font-semibold">Área</th>
                 <th className="px-3 py-2 font-semibold">Nível</th>

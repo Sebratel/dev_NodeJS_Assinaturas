@@ -10,23 +10,25 @@ interface CardProps {
   children: ReactNode;
 }
 
-/** Cabeçalho claro com filete vinho ao lado do título; vinho é acento, não fundo. */
+/** Card padrão do design system (§4/§5): rounded-2xl, borda fina, sombra suave. */
 export function Card({ title, subtitle, actions, className, bodyClassName, children }: CardProps) {
   return (
-    <section className={cn('min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest', className)}>
+    <section
+      className={cn(
+        'min-w-0 overflow-hidden rounded-2xl border border-neutral-200/90 bg-surface-container-lowest shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/10',
+        className,
+      )}
+    >
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant px-3.5 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="h-4 w-[3px] shrink-0 rounded-full bg-primary-ink" aria-hidden />
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold">{title}</h2>
-              {subtitle && <p className="truncate text-xs text-on-surface-variant">{subtitle}</p>}
-            </div>
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-3.5 sm:px-5">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold tracking-tight">{title}</h2>
+            {subtitle && <p className="truncate text-xs text-on-surface-variant/80">{subtitle}</p>}
           </div>
-          {actions && <div className="flex items-center gap-1.5">{actions}</div>}
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={cn('p-3.5', bodyClassName)}>{children}</div>
+      <div className={cn('p-4 sm:p-5', bodyClassName)}>{children}</div>
     </section>
   );
 }

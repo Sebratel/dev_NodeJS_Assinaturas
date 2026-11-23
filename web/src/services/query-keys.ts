@@ -14,6 +14,7 @@ export const queryKeys = {
   applications: (collaboratorId: string) => ['signature-applications', collaboratorId] as const,
   phraseProfiles: ['phrase-profiles'] as const,
   automation: ['automation'] as const,
+  me: ['me'] as const,
 };
 
 /** Tudo que depende de regra/configuração/diretório e precisa recalcular depois de uma gravação. */

@@ -52,7 +52,7 @@ export function DecisionList({ evaluation, templateName }: { evaluation: Signatu
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+        <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
           <th className="px-2.5 py-1.5 font-semibold">Parte</th>
           <th className="px-2.5 py-1.5 font-semibold">Ficou</th>
           <th className="px-2.5 py-1.5 font-semibold">Decidido por</th>

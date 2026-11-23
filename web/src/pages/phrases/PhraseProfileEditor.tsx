@@ -101,7 +101,7 @@ export function PhraseProfileEditor({ profile, onClose }: { profile: PhraseProfi
             />
           </Field>
           <Field label="Ativo">
-            <div className="flex min-h-11 items-center md:min-h-9">
+            <div className="flex min-h-[44px] items-center">
               <Switch checked={draft.active} onChange={(active) => setDraft({ ...draft, active })} label="Perfil ativo" />
             </div>
           </Field>
@@ -113,7 +113,7 @@ export function PhraseProfileEditor({ profile, onClose }: { profile: PhraseProfi
           <Input id="pf-phrase" value={draft.phrase} onChange={(e) => setDraft({ ...draft, phrase: e.target.value })} placeholder="Ex.: A rede inteira a gente garante." />
         </Field>
 
-        <section className="grid gap-2 rounded-lg border border-primary-ink/20 bg-primary-soft/40 p-3">
+        <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
           <h3 className="text-sm font-semibold">Efeito</h3>
           {!ready && <p className="text-xs text-on-surface-variant">Preencha as condições e a frase para ver quem o perfil pega.</p>}
           {ready && !impact.data && (

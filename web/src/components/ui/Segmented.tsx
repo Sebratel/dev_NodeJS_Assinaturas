@@ -7,10 +7,10 @@ interface SegmentedProps<T extends string> {
   ariaLabel: string;
 }
 
-/** Controle segmentado: trilho neutro, opção escolhida em relevo branco com letra vinho. */
+/** Controle segmentado em pílulas: a opção escolhida com o tom da marca (§8). */
 export function Segmented<T extends string>({ value, options, onChange, ariaLabel }: SegmentedProps<T>) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="inline-flex flex-wrap gap-0.5 rounded-lg bg-surface-container-low p-0.5">
+    <div role="radiogroup" aria-label={ariaLabel} className="inline-flex flex-wrap gap-1 rounded-full bg-surface-container-low p-1">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -21,8 +21,8 @@ export function Segmented<T extends string>({ value, options, onChange, ariaLabe
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'min-h-9 rounded-md px-2.5 text-xs font-medium transition-colors md:min-h-7',
-              selected ? 'bg-surface-container-lowest text-primary-ink shadow-sm dark:bg-white/10' : 'text-on-surface-variant hover:text-on-surface',
+              'min-h-9 rounded-full px-3.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              selected ? 'bg-primary text-neutral-900 shadow-sm' : 'text-on-surface-variant hover:text-on-surface',
             )}
           >
             {option.label}

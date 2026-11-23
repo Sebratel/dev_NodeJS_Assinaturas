@@ -1,3 +1,4 @@
+import type { BadgeTone } from '../components/ui/Badge';
 import type {
   ContactType,
   IssueCode,
@@ -26,6 +27,13 @@ export const STATUS_LABELS: Record<SignatureStatus, string> = {
   PENDING: 'Pendente',
   CONFLICT: 'Conflito',
   NO_RULE: 'Sem regra',
+};
+
+export const STATUS_TONES: Record<SignatureStatus, BadgeTone> = {
+  READY: 'success',
+  PENDING: 'warning',
+  CONFLICT: 'danger',
+  NO_RULE: 'neutral',
 };
 
 export const CONTACT_LABELS: Record<ContactType, string> = {

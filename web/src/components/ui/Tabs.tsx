@@ -6,10 +6,10 @@ interface TabsProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-/** Abas no topo: vinho só na aba ativa (filete embaixo). */
+/** Abas em pílula; a ativa em âmbar cheio, como o item ativo do menu (§5). */
 export function Tabs<T extends string>({ value, tabs, onChange }: TabsProps<T>) {
   return (
-    <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-outline-variant">
+    <div role="tablist" className="flex w-fit max-w-full gap-1.5 overflow-x-auto rounded-2xl bg-surface-container-low p-1.5">
       {tabs.map((tab) => {
         const active = tab.value === value;
         return (
@@ -20,8 +20,8 @@ export function Tabs<T extends string>({ value, tabs, onChange }: TabsProps<T>) 
             aria-selected={active}
             onClick={() => onChange(tab.value)}
             className={cn(
-              '-mb-px min-h-11 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors md:min-h-9',
-              active ? 'border-primary-ink text-primary-ink' : 'border-transparent text-on-surface-variant hover:text-on-surface',
+              'min-h-[44px] shrink-0 rounded-xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              active ? 'bg-primary text-neutral-900 shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-surface-container-lowest hover:text-on-surface',
             )}
           >
             {tab.label}

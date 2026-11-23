@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
-import { Badge, STATUS_TONES } from '../../components/ui/Badge';
+import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Spinner';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { signatureRuleService } from '../../services/signature-rule.service';
 import type { SignatureRuleInput, SignatureStatus } from '../../types/api';
 import { formatNumber } from '../../utils/format';
-import { LEVEL_LABELS, STATUS_LABELS } from '../../utils/labels';
+import { LEVEL_LABELS, STATUS_LABELS, STATUS_TONES } from '../../utils/labels';
 
 /** Efeito da regra que está sendo editada, recalculado enquanto se digita (nada é gravado). */
 export function RuleImpact({ input, ruleId, ready }: { input: SignatureRuleInput; ruleId?: string; ready: boolean }) {

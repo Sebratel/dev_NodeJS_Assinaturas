@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Copy, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { AppPageHeader } from '../../components/layout/AppPageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
@@ -27,23 +28,27 @@ export function TemplatesPage() {
     setEditor({ template: null, initial: { name: `${source.name} (cópia)`, description: source.description, html: source.html, isDefault: false } });
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-on-surface-variant">
-          O modelo é o layout da assinatura. As regras escolhem qual usar; sem escolha, vale o <strong className="text-on-surface">padrão</strong>.
-        </p>
-        <Button variant="primary" icon={<Plus className="size-4" />} disabled={!defaultTemplate} onClick={() => defaultTemplate && duplicate(defaultTemplate)}>
-          Novo modelo
-        </Button>
-      </div>
+    <div className="grid gap-4">
+      <AppPageHeader
+        description={
+          <>
+            O layout da assinatura. As regras escolhem qual usar; sem escolha, vale o <strong className="text-on-surface">padrão</strong>.
+          </>
+        }
+        actions={
+          <Button variant="primary" icon={<Plus className="size-4" />} disabled={!defaultTemplate} onClick={() => defaultTemplate && duplicate(defaultTemplate)}>
+            Novo modelo
+          </Button>
+        }
+      />
 
       {templates.isLoading && <LoadingState />}
       {templates.isError && <ErrorState error={templates.error} onRetry={() => templates.refetch()} />}
       {templates.data && (
-        <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+        <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+              <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                 <th className="px-3 py-2 font-semibold">Modelo</th>
                 <th className="px-3 py-2 font-semibold">Uso</th>
                 <th className="px-3 py-2 font-semibold">Alterado</th>

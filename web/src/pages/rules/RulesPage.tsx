@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AppPageHeader } from '../../components/layout/AppPageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
@@ -30,19 +31,22 @@ export function RulesPage() {
   const rules = useQuery({ queryKey: queryKeys.rules, queryFn: signatureRuleService.list });
   const coverage = useQuery({ queryKey: queryKeys.coverage, queryFn: reportService.coverage });
   const templates = useQuery({ queryKey: queryKeys.templates, queryFn: signatureTemplateService.list });
-  const [editor, setEditor] = useState<EditorState>(null);
-
-  useEffect(() => {
+  // Vindo da Cobertura com "criar regra para este grupo": o editor já abre preenchido.
+  const [editor, setEditor] = useState<EditorState>(() => {
     const draftFor = (location.state as RuleDraftState | null)?.draftFor;
-    if (!draftFor) return;
+    if (!draftFor) return null;
     const initial = emptyRuleForm(20);
     initial.name = `${draftFor.team || draftFor.area}`;
     initial.conditions = [
       { field: 'team', operator: 'IN', values: [draftFor.team] },
       { field: 'level', operator: 'IN', values: [draftFor.level] },
     ];
-    setEditor({ rule: null, initial });
-    navigate(location.pathname, { replace: true, state: null });
+    return { rule: null, initial };
+  });
+
+  // Limpa o pedido do histórico, para o editor não reabrir ao voltar/recarregar.
+  useEffect(() => {
+    if (location.state) navigate(location.pathname, { replace: true, state: null });
   }, [location.state, location.pathname, navigate]);
 
   const toggle = useMutation({
@@ -57,25 +61,29 @@ export function RulesPage() {
   const templateNames = new Map((templates.data ?? []).map((t) => [t.id, t.name]));
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-on-surface-variant">
-          Todas as regras que valem para a pessoa se somam. Em cada parte da assinatura, vence a de <strong className="text-on-surface">prioridade maior</strong>.
-        </p>
-        <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditor({ rule: null })}>
-          Nova regra
-        </Button>
-      </div>
+    <div className="grid gap-4">
+      <AppPageHeader
+        description={
+          <>
+            Todas as regras que valem para a pessoa se somam. Em cada parte da assinatura, vence a de <strong className="text-on-surface">prioridade maior</strong>.
+          </>
+        }
+        actions={
+          <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditor({ rule: null })}>
+            Nova regra
+          </Button>
+        }
+      />
 
       {rules.isLoading && <LoadingState />}
       {rules.isError && <ErrorState error={rules.error} onRetry={() => rules.refetch()} />}
 
       {rules.data && (
-        <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+        <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
               <thead>
-                <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+                <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                   <th className="w-14 px-3 py-2 font-semibold">Prior.</th>
                   <th className="px-3 py-2 font-semibold">Regra</th>
                   <th className="px-3 py-2 font-semibold">Quando</th>

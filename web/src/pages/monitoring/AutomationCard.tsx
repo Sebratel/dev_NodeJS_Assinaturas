@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Play } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, type BadgeTone } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -27,7 +27,12 @@ const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt
 export function AutomationCard({ overview }: { overview: AutomationOverview }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<AutoApplySettings>(overview.settings);
-  useEffect(() => setDraft(overview.settings), [overview.settings]);
+  // Configuração salva mudou: o rascunho recomeça dela (ajuste no render, sem efeito).
+  const [draftSource, setDraftSource] = useState(overview.settings);
+  if (draftSource !== overview.settings) {
+    setDraftSource(overview.settings);
+    setDraft(overview.settings);
+  }
   const refresh = () => derivedQueryRoots.forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
 
   const save = useMutation({ mutationFn: (next: AutoApplySettings) => settingService.update('auto-apply', next), onSuccess: refresh });
@@ -97,7 +102,7 @@ export function AutomationCard({ overview }: { overview: AutomationOverview }) {
             <dd>{overview.nextCheckAt ? dateTime(overview.nextCheckAt) : '—'}</dd>
           </dl>
           {run && (
-            <div className="grid gap-1 rounded-md border border-outline-variant p-2.5">
+            <div className="grid gap-1 rounded-xl border border-outline-variant p-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone={OUTCOME_TONE[run.outcome]}>{run.message}</Badge>
                 <span className="text-xs text-on-surface-variant">{formatRelative(run.at)}</span>
@@ -111,7 +116,7 @@ export function AutomationCard({ overview }: { overview: AutomationOverview }) {
             </div>
           )}
           {overview.pendingApproval && (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
               <span className="min-w-0 flex-1">
                 Aguardando aprovação: {formatNumber(overview.pendingApproval.newcomers)} novos e {formatNumber(overview.pendingApproval.changes)} mudanças (acima do limite).
               </span>

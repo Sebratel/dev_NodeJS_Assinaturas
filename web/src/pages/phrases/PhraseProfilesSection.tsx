@@ -58,14 +58,14 @@ export function PhraseProfilesSection() {
       {profiles.isLoading && <LoadingState />}
       {profiles.isError && <ErrorState error={profiles.error} onRetry={() => profiles.refetch()} />}
       {profiles.data && profiles.data.length === 0 && (
-        <EmptyState title="Nenhum perfil de frase ainda.">Ex.: "Nível é Direção" e "Área é Técnica" → uma frase só para a diretoria técnica.</EmptyState>
+        <EmptyState title="Nenhum perfil de frase ainda.">Ex.: “Nível é Direção” e “Área é Técnica” → uma frase só para a diretoria técnica.</EmptyState>
       )}
       {profiles.data && profiles.data.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+        <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+                <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                   <th className="w-14 px-3 py-2 font-semibold">Prior.</th>
                   <th className="px-3 py-2 font-semibold">Perfil</th>
                   <th className="px-3 py-2 font-semibold">Quando</th>

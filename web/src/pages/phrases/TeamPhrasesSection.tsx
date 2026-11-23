@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FileSpreadsheet, Search, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -38,8 +38,10 @@ export function TeamPhrasesSection() {
   const [orphans, setOrphans] = useState<Settings['team-phrases']['byTeam']>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [orphansChanged, setOrphansChanged] = useState(false);
-  useEffect(() => {
-    if (!saved || !teams.length) return;
+  // Configuração salva ou lista de times mudou: o rascunho recomeça delas (ajuste no render, sem efeito).
+  const [draftSource, setDraftSource] = useState<{ saved?: typeof saved; teams?: typeof teams }>({});
+  if (saved && teams.length && (draftSource.saved !== saved || draftSource.teams !== teams)) {
+    setDraftSource({ saved, teams });
     const next = new Map<string, string>();
     for (const t of teams) {
       const exact = saved.byTeam.find((p) => p.area && norm(p.area) === norm(t.area) && norm(p.team) === norm(t.team));
@@ -51,7 +53,7 @@ export function TeamPhrasesSection() {
     setOrphans(saved.byTeam.filter((p) => !teams.some((t) => norm(t.team) === norm(p.team) && (!p.area || norm(t.area) === norm(p.area)))));
     setTouched(new Set());
     setOrphansChanged(false);
-  }, [saved, teams]);
+  }
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -115,7 +117,7 @@ export function TeamPhrasesSection() {
         </Button>
       </div>
 
-      <div className="grid gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
+      <div className="grid gap-1 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3">
         <label htmlFor="default-phrase" className="flex justify-between text-xs font-medium">
           Frase padrão
           <span className={cn('tabular-nums', defaultPhrase.length > MAX ? 'text-rose-700 dark:text-rose-300' : 'text-on-surface-variant')}>
@@ -143,11 +145,11 @@ export function TeamPhrasesSection() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+      <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+              <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                 <th className="px-3 py-2 font-semibold">Time</th>
                 <th className="w-16 px-3 py-2 text-right font-semibold">Pessoas</th>
                 <th className="px-3 py-2 font-semibold">Frase</th>
@@ -158,7 +160,7 @@ export function TeamPhrasesSection() {
                 const key = keyOf(t);
                 const value = draft.get(key) ?? '';
                 return (
-                  <tr key={key} className={cn('align-middle', touched.has(key) && 'bg-primary-soft/30')}>
+                  <tr key={key} className={cn('align-middle', touched.has(key) && 'bg-primary/5')}>
                     <td className="px-3 py-1.5">
                       <div className="font-medium">{t.team}</div>
                       <div className="text-xs text-on-surface-variant">{t.area}</div>
@@ -182,7 +184,7 @@ export function TeamPhrasesSection() {
       </div>
 
       {orphans.length > 0 && (
-        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
+        <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-3">
           <h3 className="text-sm font-semibold">Frases de times que não estão mais no AD</h3>
           <ul className="mt-2 grid gap-1 text-sm">
             {orphans.map((o, i) => (
@@ -206,7 +208,7 @@ export function TeamPhrasesSection() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md lg:left-52">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md transition-[left] duration-300 xl:left-(--sidebar-w)">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-3 px-4 py-2 lg:px-6">
           {save.error instanceof ApiError && <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">{save.error.message}</span>}
           {tooLong && <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">Há frase com mais de {MAX} caracteres.</span>}

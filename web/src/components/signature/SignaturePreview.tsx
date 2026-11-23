@@ -39,7 +39,7 @@ export function SignaturePreview({ html, title = 'Prévia da assinatura' }: { ht
   }, [fit]);
 
   return (
-    <div ref={boxRef} className="overflow-hidden rounded-lg border border-outline-variant bg-white" style={{ height: Math.ceil(size.height * size.scale) }}>
+    <div ref={boxRef} className="overflow-hidden rounded-2xl border border-outline-variant bg-white" style={{ height: Math.ceil(size.height * size.scale) }}>
       <iframe
         ref={frameRef}
         title={title}

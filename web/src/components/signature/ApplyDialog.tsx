@@ -97,21 +97,21 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
             <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={includePending} onChange={(e) => setIncludePending(e.target.checked)} />
             <span>
               Incluir pendentes
-              <span className="block text-xs text-on-surface-variant">Saem sem a parte que falta (ex.: sem celular). Conflito e "sem regra" nunca são gravados.</span>
+              <span className="block text-xs text-on-surface-variant">Saem sem a parte que falta (ex.: sem celular). Conflito e “sem regra” nunca são gravados.</span>
             </span>
           </label>
           {scope?.mode === 'LIST' && (
-            <p className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
+            <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span>
                 Modo de teste: só grava para a lista de teste ({allowlist.length}{' '}
                 {allowlist.length === 1 ? 'pessoa' : 'pessoas'}
-                {allowlist.length > 0 && allowlist.length <= 5 ? `: ${allowlist.join(', ')}` : ''}). Os demais aparecem como "Pulada".
+                {allowlist.length > 0 && allowlist.length <= 5 ? `: ${allowlist.join(', ')}` : ''}). Os demais aparecem como “Pulada”.
               </span>
             </p>
           )}
           {scope?.mode === 'ALL' && (
-            <p className="flex gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
+            <p className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span>
                 Gravação liberada para todos: vai trocar a assinatura no Gmail de até <strong>{formatNumber(count)}</strong> pessoas.
@@ -154,7 +154,7 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
               ))}
           </div>
           {batch.data.items.some((i) => i.status !== 'APPLIED') && (
-            <ul className="max-h-56 divide-y divide-outline-variant overflow-y-auto rounded-md border border-outline-variant text-xs">
+            <ul className="max-h-56 divide-y divide-outline-variant overflow-y-auto rounded-xl border border-outline-variant text-xs">
               {batch.data.items
                 .filter((i) => i.status !== 'APPLIED')
                 .map((item) => (

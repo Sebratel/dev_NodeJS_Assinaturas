@@ -22,7 +22,7 @@ export function ConditionsEditor({ conditions, onChange, errors = {}, emptyHint 
   const update = (index: number, change: Partial<RuleCondition>) => onChange(conditions.map((c, i) => (i === index ? { ...c, ...change } : c)));
 
   return (
-    <section className="grid gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
+    <section className="grid gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">Quando</h3>
         <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => onChange([...conditions, { field: 'team', operator: 'IN', values: [] }])}>

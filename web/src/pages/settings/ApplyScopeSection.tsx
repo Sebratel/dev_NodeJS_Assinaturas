@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Check, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Segmented } from '../../components/ui/Segmented';
@@ -15,7 +15,12 @@ import type { ApplyScope } from '../../types/api';
 export function ApplyScopeSection() {
   const { scope, save } = useApplyScope();
   const [draft, setDraft] = useState<ApplyScope>(scope);
-  useEffect(() => setDraft(scope), [scope]);
+  // Escopo salvo mudou: o rascunho recomeça dele (ajuste no render, sem efeito).
+  const [draftSource, setDraftSource] = useState(scope);
+  if (draftSource !== scope) {
+    setDraftSource(scope);
+    setDraft(scope);
+  }
 
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search);
@@ -34,11 +39,11 @@ export function ApplyScopeSection() {
   const error = save.error instanceof ApiError ? save.error : null;
 
   return (
-    <section className="grid gap-3 rounded-lg border border-outline-variant p-3">
+    <section className="grid gap-3 rounded-2xl border border-outline-variant p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">Quem recebe a gravação</h3>
-          <p className="text-xs text-on-surface-variant">Na lista de teste, os demais aparecem como "Pulada" mesmo se forem marcados.</p>
+          <p className="text-xs text-on-surface-variant">Na lista de teste, os demais aparecem como “Pulada” mesmo se forem marcados.</p>
         </div>
         <Segmented<ApplyScope['mode']>
           ariaLabel="Quem recebe a gravação"
@@ -52,8 +57,8 @@ export function ApplyScopeSection() {
       </div>
 
       {draft.mode === 'ALL' && (
-        <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
-          Com "Todos", qualquer lote grava de verdade na assinatura de quem estiver marcado. A anterior fica guardada para desfazer.
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
+          Com “Todos”, qualquer lote grava de verdade na assinatura de quem estiver marcado. A anterior fica guardada para desfazer.
         </p>
       )}
 
@@ -83,7 +88,7 @@ export function ApplyScopeSection() {
           aria-label="Incluir na lista de teste"
         />
         {search.trim().length >= 2 && people.data && people.data.items.length > 0 && (
-          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-lg">
+          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-lg">
             {people.data.items.map((p) => (
               <li key={p.id}>
                 <button type="button" onClick={() => add(p.email)} className="flex w-full flex-col px-3 py-1.5 text-left text-sm hover:bg-surface-container-low">

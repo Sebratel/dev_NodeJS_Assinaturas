@@ -20,7 +20,7 @@ export function RecentApplicationsCard({ applications }: { applications: Signatu
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+              <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                 <th className="px-3 py-2 font-semibold">Quando</th>
                 <th className="px-3 py-2 font-semibold">Colaborador</th>
                 <th className="px-3 py-2 font-semibold">Origem</th>

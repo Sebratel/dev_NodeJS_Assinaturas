@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Mail } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ApplyDialog } from '../../components/signature/ApplyDialog';
 import { DecisionList } from '../../components/signature/DecisionList';
 import { SignaturePreview } from '../../components/signature/SignaturePreview';
@@ -27,8 +27,9 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
   });
   const google = useQuery({ queryKey: queryKeys.googleIntegration, queryFn: googleIntegrationService.status });
   const applyScope = useApplyScope();
-  const [applying, setApplying] = useState(false);
-  useEffect(() => setApplying(false), [collaboratorId]);
+  // O diálogo de gravação vale para a pessoa aberta: trocar de pessoa já o fecha.
+  const [applyingFor, setApplyingFor] = useState<string | null>(null);
+  const applying = applyingFor !== null && applyingFor === collaboratorId;
 
   const data = signature.data;
   const person = data?.collaborator;
@@ -62,7 +63,7 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
               icon={<Mail className="size-4" />}
               disabled={!google.data?.applyEnabled || !data}
               title={google.data?.applyEnabled ? undefined : 'Google não autorizado. Veja Configurações › Google.'}
-              onClick={() => setApplying(true)}
+              onClick={() => setApplyingFor(collaboratorId)}
             >
               Aplicar no Gmail
             </Button>
@@ -101,14 +102,14 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
 
             {evaluation.content.contactType === 'INFORMED_MOBILE' && <InformedMobileForm collaboratorId={person.id} current={person.informedMobile} />}
 
-            <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+            <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
               <h3 className="border-b border-outline-variant px-3 py-2 text-sm font-semibold">Por que saiu assim</h3>
               <DecisionList evaluation={evaluation} templateName={data.template.fallback ? `${data.template.name} (o da regra foi excluído)` : data.template.name} />
             </section>
 
             <ApplicationHistory collaboratorId={person.id} />
 
-            <details className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm">
+            <details className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm">
               <summary className="cursor-pointer font-medium">Dados lidos do AD</summary>
               <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                 {[
@@ -132,7 +133,7 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
           </div>
         )}
       </Drawer>
-      {applying && person && <ApplyDialog target={{ collaboratorIds: [person.id] }} count={1} onClose={() => setApplying(false)} />}
+      {applying && person && <ApplyDialog target={{ collaboratorIds: [person.id] }} count={1} onClose={() => setApplyingFor(null)} />}
     </>
   );
 }

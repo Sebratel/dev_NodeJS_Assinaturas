@@ -10,16 +10,16 @@ interface FieldProps {
   children: ReactNode;
 }
 
-/** Rótulo + controle + erro. Rótulo sem caixa alta e dica curta (UI compacta). */
+/** Rótulo do design system (caixa alta espaçada, §7) + controle + dica + erro. */
 export function Field({ label, htmlFor, hint, error, className, children }: FieldProps) {
   return (
-    <div className={cn('grid min-w-0 gap-1', className)}>
-      <label htmlFor={htmlFor} className="flex items-baseline justify-between gap-2 text-xs font-medium text-on-surface">
+    <div className={cn('grid min-w-0 gap-1.5', className)}>
+      <label htmlFor={htmlFor} className="flex items-baseline justify-between gap-2 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
         {label}
-        {hint && <span className="truncate text-[11px] font-normal text-on-surface-variant">{hint}</span>}
+        {hint && <span className="truncate text-[11px] font-medium normal-case tracking-normal text-on-surface-variant/70">{hint}</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <p className="text-xs font-medium text-rose-700 dark:text-rose-300">{error}</p>}
     </div>
   );
 }

@@ -38,7 +38,7 @@ export function ApplicationHistory({ collaboratorId }: { collaboratorId: string 
   const undoableId = lastWrite?.status === 'APPLIED' ? lastWrite.id : null;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+    <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
       <h3 className="border-b border-outline-variant px-3 py-2 text-sm font-semibold">Gravações no Gmail</h3>
       <ul className="divide-y divide-outline-variant text-sm">
         {items.slice(0, 6).map((item) => (

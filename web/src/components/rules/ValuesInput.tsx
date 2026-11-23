@@ -29,8 +29,8 @@ export function ValuesInput({ field, values, onChange, suggestions, invalid }: V
               aria-pressed={on}
               onClick={() => onChange(on ? values.filter((v) => v !== level) : [...values, level])}
               className={cn(
-                'min-h-9 rounded-md border px-2 text-xs font-medium md:min-h-7',
-                on ? 'border-primary bg-primary text-on-primary' : 'border-outline-variant text-on-surface-variant hover:text-on-surface',
+                'min-h-9 rounded-xl border px-2 text-xs font-medium',
+                on ? 'border-primary bg-primary text-neutral-900' : 'border-outline-variant text-on-surface-variant hover:text-on-surface',
               )}
             >
               {LEVEL_LABELS[level]}
@@ -50,7 +50,7 @@ export function ValuesInput({ field, values, onChange, suggestions, invalid }: V
   return (
     <div
       className={cn(
-        'flex min-h-11 flex-wrap items-center gap-1 rounded-md border bg-surface-container-lowest px-1.5 py-1 md:min-h-9',
+        'flex min-h-[44px] flex-wrap items-center gap-1 rounded-xl border bg-surface-container-lowest px-1.5 py-1',
         invalid ? 'border-rose-400' : 'border-outline-variant',
       )}
     >

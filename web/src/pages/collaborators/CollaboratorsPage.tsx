@@ -1,7 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Mail, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { AppPageHeader } from '../../components/layout/AppPageHeader';
 import { ApplyDialog } from '../../components/signature/ApplyDialog';
 import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -55,10 +56,13 @@ export function CollaboratorsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allMatching, setAllMatching] = useState(false);
   const [applying, setApplying] = useState(false);
-  useEffect(() => {
+  // Filtro mudou: a seleção anterior não vale mais (ajuste no render, sem efeito).
+  const [selectionFilterKey, setSelectionFilterKey] = useState(filterKey);
+  if (selectionFilterKey !== filterKey) {
+    setSelectionFilterKey(filterKey);
     setSelected(new Set());
     setAllMatching(false);
-  }, [filterKey]);
+  }
 
   const items = list.data?.items ?? [];
   const meta = list.data?.meta;
@@ -85,16 +89,17 @@ export function CollaboratorsPage() {
   };
 
   const filterParams = useMemo<CollaboratorFilterParams>(() => {
-    const { search: s, area, team, level, status } = filters;
-    return Object.fromEntries(Object.entries({ search: s, area, team, level, status }).filter(([, v]) => v)) as CollaboratorFilterParams;
-  }, [filterKey]);
+    const entries = { search: filters.search, area: filters.area, team: filters.team, level: filters.level, status: filters.status };
+    return Object.fromEntries(Object.entries(entries).filter(([, v]) => v)) as CollaboratorFilterParams;
+  }, [filters.search, filters.area, filters.team, filters.level, filters.status]);
 
   const teams = (facets.data?.teams ?? []).filter((t) => !filters.area || t.area === filters.area);
   const hasFilters = Boolean(search || filters.area || filters.team || filters.level || filters.status);
 
   return (
-    <div className="grid gap-3 pb-16">
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5">
+    <div className="grid gap-4 pb-16">
+      <AppPageHeader />
+      <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-2.5">
         <label className="relative min-w-56 flex-[2]">
           <span className="sr-only">Buscar</span>
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden />
@@ -143,9 +148,9 @@ export function CollaboratorsPage() {
       {list.data && items.length === 0 && <EmptyState title="Ninguém com esses filtros." />}
 
       {list.data && items.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+        <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
           {pageAllSelected && meta && meta.totalItems > items.length && (
-            <div className="flex flex-wrap items-center justify-center gap-2 border-b border-outline-variant bg-primary-soft/50 px-3 py-1.5 text-xs">
+            <div className="flex flex-wrap items-center justify-center gap-2 border-b border-outline-variant bg-primary/10 px-3 py-1.5 text-xs">
               {allMatching ? (
                 <>
                   Todos os <strong className="tabular-nums">{formatNumber(meta.totalItems)}</strong> do filtro estão marcados.
@@ -166,7 +171,7 @@ export function CollaboratorsPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] text-sm">
               <thead>
-                <tr className="bg-table-head text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
+                <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
                   <th className="w-10 px-3 py-2">
                     <input type="checkbox" className={CHECKBOX} checked={pageAllSelected} onChange={togglePage} aria-label="Marcar a página" />
                   </th>
@@ -184,7 +189,7 @@ export function CollaboratorsPage() {
                     <tr
                       key={person.id}
                       onClick={() => update({ pessoa: person.id }, true)}
-                      className={`cursor-pointer align-top hover:bg-surface-container-low ${checked ? 'bg-primary-soft/30' : ''}`}
+                      className={`cursor-pointer align-top hover:bg-surface-container-low ${checked ? 'bg-primary/5' : ''}`}
                     >
                       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -253,7 +258,7 @@ export function CollaboratorsPage() {
       )}
 
       {selectionCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md lg:left-52">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md transition-[left] duration-300 xl:left-(--sidebar-w)">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 lg:px-6">
             <span className="text-sm">
               <strong className="tabular-nums">{formatNumber(selectionCount)}</strong> {selectionCount === 1 ? 'selecionado' : 'selecionados'}

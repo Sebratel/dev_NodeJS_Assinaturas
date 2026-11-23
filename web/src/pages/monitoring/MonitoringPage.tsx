@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { AppPageHeader } from '../../components/layout/AppPageHeader';
 import { ErrorState, LoadingState } from '../../components/ui/States';
 import { Tabs } from '../../components/ui/Tabs';
 import { automationService } from '../../services/automation.service';
@@ -23,7 +24,8 @@ export function MonitoringPage() {
   });
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
+      <AppPageHeader />
       <Tabs<TabKey>
         value={tab}
         onChange={(value) => setParams({ aba: value }, { replace: true })}

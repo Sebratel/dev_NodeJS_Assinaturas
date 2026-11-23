@@ -17,7 +17,7 @@ export function TeamsTab({ aliases }: { aliases: Settings['value-aliases'] }) {
   return (
     <section className="grid gap-3">
       <p className="text-sm text-on-surface-variant">
-        Junta grafias diferentes do mesmo time ou área ("Suporte Tecnico" → "Suporte Técnico"). A correção definitiva é no Senior, que escreve no AD.
+        Junta grafias diferentes do mesmo time ou área (“Suporte Tecnico” → “Suporte Técnico”). A correção definitiva é no Senior, que escreve no AD.
       </p>
       {aliasDraft.map((row, index) => (
         <div key={index} className="flex flex-wrap items-end gap-2">
