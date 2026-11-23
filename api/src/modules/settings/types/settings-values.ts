@@ -29,10 +29,17 @@ export interface DirectoryFilters {
   requireEmail: boolean;
 }
 
+/** Quem pode receber gravação no Gmail: só a lista de teste ou todos. */
+export interface ApplyScope {
+  mode: 'LIST' | 'ALL';
+  emails: string[];
+}
+
 export interface SettingsValues {
   [SettingKeyEnum.FIELD_SOURCES]: FieldSources;
   [SettingKeyEnum.LEVEL_SYNONYMS]: LevelSynonyms;
   [SettingKeyEnum.VALUE_ALIASES]: ValueAliases;
   [SettingKeyEnum.TEAM_PHRASES]: TeamPhrases;
   [SettingKeyEnum.DIRECTORY_FILTERS]: DirectoryFilters;
+  [SettingKeyEnum.APPLY_SCOPE]: ApplyScope;
 }

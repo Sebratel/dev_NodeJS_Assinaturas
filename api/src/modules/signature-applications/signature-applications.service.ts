@@ -5,6 +5,9 @@ import { Repository } from 'typeorm';
 import { BusinessException } from '../../common/exceptions/business.exception.js';
 import { GmailSignatureClient } from '../google-integration/gmail-signature.client.js';
 import { GoogleCredentialsService } from '../google-integration/google-credentials.service.js';
+import { SettingsService } from '../settings/settings.service.js';
+import { SettingKeyEnum } from '../settings/types/setting-key.enum.js';
+import { ApplyScope } from '../settings/types/settings-values.js';
 import { GMAIL_SIGNATURE_MAX_LENGTH } from '../signatures/signature-template.helper.js';
 import { SignaturesService } from '../signatures/signatures.service.js';
 import { SignatureStatusEnum } from '../signatures/types/signature-status.enum.js';
@@ -18,6 +21,8 @@ export interface ApplicationBatch {
   processed: number;
   counts: Record<ApplicationStatusEnum, number>;
   includePending: boolean;
+  /** LIST = só a lista de teste recebe; ALL = todos. Lido no início do lote. */
+  scopeMode: ApplyScope['mode'];
   finished: boolean;
   startedAt: string;
   finishedAt: string | null;
@@ -44,12 +49,14 @@ const STATUS_TEXT: Record<SignatureStatusEnum, string> = {
 export class SignatureApplicationsService {
   private readonly logger = new Logger(SignatureApplicationsService.name);
   private readonly batches = new Map<string, ApplicationBatch>();
+  private readonly batchAllowlists = new Map<string, Set<string>>();
 
   constructor(
     @InjectRepository(SignatureApplicationEntity) private readonly applicationRepository: Repository<SignatureApplicationEntity>,
     private readonly signaturesService: SignaturesService,
     private readonly credentials: GoogleCredentialsService,
     private readonly gmail: GmailSignatureClient,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async startBatch(dto: CreateApplicationBatchDTO): Promise<ApplicationBatch> {
@@ -62,18 +69,21 @@ export class SignatureApplicationsService {
     if (!ids.length) throw new BusinessException('APPLICATION_EMPTY', 'Nenhum colaborador selecionado.', HttpStatus.BAD_REQUEST);
     if (ids.length > 2000) throw new BusinessException('APPLICATION_TOO_LARGE', 'Máximo de 2000 colaboradores por lote.', HttpStatus.BAD_REQUEST);
 
+    const scope = await this.settingsService.findOne(SettingKeyEnum.APPLY_SCOPE);
     const batch: ApplicationBatch = {
       id: randomUUID(),
       total: ids.length,
       processed: 0,
       counts: Object.fromEntries(Object.values(ApplicationStatusEnum).map((s) => [s, 0])) as Record<ApplicationStatusEnum, number>,
       includePending: dto.includePending,
+      scopeMode: scope.mode,
       finished: false,
       startedAt: new Date().toISOString(),
       finishedAt: null,
       items: [],
     };
     this.batches.set(batch.id, batch);
+    this.batchAllowlists.set(batch.id, new Set(scope.emails.map((e) => e.toLowerCase())));
     void this.run(batch, ids);
     return batch;
   }
@@ -161,6 +171,7 @@ export class SignatureApplicationsService {
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
     batch.finished = true;
     batch.finishedAt = new Date().toISOString();
+    this.batchAllowlists.delete(batch.id);
     this.logger.log(`Lote ${batch.id}: ${JSON.stringify(batch.counts)}`);
   }
 
@@ -181,9 +192,8 @@ export class SignatureApplicationsService {
       if (signature.htmlLength > GMAIL_SIGNATURE_MAX_LENGTH) {
         return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, `Passa do limite do Gmail (${signature.htmlLength} caracteres).`);
       }
-      const allowlist = this.credentials.applyAllowlist();
-      if (allowlist.length && !allowlist.includes(collaborator.email.toLowerCase())) {
-        return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, 'Fora da lista de teste (GOOGLE_APPLY_ALLOWLIST).');
+      if (batch.scopeMode === 'LIST' && !this.batchAllowlists.get(batch.id)?.has(collaborator.email.toLowerCase())) {
+        return await this.record(batch, base, ApplicationStatusEnum.SKIPPED, 'Fora da lista de teste (Configurações › Google).');
       }
 
       const primary = await this.gmail.getPrimary(collaborator.email);

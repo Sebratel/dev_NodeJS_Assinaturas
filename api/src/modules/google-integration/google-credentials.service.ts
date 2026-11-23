@@ -64,15 +64,7 @@ export class GoogleCredentialsService {
   }
 
   testSubject(): string {
-    return this.configService.get<string>('GOOGLE_DELEGATION_TEST_USER') || this.applyAllowlist()[0] || '';
-  }
-
-  /** Durante o teste, só estes e-mails podem receber gravação. Vazio = todos. */
-  applyAllowlist(): string[] {
-    return (this.configService.get<string>('GOOGLE_APPLY_ALLOWLIST') ?? '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
+    return this.configService.get<string>('GOOGLE_DELEGATION_TEST_USER') ?? '';
   }
 
   static errorMessage(error: unknown): string {

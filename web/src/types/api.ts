@@ -214,6 +214,7 @@ export interface Settings {
   'value-aliases': Array<{ field: 'area' | 'team'; from: string; to: string }>;
   'team-phrases': { defaultPhrase: string; byTeam: Array<{ area?: string; team: string; phrase: string }> };
   'directory-filters': { excludedOuKeywords: string[]; requireEmail: boolean };
+  'apply-scope': ApplyScope;
 }
 export type SettingKey = keyof Settings;
 
@@ -225,8 +226,13 @@ export interface GoogleIntegrationStatus {
   keyFilePresent: boolean;
   testUser: string | null;
   scopes: string[];
-  applyAllowlist: string[];
+  applyScope: ApplyScope;
   applyEnabled: boolean;
+}
+
+export interface ApplyScope {
+  mode: 'LIST' | 'ALL';
+  emails: string[];
 }
 
 export interface SignatureTemplate {
@@ -255,6 +261,7 @@ export interface ApplicationBatch {
   processed: number;
   counts: Record<ApplicationStatus, number>;
   includePending: boolean;
+  scopeMode: ApplyScope['mode'];
   finished: boolean;
   startedAt: string;
   finishedAt: string | null;

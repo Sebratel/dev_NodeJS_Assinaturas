@@ -4,4 +4,5 @@ export enum SettingKeyEnum {
   VALUE_ALIASES = 'value-aliases',
   TEAM_PHRASES = 'team-phrases',
   DIRECTORY_FILTERS = 'directory-filters',
+  APPLY_SCOPE = 'apply-scope',
 }

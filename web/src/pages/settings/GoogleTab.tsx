@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
 import { queryKeys } from '../../services/query-keys';
 import { googleIntegrationService } from '../../services/report.service';
+import { ApplyScopeSection } from './ApplyScopeSection';
 
 const STATUS = {
   NOT_CONFIGURED: { label: 'Chave da conta de serviço não configurada', tone: 'neutral' },
@@ -33,11 +34,7 @@ export function GoogleTab() {
         </Button>
       </div>
       {data.error && <p className="text-xs text-rose-700 dark:text-rose-300">{data.error}</p>}
-      {data.applyAllowlist.length > 0 && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
-          Modo de teste: só grava para <strong>{data.applyAllowlist.join(', ')}</strong> (GOOGLE_APPLY_ALLOWLIST). Para liberar todos, esvazie a variável e reinicie a API.
-        </p>
-      )}
+      <ApplyScopeSection />
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
         <dt className="text-on-surface-variant">Projeto no Google Cloud</dt>
         <dd className="font-mono text-xs">{data.projectId ?? '—'}</dd>

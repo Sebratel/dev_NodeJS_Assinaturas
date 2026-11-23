@@ -8,6 +8,7 @@ import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/ui/Drawer';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+import { useApplyScope } from '../../hooks/useApplyScope';
 import { collaboratorService } from '../../services/collaborator.service';
 import { queryKeys } from '../../services/query-keys';
 import { googleIntegrationService } from '../../services/report.service';
@@ -25,6 +26,7 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
     enabled: Boolean(collaboratorId),
   });
   const google = useQuery({ queryKey: queryKeys.googleIntegration, queryFn: googleIntegrationService.status });
+  const applyScope = useApplyScope();
   const [applying, setApplying] = useState(false);
   useEffect(() => setApplying(false), [collaboratorId]);
 
@@ -41,15 +43,30 @@ export function CollaboratorDrawer({ collaboratorId, onClose }: { collaboratorId
         title={person?.name ?? 'Colaborador'}
         subtitle={person ? `${person.email} · ${person.title || 'sem cargo no AD'}` : undefined}
         footer={
-          <Button
-            variant="primary"
-            icon={<Mail className="size-4" />}
-            disabled={!google.data?.applyEnabled || !data}
-            title={google.data?.applyEnabled ? undefined : 'Google não autorizado. Veja Configurações › Google.'}
-            onClick={() => setApplying(true)}
-          >
-            Aplicar no Gmail
-          </Button>
+          <>
+            {person && applyScope.scope.mode === 'LIST' && (
+              <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--color-primary)]"
+                  checked={applyScope.inList(person.email)}
+                  disabled={applyScope.save.isPending}
+                  onChange={() => applyScope.toggleEmail(person.email)}
+                />
+                Na lista de teste
+                <span className="text-xs text-on-surface-variant">(pode receber gravação)</span>
+              </label>
+            )}
+            <Button
+              variant="primary"
+              icon={<Mail className="size-4" />}
+              disabled={!google.data?.applyEnabled || !data}
+              title={google.data?.applyEnabled ? undefined : 'Google não autorizado. Veja Configurações › Google.'}
+              onClick={() => setApplying(true)}
+            >
+              Aplicar no Gmail
+            </Button>
+          </>
         }
       >
         {signature.isLoading && <LoadingState />}
