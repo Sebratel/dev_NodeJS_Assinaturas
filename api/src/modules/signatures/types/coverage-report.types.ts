@@ -1,7 +1,7 @@
 import { CollaboratorLevelEnum } from '../../directory/types/collaborator-level.enum.js';
 import { ContactTypeEnum } from '../../signature-rules/types/contact-type.enum.js';
 import { SignatureIssueCodeEnum } from './signature-issue-code.enum.js';
-import { SignatureSlot } from './signature-evaluation.types.js';
+import { PhraseOriginKind, SignatureSlot } from './signature-evaluation.types.js';
 import { SignatureStatusEnum } from './signature-status.enum.js';
 
 export interface PersonSample {
@@ -22,6 +22,17 @@ export interface CoverageReport {
   conflicts: Array<{ slot: SignatureSlot; ruleNames: string[]; count: number; sample: PersonSample[] }>;
   /** Grupos (área · time · nível) que só a regra geral pega: candidatos a regra nova. */
   groupsOnlyGeneral: Array<{ area: string; team: string; level: CollaboratorLevelEnum; count: number }>;
+  /** De onde saiu a frase de cada pessoa. */
+  phraseOrigins: Record<PhraseOriginKind, number>;
+  /** Perfis de frase: quantos casam e de quantos decidem a frase. */
+  phraseProfiles: Array<{ id: string; name: string; priority: number; active: boolean; matched: number; wins: number }>;
+}
+
+export interface PhraseProfileSimulation {
+  matched: number;
+  wins: number;
+  overridden: number;
+  sample: Array<PersonSample & { phraseBefore: string }>;
 }
 
 export interface RuleSimulation {

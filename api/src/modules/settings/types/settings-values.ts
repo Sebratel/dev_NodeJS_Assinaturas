@@ -35,6 +35,21 @@ export interface ApplyScope {
   emails: string[];
 }
 
+/** Gravação automática a cada leitura do AD. */
+export interface AutoApply {
+  enabled: boolean;
+  /** Quem foi criado no AD depois de ligar a automação e ainda não recebeu assinatura. */
+  newCollaborators: boolean;
+  /** Quem já recebeu do sistema e cuja assinatura gerada mudou. */
+  changes: boolean;
+  /** Grava também as pendentes (sem a parte que falta). */
+  includePending: boolean;
+  /** Acima disso numa leitura, não grava sozinho: fica aguardando aprovação. */
+  maxPerRun: number;
+  /** Quando foi ligada (preenchido pela API). "Novo" = criado no AD depois disso. */
+  enabledAt: string | null;
+}
+
 export interface SettingsValues {
   [SettingKeyEnum.FIELD_SOURCES]: FieldSources;
   [SettingKeyEnum.LEVEL_SYNONYMS]: LevelSynonyms;
@@ -42,4 +57,5 @@ export interface SettingsValues {
   [SettingKeyEnum.TEAM_PHRASES]: TeamPhrases;
   [SettingKeyEnum.DIRECTORY_FILTERS]: DirectoryFilters;
   [SettingKeyEnum.APPLY_SCOPE]: ApplyScope;
+  [SettingKeyEnum.AUTO_APPLY]: AutoApply;
 }

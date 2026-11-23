@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { ApplicationStatusEnum } from '../types/application-status.enum.js';
+import type { ApplicationTrigger } from '../types/application-trigger.js';
 
 /** Histórico de cada gravação no Gmail. Guarda a assinatura anterior para poder desfazer. */
 @Entity({ name: 'signature_applications' })
@@ -25,6 +26,10 @@ export class SignatureApplicationEntity {
 
   @Column({ type: 'varchar', length: 16 })
   status: ApplicationStatusEnum;
+
+  /** MANUAL (tela), AUTO_NEW (colaborador novo no AD), AUTO_CHANGE (assinatura gerada mudou). */
+  @Column({ name: 'trigger_type', type: 'varchar', length: 16, default: 'MANUAL' })
+  trigger: ApplicationTrigger;
 
   @Column({ type: 'varchar', length: 500, default: '' })
   reason: string;

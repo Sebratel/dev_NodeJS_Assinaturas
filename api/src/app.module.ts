@@ -12,6 +12,8 @@ import { SignatureRulesModule } from './modules/signature-rules/signature-rules.
 import { SignatureTemplatesModule } from './modules/signature-templates/signature-templates.module.js';
 import { SignaturesModule } from './modules/signatures/signatures.module.js';
 import { TeamPhrasesModule } from './modules/team-phrases/team-phrases.module.js';
+import { PhraseProfilesModule } from './modules/phrase-profiles/phrase-profiles.module.js';
+import { AutomationModule } from './modules/automation/automation.module.js';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { TeamPhrasesModule } from './modules/team-phrases/team-phrases.module.js
     GoogleIntegrationModule,
     SignatureApplicationsModule,
     TeamPhrasesModule,
+    PhraseProfilesModule,
+    AutomationModule,
     HealthModule,
   ],
 })

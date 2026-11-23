@@ -59,9 +59,21 @@ export interface SignatureContent {
   phone0800: string;
 }
 
+/** De onde saiu a frase: perfil da tela Frases, frase do time, padrão, frase fixa de uma regra ou nenhuma. */
+export type PhraseOriginKind = 'PROFILE' | 'TEAM' | 'DEFAULT' | 'FIXED' | 'NONE';
+
+export interface PhraseOrigin {
+  kind: PhraseOriginKind;
+  /** Nome do perfil, "Time · Área", "Frase padrão" ou o nome da regra. */
+  label: string;
+  /** Id do perfil quando kind = PROFILE. */
+  id: string | null;
+}
+
 export interface SignatureEvaluation {
   collaboratorId: string;
   status: SignatureStatusEnum;
+  phraseOrigin: PhraseOrigin;
   matchedRules: Array<{ id: string; name: string; priority: number; general: boolean }>;
   decisions: SignatureDecisions;
   conflicts: SignatureConflict[];

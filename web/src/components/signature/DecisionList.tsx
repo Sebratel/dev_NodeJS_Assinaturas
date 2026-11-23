@@ -1,5 +1,12 @@
 import type { SignatureEvaluation, SignatureSlot } from '../../types/api';
-import { CONTACT_LABELS, PHONE0800_MODE_LABELS, PHRASE_MODE_LABELS, SECTOR_LABELS, SLOT_LABELS } from '../../utils/labels';
+import { CONTACT_LABELS, PHONE0800_MODE_LABELS, PHRASE_MODE_LABELS, PHRASE_ORIGIN_LABELS, SECTOR_LABELS, SLOT_LABELS } from '../../utils/labels';
+
+/** "Perfil: Diretoria técnica", "Frase do time (Dp · Administrativo)", "Frase padrão"… */
+function phraseOriginText(origin: SignatureEvaluation['phraseOrigin']): string {
+  if (origin.kind === 'PROFILE') return `Perfil: ${origin.label}`;
+  if (origin.kind === 'TEAM') return `${PHRASE_ORIGIN_LABELS.TEAM} (${origin.label})`;
+  return PHRASE_ORIGIN_LABELS[origin.kind];
+}
 
 /** "Por que saiu assim": cada parte da assinatura, o valor e a regra que decidiu. */
 export function DecisionList({ evaluation, templateName }: { evaluation: SignatureEvaluation; templateName: string }) {
@@ -28,9 +35,9 @@ export function DecisionList({ evaluation, templateName }: { evaluation: Signatu
     },
     {
       slot: 'phrase',
-      value: decisions.phrase ? PHRASE_MODE_LABELS[decisions.phrase.value.mode] : 'Sem frase',
+      value: phraseOriginText(evaluation.phraseOrigin),
       detail: content.phrase,
-      rule: decisions.phrase?.ruleName ?? null,
+      rule: decisions.phrase ? `${decisions.phrase.ruleName} (${PHRASE_MODE_LABELS[decisions.phrase.value.mode].toLowerCase()})` : null,
       priority: decisions.phrase?.priority ?? null,
     },
     {

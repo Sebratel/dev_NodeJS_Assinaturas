@@ -29,12 +29,18 @@ export class DirectoryService {
   private syncing: Promise<DirectoryStatus> | null = null;
   private dataVersion = 0;
   private cache: { key: string; collaborators: Collaborator[] } | null = null;
+  /** Quem quer saber que uma leitura do AD terminou bem (ex.: gravação automática). */
+  private readonly syncListeners: Array<() => Promise<void>> = [];
 
   constructor(
     @Inject(DIRECTORY_SOURCE) private readonly source: DirectorySource,
     private readonly settingsService: SettingsService,
     @InjectRepository(CollaboratorOverrideEntity) private readonly overrideRepository: Repository<CollaboratorOverrideEntity>,
   ) {}
+
+  onSynced(listener: () => Promise<void>): void {
+    this.syncListeners.push(listener);
+  }
 
   /** Lê o diretório de novo. Se falhar, mantém a última leitura boa e registra o erro (não zera a lista). */
   sync(): Promise<DirectoryStatus> {
@@ -58,6 +64,12 @@ export class DirectoryService {
     } finally {
       this.lastSyncAt = new Date();
       this.lastSyncDurationMs = Date.now() - started;
+    }
+    if (!this.lastError) {
+      // Não espera: a leitura do AD não fica presa à gravação no Gmail.
+      for (const listener of this.syncListeners) {
+        listener().catch((error) => this.logger.error(`Após a leitura do AD: ${error instanceof Error ? error.message : String(error)}`));
+      }
     }
     return this.getStatus();
   }

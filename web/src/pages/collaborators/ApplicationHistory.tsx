@@ -8,7 +8,7 @@ import { queryKeys } from '../../services/query-keys';
 import { signatureApplicationService } from '../../services/signature-application.service';
 import type { ApplicationStatus } from '../../types/api';
 import { formatRelative } from '../../utils/format';
-import { APPLICATION_STATUS_LABELS } from '../../utils/labels';
+import { APPLICATION_STATUS_LABELS, TRIGGER_LABELS } from '../../utils/labels';
 
 const TONES: Record<ApplicationStatus, BadgeTone> = {
   APPLIED: 'success',
@@ -44,6 +44,7 @@ export function ApplicationHistory({ collaboratorId }: { collaboratorId: string 
         {items.slice(0, 6).map((item) => (
           <li key={item.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
             <Badge tone={TONES[item.status]}>{APPLICATION_STATUS_LABELS[item.status]}</Badge>
+            {item.trigger && item.trigger !== 'MANUAL' && <Badge tone="info">{TRIGGER_LABELS[item.trigger]}</Badge>}
             <span className="text-xs text-on-surface-variant" title={new Date(item.createdAt).toLocaleString('pt-BR')}>
               {formatRelative(item.createdAt)}
             </span>

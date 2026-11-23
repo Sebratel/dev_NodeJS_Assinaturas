@@ -6,8 +6,16 @@ import { SettingEntity } from '../modules/settings/entities/setting.entity.js';
 import { SignatureApplicationEntity } from '../modules/signature-applications/entities/signature-application.entity.js';
 import { SignatureRuleEntity } from '../modules/signature-rules/entities/signature-rule.entity.js';
 import { SignatureTemplateEntity } from '../modules/signature-templates/entities/signature-template.entity.js';
+import { PhraseProfileEntity } from '../modules/phrase-profiles/entities/phrase-profile.entity.js';
 
-const ENTITIES = [SettingEntity, SignatureRuleEntity, CollaboratorOverrideEntity, SignatureTemplateEntity, SignatureApplicationEntity];
+const ENTITIES = [
+  SettingEntity,
+  SignatureRuleEntity,
+  CollaboratorOverrideEntity,
+  SignatureTemplateEntity,
+  SignatureApplicationEntity,
+  PhraseProfileEntity,
+];
 
 /**
  * DB_TYPE=sqljs → arquivo local (desenvolvimento, sem servidor de banco; cria as tabelas sozinho).

@@ -10,11 +10,13 @@ import { LEVEL_LABELS, STATUS_LABELS } from '../../utils/labels';
 
 /** Efeito da regra que está sendo editada, recalculado enquanto se digita (nada é gravado). */
 export function RuleImpact({ input, ruleId, ready }: { input: SignatureRuleInput; ruleId?: string; ready: boolean }) {
-  const payload = useDebouncedValue(JSON.stringify({ ...input, name: input.name || 'Rascunho', id: ruleId }), 400);
+  // "Pronto" e o rascunho atrasam juntos: senão a simulação sai com um rascunho velho e a API recusa.
+  const debounced = useDebouncedValue(JSON.stringify({ ready, input: { ...input, name: input.name || 'Rascunho', id: ruleId } }), 400);
+  const { ready: debouncedReady, input: payload } = JSON.parse(debounced) as { ready: boolean; input: SignatureRuleInput & { id?: string } };
   const simulation = useQuery({
-    queryKey: ['simulation', payload],
-    queryFn: () => signatureRuleService.simulate(JSON.parse(payload)),
-    enabled: ready,
+    queryKey: ['simulation', debounced],
+    queryFn: () => signatureRuleService.simulate(payload),
+    enabled: ready && debouncedReady,
     staleTime: 10_000,
   });
 

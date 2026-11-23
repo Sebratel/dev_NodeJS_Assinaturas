@@ -93,9 +93,12 @@ export interface SlotDecision<T> {
   priority: number;
 }
 
+export type PhraseOriginKind = 'PROFILE' | 'TEAM' | 'DEFAULT' | 'FIXED' | 'NONE';
+
 export interface SignatureEvaluation {
   collaboratorId: string;
   status: SignatureStatus;
+  phraseOrigin: { kind: PhraseOriginKind; label: string; id: string | null };
   matchedRules: Array<{ id: string; name: string; priority: number; general: boolean }>;
   decisions: {
     phone0800: SlotDecision<{ mode: Phone0800Mode; text: string | null }> | null;
@@ -176,6 +179,75 @@ export interface CoverageReport {
   rules: Array<{ id: string; name: string; priority: number; active: boolean; matched: number; wins: number }>;
   conflicts: Array<{ slot: SignatureSlot; ruleNames: string[]; count: number; sample: PersonSample[] }>;
   groupsOnlyGeneral: Array<{ area: string; team: string; level: Level; count: number }>;
+  phraseOrigins: Record<PhraseOriginKind, number>;
+  phraseProfiles: Array<{ id: string; name: string; priority: number; active: boolean; matched: number; wins: number }>;
+}
+
+export interface PhraseProfile {
+  id: string;
+  name: string;
+  priority: number;
+  active: boolean;
+  conditions: RuleCondition[];
+  phrase: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type PhraseProfileInput = Pick<PhraseProfile, 'name' | 'priority' | 'active' | 'conditions' | 'phrase'>;
+
+export interface PhraseProfileSimulation {
+  matched: number;
+  wins: number;
+  overridden: number;
+  sample: Array<PersonSample & { phraseBefore: string }>;
+}
+
+export type ApplicationTrigger = 'MANUAL' | 'AUTO_NEW' | 'AUTO_CHANGE';
+
+export interface AutoApplySettings {
+  enabled: boolean;
+  newCollaborators: boolean;
+  changes: boolean;
+  includePending: boolean;
+  maxPerRun: number;
+  enabledAt: string | null;
+}
+
+export interface AutoApplyRun {
+  at: string;
+  origin: 'SYNC' | 'MANUAL';
+  outcome: 'OFF' | 'GOOGLE_NOT_READY' | 'NOTHING' | 'STARTED' | 'WAITING_APPROVAL' | 'ERROR';
+  message: string;
+  newcomers: number;
+  changes: number;
+  waitingData: number;
+  retryLater: number;
+  batchIds: string[];
+}
+
+export interface AutomationOverview {
+  settings: AutoApplySettings;
+  running: boolean;
+  lastRun: AutoApplyRun | null;
+  pendingApproval: { detectedAt: string; newcomers: number; changes: number } | null;
+  waitingData: Array<{ id: string; name: string; status: SignatureStatus }>;
+  checkIntervalMinutes: number;
+  lastCheckAt: string | null;
+  nextCheckAt: string | null;
+  recentDays: number;
+  recentEntries: Array<{
+    id: string;
+    name: string;
+    email: string;
+    team: string;
+    area: string;
+    createdAt: string | null;
+    signatureStatus: SignatureStatus;
+    received: boolean;
+    lastWriteAt: string | null;
+    lastFailureAt: string | null;
+  }>;
+  recentApplications: SignatureApplication[];
 }
 
 export interface RuleSimulation {
@@ -215,6 +287,7 @@ export interface Settings {
   'team-phrases': { defaultPhrase: string; byTeam: Array<{ area?: string; team: string; phrase: string }> };
   'directory-filters': { excludedOuKeywords: string[]; requireEmail: boolean };
   'apply-scope': ApplyScope;
+  'auto-apply': AutoApplySettings;
 }
 export type SettingKey = keyof Settings;
 
@@ -279,6 +352,7 @@ export interface SignatureApplication {
   reason: string;
   signatureStatus: SignatureStatus | null;
   templateId: string | null;
+  trigger: ApplicationTrigger;
   createdAt: string;
 }
 

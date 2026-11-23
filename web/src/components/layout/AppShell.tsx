@@ -1,4 +1,4 @@
-import { BarChart3, LayoutTemplate, MessageSquareQuote, Settings2, SlidersHorizontal, Users } from 'lucide-react';
+import { Activity, LayoutTemplate, MessageSquareQuote, Settings2, SlidersHorizontal, Users } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { Topbar } from './Topbar';
@@ -8,7 +8,7 @@ export const NAV_ITEMS = [
   { to: '/regras', label: 'Regras', icon: SlidersHorizontal },
   { to: '/modelos', label: 'Modelos', icon: LayoutTemplate },
   { to: '/frases', label: 'Frases', icon: MessageSquareQuote },
-  { to: '/cobertura', label: 'Cobertura', icon: BarChart3 },
+  { to: '/monitoramento', label: 'Monitoramento', icon: Activity },
   { to: '/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
 

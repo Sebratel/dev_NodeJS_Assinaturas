@@ -74,6 +74,13 @@ export class SettingsService implements OnModuleInit {
       const scope = value as { mode: string; emails: string[] };
       value = { mode: scope.mode, emails: [...new Set(scope.emails.map((e) => e.trim().toLowerCase()))] };
     }
+    if (key === SettingKeyEnum.AUTO_APPLY) {
+      // enabledAt é da API: marca a hora em que foi ligada (é a linha de corte de "colaborador novo").
+      const next = value as SettingsValues[SettingKeyEnum.AUTO_APPLY];
+      const current = await this.findOne(SettingKeyEnum.AUTO_APPLY);
+      const enabledAt = next.enabled ? (current.enabled && current.enabledAt ? current.enabledAt : new Date().toISOString()) : null;
+      value = { ...next, enabledAt };
+    }
     await this.settingRepository.save({ key, value });
     this.revision++;
     return value;
@@ -131,6 +138,17 @@ export class SettingsService implements OnModuleInit {
           problems.push({ field: 'excludedOuKeywords', message: 'esperada uma lista de textos.' });
         }
         if (typeof filters?.requireEmail !== 'boolean') problems.push({ field: 'requireEmail', message: 'esperado verdadeiro ou falso.' });
+        break;
+      }
+      case SettingKeyEnum.AUTO_APPLY: {
+        const auto = value as Record<string, unknown>;
+        for (const field of ['enabled', 'newCollaborators', 'changes', 'includePending']) {
+          if (typeof auto?.[field] !== 'boolean') problems.push({ field, message: 'esperado verdadeiro ou falso.' });
+        }
+        const max = auto?.maxPerRun;
+        if (typeof max !== 'number' || !Number.isInteger(max) || max < 1 || max > 2000) {
+          problems.push({ field: 'maxPerRun', message: 'número inteiro entre 1 e 2000.' });
+        }
         break;
       }
       case SettingKeyEnum.APPLY_SCOPE: {

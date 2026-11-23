@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TextHelper } from '../../common/helpers/text.helper.js';
 import { Collaborator } from '../directory/types/collaborator.js';
+import { PhraseProfile } from '../phrase-profiles/types/phrase-profile.types.js';
 import { TeamPhrases } from '../settings/types/settings-values.js';
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { Phone0800ModeEnum } from '../signature-rules/types/phone0800-mode.enum.js';
@@ -13,6 +14,7 @@ import { SignatureStatusEnum } from './types/signature-status.enum.js';
 import {
   Phone0800Choice,
   PhraseChoice,
+  PhraseOrigin,
   SignatureConflict,
   SignatureDecisions,
   SignatureEvaluation,
@@ -29,7 +31,7 @@ import {
  */
 @Injectable()
 export class SignatureEngineService {
-  evaluate(collaborator: Collaborator, rules: SignatureRule[], phrases: TeamPhrases): SignatureEvaluation {
+  evaluate(collaborator: Collaborator, rules: SignatureRule[], phrases: TeamPhrases, profiles: PhraseProfile[] = []): SignatureEvaluation {
     const matched = rules
       .filter((rule) => rule.active && this.matches(collaborator, rule))
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'pt-BR'));
@@ -62,8 +64,9 @@ export class SignatureEngineService {
 
     // Empate só importa se nenhuma regra de prioridade maior decidiu a mesma parte depois.
     const conflicts = this.mergeTies(ties.filter((t) => decisions[t.slot]?.priority === t.priority));
-    const content = this.buildContent(collaborator, decisions, phrases);
-    const issues = this.collectIssues(collaborator, matched, decisions, conflicts, content, phrases);
+    const phrase = this.resolvePhrase(collaborator, decisions.phrase, phrases, profiles);
+    const content = this.buildContent(collaborator, decisions, phrase.text);
+    const issues = this.collectIssues(matched, decisions, conflicts, content, phrase.origin, collaborator);
 
     let status = SignatureStatusEnum.READY;
     if (!matched.length) status = SignatureStatusEnum.NO_RULE;
@@ -73,6 +76,7 @@ export class SignatureEngineService {
     return {
       collaboratorId: collaborator.id,
       status,
+      phraseOrigin: phrase.origin,
       matchedRules: matched.map((r) => ({ id: r.id, name: r.name, priority: r.priority, general: r.conditions.length === 0 })),
       decisions,
       conflicts,
@@ -114,7 +118,7 @@ export class SignatureEngineService {
     return [...bySlot.entries()].map(([slot, names]) => ({ slot, ruleNames: [...names].sort((a, b) => a.localeCompare(b, 'pt-BR')) }));
   }
 
-  private buildContent(collaborator: Collaborator, decisions: SignatureDecisions, phrases: TeamPhrases) {
+  private buildContent(collaborator: Collaborator, decisions: SignatureDecisions, phraseText: string) {
     const label = decisions.sectorLabel?.value ?? SectorLabelEnum.TEAM;
     const sectorText = (label === SectorLabelEnum.AREA ? collaborator.area : collaborator.team) || collaborator.team || collaborator.area;
 
@@ -133,7 +137,7 @@ export class SignatureEngineService {
       title: collaborator.title,
       contactType,
       contactText,
-      phrase: this.resolvePhrase(collaborator, decisions.phrase?.value ?? null, phrases),
+      phrase: phraseText,
       phone0800: this.resolvePhone0800(collaborator, decisions.phone0800?.value ?? null),
     };
   }
@@ -151,10 +155,33 @@ export class SignatureEngineService {
     return /^0800\d{7}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : null;
   }
 
-  private resolvePhrase(collaborator: Collaborator, choice: PhraseChoice | null, phrases: TeamPhrases): string {
-    if (!choice || choice.mode === PhraseModeEnum.NONE) return '';
-    if (choice.mode === PhraseModeEnum.FIXED) return choice.text ?? '';
-    return this.teamPhrase(collaborator, phrases) ?? phrases.defaultPhrase;
+  /**
+   * Frase final. Regra com frase fixa vence. Regra com "pela tela Frases" segue a ordem:
+   * perfil de frase que casa (prioridade maior; empate: mais condições, depois nome) › frase do time › frase padrão.
+   */
+  private resolvePhrase(
+    collaborator: Collaborator,
+    decision: SlotDecision<PhraseChoice> | null,
+    phrases: TeamPhrases,
+    profiles: PhraseProfile[],
+  ): { text: string; origin: PhraseOrigin } {
+    const choice = decision?.value;
+    if (!choice || choice.mode === PhraseModeEnum.NONE) return { text: '', origin: { kind: 'NONE', label: 'Sem frase', id: null } };
+    if (choice.mode === PhraseModeEnum.FIXED) return { text: choice.text ?? '', origin: { kind: 'FIXED', label: decision.ruleName, id: null } };
+
+    const profile = this.pickProfile(collaborator, profiles);
+    if (profile) return { text: profile.phrase, origin: { kind: 'PROFILE', label: profile.name, id: profile.id } };
+    const team = this.teamPhrase(collaborator, phrases);
+    if (team) return { text: team, origin: { kind: 'TEAM', label: [collaborator.team, collaborator.area].filter(Boolean).join(' · '), id: null } };
+    return { text: phrases.defaultPhrase, origin: { kind: 'DEFAULT', label: 'Frase padrão', id: null } };
+  }
+
+  pickProfile(collaborator: Collaborator, profiles: PhraseProfile[]): PhraseProfile | null {
+    return (
+      profiles
+        .filter((p) => p.active && p.phrase.trim() && this.matches(collaborator, p))
+        .sort((a, b) => b.priority - a.priority || b.conditions.length - a.conditions.length || a.name.localeCompare(b.name, 'pt-BR'))[0] ?? null
+    );
   }
 
   /** Frase da área + time; se não houver, a do time sem área definida. */
@@ -167,12 +194,12 @@ export class SignatureEngineService {
   }
 
   private collectIssues(
-    collaborator: Collaborator,
     matched: SignatureRule[],
     decisions: SignatureDecisions,
     conflicts: SignatureConflict[],
     content: { contactType: ContactTypeEnum; contactText: string; phone0800: string },
-    phrases: TeamPhrases,
+    phraseOrigin: PhraseOrigin,
+    collaborator: Collaborator,
   ): SignatureIssue[] {
     const issues: SignatureIssue[] = [];
     if (!matched.length) {
@@ -208,8 +235,8 @@ export class SignatureEngineService {
     if (matched.every((r) => r.conditions.length === 0)) {
       issues.push({ code: SignatureIssueCodeEnum.ONLY_GENERAL_RULES, severity: 'INFO', message: 'Só a regra geral vale para esta pessoa.' });
     }
-    if (decisions.phrase?.value.mode === PhraseModeEnum.TEAM && !this.teamPhrase(collaborator, phrases)) {
-      issues.push({ code: SignatureIssueCodeEnum.DEFAULT_PHRASE, severity: 'INFO', message: 'Time sem frase própria: usa a frase padrão.' });
+    if (phraseOrigin.kind === 'DEFAULT') {
+      issues.push({ code: SignatureIssueCodeEnum.DEFAULT_PHRASE, severity: 'INFO', message: 'Nenhum perfil nem o time têm frase: usa a frase padrão.' });
     }
     return issues;
   }

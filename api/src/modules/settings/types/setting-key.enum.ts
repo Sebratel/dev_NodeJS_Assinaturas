@@ -5,4 +5,5 @@ export enum SettingKeyEnum {
   TEAM_PHRASES = 'team-phrases',
   DIRECTORY_FILTERS = 'directory-filters',
   APPLY_SCOPE = 'apply-scope',
+  AUTO_APPLY = 'auto-apply',
 }

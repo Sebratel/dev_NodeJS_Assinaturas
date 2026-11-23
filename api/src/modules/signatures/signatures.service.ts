@@ -12,13 +12,16 @@ import { SignatureRulesService } from '../signature-rules/signature-rules.servic
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
 import { SignatureTemplatesService } from '../signature-templates/signature-templates.service.js';
+import { SavePhraseProfileDTO } from '../phrase-profiles/dto/save-phrase-profile.dto.js';
+import { PhraseProfilesService } from '../phrase-profiles/phrase-profiles.service.js';
+import { PhraseProfile } from '../phrase-profiles/types/phrase-profile.types.js';
 import { TemplateRenderHelper } from '../signature-templates/template-render.helper.js';
 import { CoverageReportBuilder } from './coverage-report.builder.js';
 import { ListCollaboratorsQueryDTO } from './dto/list-collaborators-query.dto.js';
 import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { GMAIL_SIGNATURE_MAX_LENGTH, SignatureTemplateHelper } from './signature-template.helper.js';
-import { CoverageReport, RuleSimulation } from './types/coverage-report.types.js';
+import { CoverageReport, PhraseProfileSimulation, RuleSimulation } from './types/coverage-report.types.js';
 import { SignatureEvaluation } from './types/signature-evaluation.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
@@ -56,6 +59,7 @@ export class SignaturesService {
     private readonly settingsService: SettingsService,
     private readonly signatureEngine: SignatureEngineService,
     private readonly signatureTemplatesService: SignatureTemplatesService,
+    private readonly phraseProfilesService: PhraseProfilesService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -113,8 +117,13 @@ export class SignaturesService {
 
   /** Assinatura final da pessoa: avaliação das regras + modelo escolhido + HTML. */
   async getCollaboratorSignature(id: string): Promise<CollaboratorSignature> {
-    const [collaborator, rules, phrases] = await Promise.all([this.directoryService.findOne(id), this.loadRules(), this.loadPhrases()]);
-    const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases);
+    const [collaborator, rules, phrases, profiles] = await Promise.all([
+      this.directoryService.findOne(id),
+      this.loadRules(),
+      this.loadPhrases(),
+      this.phraseProfilesService.findAllForEngine(),
+    ]);
+    const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases, profiles);
     const template = await this.resolveTemplate(evaluation.decisions.template?.value ?? null);
     const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), template.html);
     return {
@@ -127,10 +136,29 @@ export class SignaturesService {
     };
   }
 
+  /** Assinatura final de todo mundo de uma vez (uma leitura de regras/modelos), para a gravação automática. */
+  async renderAll(): Promise<Array<{ collaborator: Collaborator; status: SignatureStatusEnum; html: string; htmlLength: number }>> {
+    const { collaborators, evaluations } = await this.evaluateAll();
+    const templates = await this.signatureTemplatesService.findAll();
+    const byId = new Map(templates.map((t) => [t.id, t]));
+    const fallback = templates.find((t) => t.isDefault) ?? (await this.signatureTemplatesService.findDefault());
+    return collaborators.map((collaborator, i) => {
+      const evaluation = evaluations[i];
+      const template = byId.get(evaluation.decisions.template?.value ?? '') ?? fallback;
+      const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), template.html);
+      return { collaborator, status: evaluation.status, html, htmlLength: html.length };
+    });
+  }
+
   /** Prévia de um modelo (ainda não salvo) com os dados de uma pessoa real. */
   async previewTemplate(templateHtml: string, collaboratorId: string): Promise<{ html: string; htmlLength: number; gmailLimit: number; problems: string[] }> {
-    const [collaborator, rules, phrases] = await Promise.all([this.directoryService.findOne(collaboratorId), this.loadRules(), this.loadPhrases()]);
-    const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases);
+    const [collaborator, rules, phrases, profiles] = await Promise.all([
+      this.directoryService.findOne(collaboratorId),
+      this.loadRules(),
+      this.loadPhrases(),
+      this.phraseProfilesService.findAllForEngine(),
+    ]);
+    const evaluation = this.signatureEngine.evaluate(collaborator, rules, phrases, profiles);
     const problems = TemplateRenderHelper.validate(templateHtml);
     const html = SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), templateHtml);
     return { html, htmlLength: html.length, gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH, problems };
@@ -147,17 +175,44 @@ export class SignaturesService {
   }
 
   async getCoverage(): Promise<CoverageReport> {
-    const { collaborators, evaluations, rules } = await this.evaluateAll();
-    return CoverageReportBuilder.build(collaborators, evaluations, rules);
+    const { collaborators, evaluations, rules, profiles } = await this.evaluateAll();
+    const report = CoverageReportBuilder.build(collaborators, evaluations, rules);
+    report.phraseProfiles = profiles.map((p) => ({
+      id: p.id,
+      name: p.name,
+      priority: p.priority,
+      active: p.active,
+      matched: collaborators.filter((c) => this.signatureEngine.matches(c, p)).length,
+      wins: evaluations.filter((e) => e.phraseOrigin.id === p.id).length,
+    }));
+    return report;
+  }
+
+  /** Efeito de um perfil de frase antes de salvar: quem ele pega e de quem ele passa a decidir a frase. */
+  async simulatePhraseProfile(draft: SavePhraseProfileDTO): Promise<PhraseProfileSimulation> {
+    const draftProfile: PhraseProfile = { id: draft.id ?? 'draft', ...PhraseProfilesService.clean(draft) };
+    const { collaborators, evaluations, rules, phrases, profiles } = await this.evaluateAll();
+    const nextProfiles = [...profiles.filter((p) => p.id !== draftProfile.id), draftProfile];
+    const matched = collaborators.filter((c) => this.signatureEngine.matches(c, draftProfile));
+    const winners = collaborators
+      .map((c, i) => ({ c, before: evaluations[i], after: this.signatureEngine.evaluate(c, rules, phrases, nextProfiles) }))
+      .filter(({ after }) => after.phraseOrigin.id === draftProfile.id);
+    return {
+      matched: matched.length,
+      wins: winners.length,
+      /** Quem casa mas não recebe: regra com frase fixa/sem frase, ou outro perfil de prioridade maior. */
+      overridden: matched.length - winners.length,
+      sample: winners.slice(0, 8).map(({ c, before }) => ({ ...CoverageReportBuilder.sample(c), phraseBefore: before.content.phrase })),
+    };
   }
 
   /** Mostra o efeito de uma regra antes de salvar: quem ela pega e como mudam os status. */
   async simulate(draft: SimulateSignatureRuleDTO): Promise<RuleSimulation> {
     SignatureRulesService.assertConsistent(draft);
-    const { collaborators, evaluations, rules, phrases } = await this.evaluateAll();
+    const { collaborators, evaluations, rules, phrases, profiles } = await this.evaluateAll();
     const draftRule: SignatureRule = { id: draft.id ?? 'draft', ...SignatureRulesService.clean(draft) };
     const nextRules = [...rules.filter((r) => r.id !== draftRule.id), draftRule];
-    const nextEvaluations = collaborators.map((c) => this.signatureEngine.evaluate(c, nextRules, phrases));
+    const nextEvaluations = collaborators.map((c) => this.signatureEngine.evaluate(c, nextRules, phrases, profiles));
     const matchedPeople = collaborators.filter((c) => this.signatureEngine.matches(c, draftRule));
 
     return {
@@ -174,10 +229,16 @@ export class SignaturesService {
     evaluations: SignatureEvaluation[];
     rules: SignatureRule[];
     phrases: TeamPhrases;
+    profiles: PhraseProfile[];
   }> {
-    const [collaborators, rules, phrases] = await Promise.all([this.directoryService.findAll(), this.loadRules(), this.loadPhrases()]);
-    const evaluations = collaborators.map((c) => this.signatureEngine.evaluate(c, rules, phrases));
-    return { collaborators, evaluations, rules, phrases };
+    const [collaborators, rules, phrases, profiles] = await Promise.all([
+      this.directoryService.findAll(),
+      this.loadRules(),
+      this.loadPhrases(),
+      this.phraseProfilesService.findAllForEngine(),
+    ]);
+    const evaluations = collaborators.map((c) => this.signatureEngine.evaluate(c, rules, phrases, profiles));
+    return { collaborators, evaluations, rules, phrases, profiles };
   }
 
   private async loadRules(): Promise<SignatureRule[]> {

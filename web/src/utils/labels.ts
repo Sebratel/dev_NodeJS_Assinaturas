@@ -40,9 +40,23 @@ export const SECTOR_LABELS: Record<SectorLabel, string> = { AREA: 'Área', TEAM:
 export const PHONE0800_MODE_LABELS = { DIRECTORY: 'Do AD (Telephone number)', FIXED: 'Número fixo' } as const;
 
 export const PHRASE_MODE_LABELS: Record<PhraseMode, string> = {
-  TEAM: 'Frase do time',
+  TEAM: 'Pela tela Frases',
   FIXED: 'Frase fixa',
   NONE: 'Sem frase',
+};
+
+export const PHRASE_ORIGIN_LABELS: Record<import('../types/api').PhraseOriginKind, string> = {
+  PROFILE: 'Perfil de frase',
+  TEAM: 'Frase do time',
+  DEFAULT: 'Frase padrão',
+  FIXED: 'Frase fixa da regra',
+  NONE: 'Sem frase',
+};
+
+export const TRIGGER_LABELS: Record<import('../types/api').ApplicationTrigger, string> = {
+  MANUAL: 'Manual',
+  AUTO_NEW: 'Automática · novo no AD',
+  AUTO_CHANGE: 'Automática · mudou',
 };
 
 export const FIELD_LABELS: Record<RuleField, string> = {

@@ -14,6 +14,7 @@ import { SignatureStatusEnum } from '../signatures/types/signature-status.enum.j
 import { CreateApplicationBatchDTO } from './dto/create-application-batch.dto.js';
 import { SignatureApplicationEntity } from './entities/signature-application.entity.js';
 import { ApplicationStatusEnum } from './types/application-status.enum.js';
+import type { ApplicationTrigger } from './types/application-trigger.js';
 
 export interface ApplicationBatch {
   id: string;
@@ -23,10 +24,17 @@ export interface ApplicationBatch {
   includePending: boolean;
   /** LIST = só a lista de teste recebe; ALL = todos. Lido no início do lote. */
   scopeMode: ApplyScope['mode'];
+  trigger: ApplicationTrigger;
   finished: boolean;
   startedAt: string;
   finishedAt: string | null;
   items: Array<{ collaboratorId: string; name: string; email: string; status: ApplicationStatusEnum; reason: string }>;
+}
+
+export interface WriteIndexEntry {
+  lastWrite: { status: ApplicationStatusEnum; renderedSignature: string | null; at: Date } | null;
+  received: boolean;
+  lastFailureAt: Date | null;
 }
 
 const CONCURRENCY = 3;
@@ -40,7 +48,7 @@ const STATUS_TEXT: Record<SignatureStatusEnum, string> = {
 /**
  * Grava assinaturas no Gmail em lote. Regras de segurança:
  * - só grava se a delegação estiver autorizada;
- * - com GOOGLE_APPLY_ALLOWLIST preenchida, só grava para quem está nela (fase de teste);
+ * - com "só a lista de teste" (configuração apply-scope), só grava para quem está nela;
  * - nunca grava conflito ou "sem regra"; pendente só se o lote pedir;
  * - guarda a assinatura anterior de cada pessoa para desfazer.
  * O andamento do lote fica em memória (uma instância); o histórico fica no banco.
@@ -59,7 +67,7 @@ export class SignatureApplicationsService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async startBatch(dto: CreateApplicationBatchDTO): Promise<ApplicationBatch> {
+  async startBatch(dto: CreateApplicationBatchDTO, trigger: ApplicationTrigger = 'MANUAL'): Promise<ApplicationBatch> {
     await this.assertGoogleReady();
     let ids = dto.collaboratorIds ?? [];
     if (!ids.length && dto.filter) {
@@ -77,6 +85,7 @@ export class SignatureApplicationsService {
       counts: Object.fromEntries(Object.values(ApplicationStatusEnum).map((s) => [s, 0])) as Record<ApplicationStatusEnum, number>,
       includePending: dto.includePending,
       scopeMode: scope.mode,
+      trigger,
       finished: false,
       startedAt: new Date().toISOString(),
       finishedAt: null,
@@ -94,11 +103,11 @@ export class SignatureApplicationsService {
     return batch;
   }
 
-  findHistory(collaboratorId?: string): Promise<SignatureApplicationEntity[]> {
+  findHistory(collaboratorId?: string, take = 50): Promise<SignatureApplicationEntity[]> {
     return this.applicationRepository.find({
       where: collaboratorId ? { collaboratorId } : {},
       order: { createdAt: 'DESC' },
-      take: 50,
+      take,
       // Sem os HTML (pesados): a tela só precisa do resumo.
       select: {
         id: true,
@@ -111,9 +120,31 @@ export class SignatureApplicationsService {
         reason: true,
         signatureStatus: true,
         templateId: true,
+        trigger: true,
         createdAt: true,
       },
     });
+  }
+
+  /**
+   * Resumo do histórico por pessoa, para a gravação automática decidir:
+   * última escrita no Gmail (gravada ou desfeita), se já recebeu alguma vez e a última falha.
+   */
+  async writeIndex(): Promise<Map<string, WriteIndexEntry>> {
+    const rows = await this.applicationRepository.find({
+      order: { createdAt: 'DESC' },
+      select: { collaboratorId: true, status: true, renderedSignature: true, createdAt: true },
+    });
+    const index = new Map<string, WriteIndexEntry>();
+    for (const row of rows) {
+      const entry = index.get(row.collaboratorId) ?? { lastWrite: null, received: false, lastFailureAt: null };
+      const isWrite = row.status === ApplicationStatusEnum.APPLIED || row.status === ApplicationStatusEnum.RESTORED;
+      if (isWrite && !entry.lastWrite) entry.lastWrite = { status: row.status, renderedSignature: row.renderedSignature, at: row.createdAt };
+      if (row.status === ApplicationStatusEnum.APPLIED || row.status === ApplicationStatusEnum.UNCHANGED) entry.received = true;
+      if (row.status === ApplicationStatusEnum.FAILED && !entry.lastFailureAt) entry.lastFailureAt = row.createdAt;
+      index.set(row.collaboratorId, entry);
+    }
+    return index;
   }
 
   /** Devolve ao Gmail a assinatura que existia antes desta gravação. */
@@ -214,7 +245,7 @@ export class SignatureApplicationsService {
   }
 
   private async record(batch: ApplicationBatch, data: Partial<SignatureApplicationEntity>, status: ApplicationStatusEnum, reason: string): Promise<void> {
-    await this.applicationRepository.save(this.applicationRepository.create({ ...data, status, reason }));
+    await this.applicationRepository.save(this.applicationRepository.create({ ...data, status, reason, trigger: batch.trigger }));
     batch.processed++;
     batch.counts[status]++;
     batch.items.push({ collaboratorId: data.collaboratorId ?? '', name: data.collaboratorName ?? '', email: data.email ?? '', status, reason });

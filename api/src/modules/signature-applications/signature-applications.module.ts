@@ -11,5 +11,6 @@ import { SignatureApplicationsService } from './signature-applications.service.j
   imports: [TypeOrmModule.forFeature([SignatureApplicationEntity]), SignaturesModule, GoogleIntegrationModule, SettingsModule],
   controllers: [SignatureApplicationsController],
   providers: [SignatureApplicationsService],
+  exports: [SignatureApplicationsService],
 })
 export class SignatureApplicationsModule {}

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Collaborator } from '../directory/types/collaborator.js';
 import { CollaboratorLevelEnum } from '../directory/types/collaborator-level.enum.js';
+import { PhraseProfile } from '../phrase-profiles/types/phrase-profile.types.js';
 import { DEFAULT_SIGNATURE_RULES } from '../signature-rules/default-signature-rules.js';
+import { PhraseModeEnum } from '../signature-rules/types/phrase-mode.enum.js';
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
 import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
@@ -107,5 +109,52 @@ describe('SignatureEngineService', () => {
   it('regra inativa não vale e sem nenhuma regra o status é NO_RULE', () => {
     const inactive = rules.map((r) => ({ ...r, active: false }));
     expect(engine.evaluate(person({}), inactive, phrases).status).toBe(SignatureStatusEnum.NO_RULE);
+  });
+
+  describe('perfis de frase', () => {
+    const direcaoTecnica: PhraseProfile = {
+      id: 'pf1', name: 'Direção da Técnica', priority: 10, active: true, phrase: 'A rede inteira a gente garante.',
+      conditions: [
+        { field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] },
+        { field: 'area', operator: RuleOperatorEnum.IN, values: ['Técnica'] },
+      ],
+    };
+    const todaTecnica: PhraseProfile = {
+      id: 'pf2', name: 'Toda a Técnica', priority: 5, active: true, phrase: 'A técnica a gente garante.',
+      conditions: [{ field: 'area', operator: RuleOperatorEnum.IN, values: ['Técnica'] }],
+    };
+    const profiles = [todaTecnica, direcaoTecnica];
+
+    it('perfil que casa vence a frase do time; o de prioridade maior vence o de menor', () => {
+      const diretor = engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR, team: 'Suporte Técnico' }), rules, phrases, profiles);
+      expect(diretor.content.phrase).toBe('A rede inteira a gente garante.');
+      expect(diretor.phraseOrigin).toEqual({ kind: 'PROFILE', label: 'Direção da Técnica', id: 'pf1' });
+
+      const membro = engine.evaluate(person({ team: 'Suporte Técnico', extension: '4021' }), rules, phrases, profiles);
+      expect(membro.phraseOrigin.id).toBe('pf2');
+    });
+
+    it('sem perfil: frase do time; sem time: padrão — e a origem diz qual foi', () => {
+      const suporte = engine.evaluate(person({ area: 'Comercial', team: 'Suporte Técnico', extension: '1' }), rules, phrases, profiles);
+      expect(suporte.phraseOrigin).toMatchObject({ kind: 'TEAM' });
+      expect(suporte.content.phrase).toBe('Suporte que resolve.');
+      const outro = engine.evaluate(person({ area: 'Comercial' }), rules, phrases, profiles);
+      expect(outro.phraseOrigin.kind).toBe('DEFAULT');
+      expect(outro.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.DEFAULT_PHRASE);
+    });
+
+    it('perfil inativo não vale; regra com frase fixa passa por cima do perfil', () => {
+      const inactive = [{ ...direcaoTecnica, active: false }];
+      expect(engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), rules, phrases, inactive).phraseOrigin.kind).toBe('DEFAULT');
+
+      const fixed: SignatureRule = {
+        id: 'fx', name: 'Frase fixa da diretoria', description: '', priority: 50, active: true,
+        conditions: [{ field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] }],
+        outputs: { phraseMode: PhraseModeEnum.FIXED, phraseText: 'Fixa.' },
+      };
+      const result = engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), [...rules, fixed], phrases, profiles);
+      expect(result.content.phrase).toBe('Fixa.');
+      expect(result.phraseOrigin).toMatchObject({ kind: 'FIXED', label: 'Frase fixa da diretoria' });
+    });
   });
 });
