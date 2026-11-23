@@ -41,7 +41,9 @@ Com `web/dist` gerado (`cd web; npm run build`), a própria API serve a tela em 
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |
 
-No `web/`: `npx tsc -b`, `npm test`, `npm run build`.
+No `web/`: `npx tsc -b`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`. Sem login no local: `VITE_AUTH_ENABLED=false` no `web/.env` (igual ao `AUTH_ENABLED=false` da API).
+
+O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abaixo de 6.1. O Prettier do web segue o padrão de frontend (`semi: false`, `trailingComma: es5`), diferente do da API.
 
 ## Como as regras funcionam
 
@@ -104,7 +106,9 @@ api/   NestJS 12 (ESM) + TypeORM, um módulo por domínio
   google-integration/     conta de serviço e estado da autorização
   migrations/             esquema do MariaDB
   apm.cjs                 preload do Elastic APM
-web/   Vite + React 19 + Tailwind 4 + TanStack Query
+web/   Vite + React 19 + Tailwind 4 + TanStack Query; casca do padroes-frontend §16
+  src/components/layout/  topo, menu lateral, sino, perfil, cabeçalho de página, portão do login
+  src/services/           chamadas à API (api-client com token e renovação) e Firebase Auth
 scripts/exportar-ad.ps1   leitura do AD na máquina de dev
 Dockerfile, docker-compose.portainer.yml, .github/workflows/ci.yml
 ```

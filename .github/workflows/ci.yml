@@ -59,7 +59,9 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
       - name: ESLint
-        run: npm run lint --if-present
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
       - name: Tipos
         run: npx tsc -b
       - name: Testes
