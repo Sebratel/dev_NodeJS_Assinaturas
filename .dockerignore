@@ -1,0 +1,22 @@
+# Sem isso o .env local (com caminho da chave do Google e senhas) vai para o contexto de build.
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dados locais: snapshot do AD (dados pessoais) e banco de desenvolvimento
+data
+
+# Chaves do Google nunca entram na imagem
+**/*.json.key
+**/*service-account*.json
+
+# Só para a máquina de dev no domínio (DIRECTORY_SOURCE=windows)
+scripts
+README.md

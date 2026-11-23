@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+# Menor privilégio: o CI só lê o repositório.
+permissions:
+  contents: read
+
+# Push novo cancela o run anterior da mesma branch/PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — lint, testes, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'          # o mesmo da imagem Docker (node:22-alpine)
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
+      - name: Tipos
+        run: npm run typecheck
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  web:
+    name: Web — tipos, testes, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: ESLint
+        run: npm run lint --if-present
+      - name: Tipos
+        run: npx tsc -b
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  imagem:
+    name: Imagem Docker + smoke da stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: assinaturas-ci
+      COMPOSE_FILES: -f docker-compose.portainer.yml -f .github/ci/docker-compose.ci.yml
+      ELASTIC_APM_SERVER_URL: ''      # vazio = APM desligado. Sem isso o CI polui o APM de produção
+      APP_PORT: '3180'
+      # Banco descartável do .github/ci/docker-compose.ci.yml: o smoke roda as migrations de verdade.
+      DB_HOST: mariadb
+      DB_USER: assinaturas
+      DB_PASSWORD: ci-senha
+      DB_NAME: assinaturas
+      # AD inexistente: a leitura falha rápido, vira log de erro e a API continua de pé (é o comportamento esperado).
+      AD_URL: ldap://127.0.0.1:1
+      AD_BIND_USER: ci
+      AD_BIND_PASSWORD: ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir as imagens
+        run: docker compose $COMPOSE_FILES build
+
+      # --wait espera o healthcheck, o mesmo critério que o Portainer usa
+      - name: Subir a stack
+        run: docker compose $COMPOSE_FILES up -d --wait
+
+      - name: Health responde ok
+        run: |
+          curl -fsS --retry 15 --retry-delay 3 --retry-connrefused \
+            http://localhost:3180/api/health -o health.json
+          grep -q '"status":"ok"' health.json || {
+            echo "::error::/api/health devolveu resposta inesperada:"; cat health.json; exit 1; }
+
+      - name: Migrations criaram as tabelas no MariaDB
+        run: |
+          docker compose $COMPOSE_FILES exec -T mariadb \
+            mariadb -uassinaturas -pci-senha assinaturas -N -e "SHOW TABLES" > tables.txt
+          for table in settings signature_rules signature_templates signature_applications phrase_profiles collaborator_overrides typeorm_migrations; do
+            grep -qx "$table" tables.txt || { echo "::error::tabela $table não existe"; cat tables.txt; exit 1; }
+          done
+
+      - name: Login exigido nas rotas da API
+        run: |
+          code=$(curl -s -o me.json -w '%{http_code}' http://localhost:3180/api/v1/me)
+          [ "$code" = "401" ] || { echo "::error::/api/v1/me sem token devolveu $code (esperado 401)"; cat me.json; exit 1; }
+          grep -q '"AUTH_REQUIRED"' me.json || { echo "::error::corpo inesperado:"; cat me.json; exit 1; }
+
+      - name: Frontend servido pela API
+        run: |
+          curl -fsS http://localhost:3180/ -o index.html
+          grep -q '<div id="root"' index.html || { echo "::error::/ não devolveu o index.html do frontend"; head -c 500 index.html; exit 1; }
+
+      - name: Logs da stack
+        if: failure()
+        run: docker compose $COMPOSE_FILES logs --no-color --timestamps > compose-logs.txt
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compose-logs
+          path: compose-logs.txt
+
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose $COMPOSE_FILES down -v
+
+  # Check único para a proteção de branch. `if: always()` no job, senão ele é pulado quando
+  # um `needs` falha e o check nunca reporta.
+  ci-ok:
+    name: ci-ok
+    runs-on: ubuntu-latest
+    needs: [api, web, imagem]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Resultado agregado
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::Pelo menos um job não passou."; exit 1
+          fi
+          echo "Tudo verde."

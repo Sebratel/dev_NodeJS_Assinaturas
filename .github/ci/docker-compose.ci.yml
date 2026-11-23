@@ -1,0 +1,20 @@
+# Só para o CI: acrescenta um MariaDB descartável à stack para o smoke rodar as migrations de verdade.
+# Uso: docker compose -f docker-compose.portainer.yml -f .github/ci/docker-compose.ci.yml ...
+services:
+  mariadb:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: ci-root
+      MARIADB_DATABASE: assinaturas
+      MARIADB_USER: assinaturas
+      MARIADB_PASSWORD: ci-senha
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    depends_on:
+      mariadb:
+        condition: service_healthy
