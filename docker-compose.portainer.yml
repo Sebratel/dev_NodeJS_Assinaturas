@@ -43,7 +43,7 @@ services:
       DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}     # valor vem do painel Environment da stack no Portainer
-      DB_NAME: ${DB_NAME:-assinaturas}
+      DB_NAME: ${DB_NAME:-DB_Assinaturas}
 
       # Diretório: AD por LDAP com conta só de leitura.
       DIRECTORY_SOURCE: ldap

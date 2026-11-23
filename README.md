@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (v0.3)
+## Estado (1.0.0)
 
 | Parte | Situação |
 |---|---|
@@ -15,7 +15,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Login (SSO) | Google pelo Firebase (projeto `authentication-assinaturas`), token conferido na própria API. Só entra quem está em `AUTH_ADMIN_EMAILS`. Em desenvolvimento, `AUTH_ENABLED=false`. |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). |
-| Entrega | Uma imagem só (a API serve a tela), compose do Portainer e CI no GitHub Actions. O repositório ainda não tem remoto. |
+| Entrega | Uma imagem só (a API serve a tela), compose do Portainer e CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stacks ainda não criadas. |
 
 ## Rodar local
 
@@ -134,13 +134,16 @@ São os que sempre esquecem. Nenhum deles está no código.
       - restringir os referenciadores HTTP ao domínio do sistema.
 2. **MariaDB** [PADRÃO]. O usuário de leitura não enxerga banco novo, então crie o banco e dê o GRANT:
 
+   Convenção do MariaDB corporativo (10.0.11.171): banco `DB_<Sistema>` e conta própria da aplicação, só nele (como o `hs_app` do Health Score). Rodar com `admin_master`, que é quem cria banco e usuário:
+
    ```sql
-   CREATE DATABASE assinaturas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   CREATE USER 'assinaturas'@'%' IDENTIFIED BY '<senha forte>';
-   GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON assinaturas.* TO 'assinaturas'@'%';
+   CREATE DATABASE DB_Assinaturas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'assinaturas_app'@'%' IDENTIFIED BY '<senha forte>';
+   GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON DB_Assinaturas.* TO 'assinaturas_app'@'%';
+   FLUSH PRIVILEGES;
    ```
 
-   As tabelas são criadas pela migration na primeira subida. Sem `DROP`: desfazer migration é manual.
+   O DDL é necessário porque a migration roda ao subir. Sem `DROP`: desfazer migration é manual. Staging usa outro banco (ex.: `DB_Assinaturas_Staging`) com o mesmo GRANT.
 3. **AD** [PADRÃO]. Uma conta **só de leitura** para o LDAP. Atenção: hoje "Domain Users" está dentro de "Administrators", então qualquer conta do domínio é administradora. Trate essa senha como senha de admin até isso ser corrigido.
 4. **Quem acessa**. Os e-mails em `AUTH_ADMIN_EMAILS`, separados por vírgula. Vazio = ninguém entra.
 5. **Chave do Google**. No painel ela vai em `GOOGLE_SERVICE_ACCOUNT_KEY_JSON`, de preferência em base64 (uma linha, sem aspas para escapar):
@@ -153,18 +156,28 @@ São os que sempre esquecem. Nenhum deles está no código.
 
 Em Portainer › Stacks › Add stack › **Repository**:
 
-- **Nome da stack** = `name:` do compose = nome do repositório no GitHub em minúsculas. Hoje o compose diz `assinaturas`. Se o repositório tiver outro nome, troque o `name:` **antes** do primeiro deploy, porque renomear depois cria um volume novo e vazio.
-- **Reference:** `refs/heads/main`.
+| | Staging | Produção |
+|---|---|---|
+| Portainer | `portainer-staging.sebratel.net.br` | `portainer-prod.sebratel.net.br` |
+| Nome da stack | `dev_nodejs_assinaturas` | `dev_nodejs_assinaturas` |
+| Reference | `refs/heads/staging` | `refs/heads/main` |
+| `ELASTIC_APM_ENVIRONMENT` | `staging` | `production` |
+| Banco | separado do de produção | `assinaturas` |
+
+- **Repositório:** `https://github.com/Sebratel/dev_NodeJS_Assinaturas` (privado). Marque *Authentication* com um token do GitHub **só de leitura** neste repositório.
+- **Nome da stack** = `name:` do compose = nome do repositório em minúsculas (o CI confere). Renomear depois cria um volume novo e vazio.
 - **Compose path:** `docker-compose.portainer.yml`.
+- **Porta 3180**, a mesma nos dois ambientes. Conferida livre em PROD e STAGING na planilha `Portas_Containers_Portainer_Sebratel` em 23/11/2026; registrar a linha nas duas abas (Backend / API, porta sugerida 3180).
+- Em staging, deixe a gravação na **lista de teste** (Configurações › Google): a conta de serviço grava no Gmail de verdade, em qualquer ambiente.
 
 Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no arquivo:
 
 | Variável | Obrigatória | Valor / padrão | Segredo |
 |---|---|---|---|
-| `DB_HOST` | sim | servidor MariaDB | |
-| `DB_USER` | sim | `assinaturas` | |
+| `DB_HOST` | sim | `10.0.11.171` (MariaDB corporativo) | |
+| `DB_USER` | sim | `assinaturas_app` | |
 | `DB_PASSWORD` | sim | | **sim** |
-| `DB_NAME` | não | `assinaturas` | |
+| `DB_NAME` | não | `DB_Assinaturas` (staging: `DB_Assinaturas_Staging`) | |
 | `AD_BIND_USER` | sim | conta só de leitura (ex.: `SEBRATEL\svc-assinaturas`) | |
 | `AD_BIND_PASSWORD` | sim | | **sim** |
 | `AD_URL`, `AD_BASE_DN` | não | `ldap://10.0.11.251`, `DC=corp,DC=sebratel,DC=com,DC=br` | |
@@ -207,10 +220,16 @@ Já fixos no compose [PADRÃO]:
 
 - `.github/workflows/ci.yml` roda em PR e push para `main` e `staging`:
   - **API**: ESLint, Prettier, tipos, testes e build;
-  - **Web**: ESLint, tipos, testes e build;
-  - **imagem**: constrói, sobe a stack com um MariaDB descartável e confere health, tabelas da migration, 401 sem login e a tela servida.
-- Proteção da `main`: PR com 1 aprovação, check obrigatório **`ci-ok`** (só ele), sem push direto nem force push.
-- [RECOMENDADO], ainda não feito: job `validacoes` com `validate-compose.py` e `validate-version.py` da skill `cicd-deploy-backend`. Precisa do nome definitivo do repositório. Projeto novo começa a versão em `1.0.0`.
+  - **Web**: ESLint, Prettier, tipos, testes e build;
+  - **imagem**: constrói, sobe a stack com um MariaDB descartável e confere health, tabelas da migration, 401 sem login e a tela servida;
+  - **validacoes**: `validate-version.py` e `validate-compose.py --strict-ports` (scripts da skill em `.github/scripts/`).
+- Fluxo: trabalho na `staging` (deploy de staging) → PR para a `main` (produção).
+- Proteção da `main` [PADRÃO]: PR com 1 aprovação, check obrigatório **`ci-ok`** (só ele), sem push direto nem force push. **Não disponível hoje**: a org está no plano Free, que não aplica regra de proteção em repositório privado. Até assinar o Team, a regra vale por combinado.
+
+### 6. Versão [PADRÃO]
+
+- A versão do sistema fica no `package.json` da raiz e é a mesma em `api/`, `web/`, nos locks e no `${APP_VERSION:-X.Y.Z}` do compose. Ela aparece no `/api/health` e na imagem do Portainer (`assinaturas-backend:X.Y.Z`).
+- Mudar: `npm run version:set -- X.Y.Z` (na raiz). Todo commit que sobe para um ambiente precisa de versão **maior** que a que está lá; o CI recusa igual ou menor.
 
 ## Antes de produção
 
