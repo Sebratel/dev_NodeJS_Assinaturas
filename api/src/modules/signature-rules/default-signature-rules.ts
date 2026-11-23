@@ -8,7 +8,7 @@ import { SignatureRule } from './types/signature-rule.types.js';
 
 /**
  * Regras do pedido de 20/11/2026, gravadas só na primeira subida (banco vazio).
- * O B2B depende do campo de segmento no AD (hoje vazio), por isso começa pegando ninguém.
+ * O B2B é quem tem Company "Sebratel Empresas" no AD (decisão de 23/11/2026); até alguém ter esse valor, pega ninguém.
  */
 export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
   {
@@ -26,10 +26,10 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
   },
   {
     name: 'B2B: 0800 e celular da empresa',
-    description: 'Segmento B2B usa o 0800 próprio e mostra o celular corporativo.',
+    description: 'B2B = Company "Sebratel Empresas" no AD. Usa o 0800 próprio e mostra o celular corporativo.',
     priority: 10,
     active: true,
-    conditions: [{ field: 'segment', operator: RuleOperatorEnum.IN, values: ['B2B'] }],
+    conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
     outputs: {
       phone0800Mode: Phone0800ModeEnum.FIXED,
       phone0800: '0800 365 8000',

@@ -57,6 +57,8 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
     if (field === 'area') return facets.data?.areas ?? [];
     if (field === 'team') return [...new Set((facets.data?.teams ?? []).map((t) => t.team))];
     if (field === 'segment') return ['B2B'];
+    // Valores de Company que existem hoje no AD + o do B2B, mesmo que ninguém tenha ainda.
+    if (field === 'company') return [...new Set([...(facets.data?.companies ?? []).map((c) => c.company), 'Sebratel Empresas'])];
     return [];
   };
   const errors = formState.errors;

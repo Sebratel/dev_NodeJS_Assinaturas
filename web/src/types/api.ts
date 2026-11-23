@@ -67,6 +67,7 @@ export interface CollaboratorFacets {
   areas: string[];
   teams: Array<{ area: string; team: string }>;
   levels: Level[];
+  companies: Array<{ company: string; count: number }>;
 }
 
 export interface SlotDecision<T> {

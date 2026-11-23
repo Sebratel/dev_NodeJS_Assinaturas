@@ -40,9 +40,11 @@ describe('SignatureEngineService', () => {
     expect(vazio.status).toBe(SignatureStatusEnum.PENDING);
   });
 
-  it('B2B usa o 0800 fixo da regra mesmo com outro 0800 no AD', () => {
-    const result = engine.evaluate(person({ segment: 'B2B', corporateMobile: '51988887777' }), rules, phrases);
+  it('B2B (Company "Sebratel Empresas", sem ligar para maiúscula/acento) usa o 0800 fixo da regra', () => {
+    const result = engine.evaluate(person({ company: 'SEBRATEL EMPRESAS', corporateMobile: '51988887777' }), rules, phrases);
     expect(result.content.phone0800).toBe('0800 365 8000');
+    expect(result.content.contactText).toBe('(51) 98888-7777');
+    expect(engine.evaluate(person({ company: 'Sebratel' }), rules, phrases).content.phone0800).toBe('0800 655 1000');
   });
 
   it('membro sem regra específica fica só com a regra geral: 0800, frase padrão, sem contato', () => {
@@ -80,7 +82,7 @@ describe('SignatureEngineService', () => {
   });
 
   it('B2B troca o 0800 e mantém o resto das regras de prioridade maior', () => {
-    const result = engine.evaluate(person({ segment: 'B2B', level: CollaboratorLevelEnum.MANAGER }), rules, phrases);
+    const result = engine.evaluate(person({ company: 'Sebratel Empresas', level: CollaboratorLevelEnum.MANAGER }), rules, phrases);
     expect(result.content.phone0800).toBe('0800 365 8000');
     expect(result.decisions.contact?.value).toBe(ContactTypeEnum.INFORMED_MOBILE);
   });
