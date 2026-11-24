@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.1.0)
+## Estado (1.2.0)
 
 | Parte | Situação |
 |---|---|
@@ -10,9 +10,9 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Campos do AD | 0800 = General › Telephone number (só sai se for um 0800 válido). Ramal = Telephones › IP phone. Celular = Telephones › Mobile. B2B = Company "Sebratel Empresas". |
 | Regras, motor e simulação | Prontos, com testes |
 | Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
-| Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Quem recebe: a lista de teste ou todos (Configurações › Google). |
+| Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Só o perfil **Master** grava, desfaz e liga a automação. |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
-| Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Só entra quem está em `AUTH_ADMIN_EMAILS`. Em desenvolvimento, `AUTH_ENABLED=false`. |
+| Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Entra quem está em `AUTH_ADMIN_EMAILS` (master fixo) ou na tela **Usuários**, com perfil Master, Editor ou Visualizador. Em desenvolvimento, `AUTH_ENABLED=false` (entra como Master). |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). O nginx do frontend também loga em JSON (`assinaturas-frontend`) e repassa o `requestId`. |
 | Entrega | Um repositório, dois containers na mesma stack: `frontend` (nginx com as telas, porta 3080) repassa `/api` para o `backend` (API, sem porta no servidor). CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stack de produção criada em 23/11/2026. |
@@ -81,20 +81,34 @@ Contrato entre a tela e a API (padrão `padrao-login-sso`):
   - validade;
   - e-mail verificado;
   - domínio `sebratel.com.br`;
-  - e a lista `AUTH_ADMIN_EMAILS`.
+  - e o perfil: `AUTH_ADMIN_EMAILS` (master fixo) ou a tabela `users` (tela Usuários). Sem perfil = 403 `AUTH_FORBIDDEN`.
 
   Os certificados do Google ficam em memória e numa cópia em `data/firebase-certs.json`, renovada a cada 6 h.
 - `GET /api/v1/me` devolve `{ success, data: { email, name, authEnabled } }`.
 - **401** (`AUTH_REQUIRED`, `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`): a tela renova o token e tenta de novo uma vez. Só sai se o 401 continuar.
 - **403** (`AUTH_FORBIDDEN`): logado, mas sem acesso. A tela mostra a mensagem, sem pedir login de novo.
+- **403** (`ROLE_FORBIDDEN`): tem acesso, mas o perfil não alcança a ação. A tela mostra a mensagem e segue normal.
 - **503** (`AUTH_UNAVAILABLE`): a API não conseguiu os certificados do Google. É oscilação: não desloga.
 - O histórico de gravações guarda quem pediu em `requested_by`: o e-mail da pessoa, ou `AUTO` na gravação automática.
+
+### Perfis de acesso (1.2.0)
+
+| Perfil | Pode |
+|---|---|
+| Visualizador | Ver tudo, simular regras e pré-visualizar modelos. Sincronizar o AD (↻). |
+| Editor | + regras, modelos, frases por time e perfis de frase, de-para de times, níveis do cargo, celular informado. |
+| Master | + gravar no Gmail (aplicar, desfazer), automação, origem dos campos do AD, filtros do diretório, teste da delegação e a tela **Usuários**. |
+
+- A API confere o perfil em cada rota (`@RequireRole`; sem ele, basta estar logado). A tela só esconde o que daria 403.
+- Ninguém muda o próprio perfil nem se remove; remover é exclusão lógica, e incluir de novo restaura.
+- Substitui a antiga **lista de teste** (`apply-scope`, `GOOGLE_APPLY_ALLOWLIST`): quem limita a gravação agora é o perfil Master. A linha `apply-scope` fica no banco sem uso.
 
 ## Estrutura
 
 ```
 api/   NestJS 12 (ESM) + TypeORM, um módulo por domínio
-  auth/                   login: verificação do token, guard global, GET /v1/me
+  auth/                   login: verificação do token, guard global com perfil mínimo (@RequireRole), GET /v1/me
+  users/                  tela Usuários: perfis Master, Editor e Visualizador
   directory/              leitura do AD (LDAP, Windows ou snapshot) e tradução para colaborador
   settings/               origem dos campos, sinônimos, de-para, frases, filtros
   signature-rules/        CRUD de regras (exclusão lógica)
@@ -149,7 +163,7 @@ São os que sempre esquecem. Nenhum deles está no código.
 
    O DDL é necessário porque a migration roda ao subir. Sem `DROP`: desfazer migration é manual. Staging usa outro banco (ex.: `DB_Assinaturas_Staging`) com o mesmo GRANT.
 3. **AD** [PADRÃO]. Uma conta **só de leitura** para o LDAP. Atenção: hoje "Domain Users" está dentro de "Administrators", então qualquer conta do domínio é administradora. Trate essa senha como senha de admin até isso ser corrigido.
-4. **Quem acessa**. Os e-mails em `AUTH_ADMIN_EMAILS`, separados por vírgula. Vazio = ninguém entra.
+4. **Quem acessa**. Os e-mails em `AUTH_ADMIN_EMAILS` (separados por vírgula) são **masters fixos**: sempre entram e não podem ser rebaixados pela tela. Os demais são incluídos na tela **Usuários**.
 5. **Chave do Google**. No painel ela vai em `GOOGLE_SERVICE_ACCOUNT_KEY_JSON`, de preferência em base64 (uma linha, sem aspas para escapar):
 
    ```powershell
@@ -186,14 +200,13 @@ Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no ar
 | `AD_BIND_USER` | para ler o AD | conta só de leitura (ex.: `SEBRATEL\svc-assinaturas`). Vazio: a API sobe, sem colaboradores | |
 | `AD_BIND_PASSWORD` | para ler o AD | | **sim** |
 | `AD_URL`, `AD_BASE_DN` | não | `ldap://10.0.11.251`, `DC=corp,DC=sebratel,DC=com,DC=br` | |
-| `AUTH_ADMIN_EMAILS` | sim | e-mails separados por vírgula | |
+| `AUTH_ADMIN_EMAILS` | sim | masters fixos, separados por vírgula (os demais na tela Usuários) | |
 | `FIREBASE_PROJECT_ID` | não | `sistema-gestor-assinatur-9be62` | |
 | `VITE_FIREBASE_API_KEY` | sim | do app Web do Firebase (público por design) | |
 | `VITE_FIREBASE_AUTH_DOMAIN` | não | `sistema-gestor-assinatur-9be62.firebaseapp.com` | |
 | `VITE_FIREBASE_APP_ID` | sim | do app Web do Firebase | |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | sim | JSON da chave, em base64 | **sim** |
 | `GOOGLE_DELEGATION_TEST_USER` | sim | um e-mail do domínio (só testa a delegação) | |
-| `GOOGLE_APPLY_ALLOWLIST` | não | semente da lista de teste (só na 1ª subida) | |
 | `APP_PORT` | não | `3080`: porta do frontend no servidor (faixa Frontend / Web UI 3000–3099; confira com `docker ps`) | |
 | `ELASTIC_APM_SERVER_URL` | não | `https://apm.sebratel.net.br`. Vazio desliga | |
 | `ELASTIC_APM_ENVIRONMENT` | não | `production` (`staging` na stack de testes) | |
@@ -212,7 +225,7 @@ Já fixos no compose [PADRÃO]:
 ### 3. Conferir depois do deploy
 
 1. `http://<servidor>:3080/api/health` (pelo frontend) responde `"status":"ok"` com a versão. `directory.ok: false` = conta do AD faltando ou errada (o motivo está no Monitoramento).
-2. A tela abre, o login com Google funciona e quem não está em `AUTH_ADMIN_EMAILS` vê "sem acesso".
+2. A tela abre, o login com Google funciona e quem não está em `AUTH_ADMIN_EMAILS` nem na tela Usuários vê "sem acesso".
 3. No Kibana:
    - logs com `service: assinaturas-backend`;
    - no APM, o serviço `assinaturas-backend` no ambiente `production`.

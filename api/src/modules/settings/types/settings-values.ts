@@ -29,12 +29,6 @@ export interface DirectoryFilters {
   requireEmail: boolean;
 }
 
-/** Quem pode receber gravação no Gmail: só a lista de teste ou todos. */
-export interface ApplyScope {
-  mode: 'LIST' | 'ALL';
-  emails: string[];
-}
-
 /** Gravação automática a cada leitura do AD. */
 export interface AutoApply {
   enabled: boolean;
@@ -56,6 +50,5 @@ export interface SettingsValues {
   [SettingKeyEnum.VALUE_ALIASES]: ValueAliases;
   [SettingKeyEnum.TEAM_PHRASES]: TeamPhrases;
   [SettingKeyEnum.DIRECTORY_FILTERS]: DirectoryFilters;
-  [SettingKeyEnum.APPLY_SCOPE]: ApplyScope;
   [SettingKeyEnum.AUTO_APPLY]: AutoApply;
 }

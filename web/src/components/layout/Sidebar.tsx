@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from '../../constants/navigation'
+import { usePermissions } from '../../hooks/usePermissions'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { directoryService } from '../../services/report.service'
 import { cn } from '../../utils/cn'
@@ -23,6 +24,8 @@ interface SidebarProps {
 
 /** Menu lateral encostado abaixo do topo (xl) e gaveta no celular (padroes-frontend §5 e §16). */
 export function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
+  const { isMaster } = usePermissions()
+  const navItems = NAV_ITEMS.filter((item) => !item.masterOnly || isMaster)
   return (
     <>
       {mobileOpen && (
@@ -68,7 +71,7 @@ export function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
             collapsed ? 'xl:px-3' : 'px-3'
           )}
         >
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

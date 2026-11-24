@@ -5,7 +5,9 @@ import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
+import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
 import { Switch } from '../../components/ui/Switch'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { automationService } from '../../services/automation.service'
 import { derivedQueryRoots } from '../../services/query-keys'
@@ -36,6 +38,8 @@ const dateTime = (iso: string | null) =>
 /** Liga/desliga a gravação automática, mostra a última verificação e o que aguarda aprovação. */
 export function AutomationCard({ overview }: { overview: AutomationOverview }) {
   const queryClient = useQueryClient()
+  // Automação grava no Gmail: ligar, configurar, verificar agora e aprovar são do Master.
+  const { isMaster } = usePermissions()
   const [draft, setDraft] = useState<AutoApplySettings>(overview.settings)
   // Configuração salva mudou: o rascunho recomeça dela (ajuste no render, sem efeito).
   const [draftSource, setDraftSource] = useState(overview.settings)
@@ -75,18 +79,23 @@ export function AutomationCard({ overview }: { overview: AutomationOverview }) {
       title="Gravação automática"
       subtitle={`Roda depois de cada leitura do AD (a cada ${overview.checkIntervalMinutes} min)`}
       actions={
-        <Button
-          size="sm"
-          icon={<Play className="size-3.5" />}
-          loading={runNow.isPending || overview.running}
-          onClick={() => runNow.mutate()}
-        >
-          Verificar agora
-        </Button>
+        isMaster ? (
+          <Button
+            size="sm"
+            icon={<Play className="size-3.5" />}
+            loading={runNow.isPending || overview.running}
+            onClick={() => runNow.mutate()}
+          >
+            Verificar agora
+          </Button>
+        ) : undefined
       }
     >
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <div className="grid content-start gap-2.5">
+        <fieldset
+          disabled={!isMaster}
+          className="m-0 grid min-w-0 content-start gap-2.5 border-0 p-0"
+        >
           <label className="flex items-center gap-2.5 text-sm font-medium">
             <Switch
               checked={draft.enabled}
@@ -144,22 +153,26 @@ export function AutomationCard({ overview }: { overview: AutomationOverview }) {
             />
             gravações numa verificação, espera aprovação
           </label>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              disabled={!dirty}
-              loading={save.isPending}
-              onClick={() => save.mutate(draft)}
-            >
-              Salvar
-            </Button>
-            {save.isSuccess && !dirty && (
-              <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
-                <Check className="size-3.5" /> Salvo.
-              </span>
-            )}
-          </div>
-        </div>
+          {isMaster ? (
+            <div className="flex items-center gap-3">
+              <Button
+                variant="primary"
+                disabled={!dirty}
+                loading={save.isPending}
+                onClick={() => save.mutate(draft)}
+              >
+                Salvar
+              </Button>
+              {save.isSuccess && !dirty && (
+                <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  <Check className="size-3.5" /> Salvo.
+                </span>
+              )}
+            </div>
+          ) : (
+            <ReadOnlyNote needs="Master" />
+          )}
+        </fieldset>
 
         <div className="grid content-start gap-2 text-sm">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -201,14 +214,16 @@ export function AutomationCard({ overview }: { overview: AutomationOverview }) {
                 {formatNumber(overview.pendingApproval.changes)} mudanças (acima
                 do limite).
               </span>
-              <Button
-                size="sm"
-                variant="primary"
-                loading={approve.isPending}
-                onClick={() => approve.mutate()}
-              >
-                Aprovar e gravar
-              </Button>
+              {isMaster && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  loading={approve.isPending}
+                  onClick={() => approve.mutate()}
+                >
+                  Aprovar e gravar
+                </Button>
+              )}
             </div>
           )}
           {error && (

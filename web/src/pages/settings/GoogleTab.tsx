@@ -3,9 +3,9 @@ import { RefreshCw } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ErrorState, LoadingState } from '../../components/ui/States'
+import { usePermissions } from '../../hooks/usePermissions'
 import { queryKeys } from '../../services/query-keys'
 import { googleIntegrationService } from '../../services/report.service'
-import { ApplyScopeSection } from './ApplyScopeSection'
 
 const STATUS = {
   NOT_CONFIGURED: {
@@ -18,6 +18,8 @@ const STATUS = {
 
 export function GoogleTab() {
   const queryClient = useQueryClient()
+  // Testar a delegação é do Master (a tela Usuários define quem grava no Gmail).
+  const { isMaster } = usePermissions()
   const google = useQuery({
     queryKey: queryKeys.googleIntegration,
     queryFn: googleIntegrationService.status,
@@ -39,20 +41,25 @@ export function GoogleTab() {
         <Badge tone={STATUS[data.status].tone}>
           {STATUS[data.status].label}
         </Badge>
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<RefreshCw className="size-3.5" />}
-          loading={check.isPending}
-          onClick={() => check.mutate()}
-        >
-          Testar de novo
-        </Button>
+        {isMaster && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<RefreshCw className="size-3.5" />}
+            loading={check.isPending}
+            onClick={() => check.mutate()}
+          >
+            Testar de novo
+          </Button>
+        )}
       </div>
       {data.error && (
         <p className="text-xs text-rose-700 dark:text-rose-300">{data.error}</p>
       )}
-      <ApplyScopeSection />
+      <p className="text-sm text-on-surface-variant">
+        Quem grava no Gmail é o perfil <strong>Master</strong> (Usuários). Lote
+        acima de 20 pessoas pede confirmação antes de gravar.
+      </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
         <dt className="text-on-surface-variant">Projeto no Google Cloud</dt>
         <dd className="font-mono text-xs">{data.projectId ?? '—'}</dd>

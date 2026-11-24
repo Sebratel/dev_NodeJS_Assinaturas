@@ -13,6 +13,7 @@ import {
   LoadingState,
 } from '../../components/ui/States'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { usePermissions } from '../../hooks/usePermissions'
 import {
   collaboratorService,
   type CollaboratorFilters,
@@ -65,9 +66,12 @@ export function CollaboratorsPage() {
     queryKey: queryKeys.facets,
     queryFn: collaboratorService.facets,
   })
+  // Marcar pessoas só serve para gravar em lote no Gmail: só Master vê as caixas.
+  const { canApply } = usePermissions()
   const google = useQuery({
     queryKey: queryKeys.googleIntegration,
     queryFn: googleIntegrationService.status,
+    enabled: canApply,
   })
   const list = useQuery({
     queryKey: queryKeys.collaborators(filters),
@@ -228,50 +232,55 @@ export function CollaboratorsPage() {
 
       {list.data && items.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
-          {pageAllSelected && meta && meta.totalItems > items.length && (
-            <div className="flex flex-wrap items-center justify-center gap-2 border-b border-outline-variant bg-primary/10 px-3 py-1.5 text-xs">
-              {allMatching ? (
-                <>
-                  Todos os{' '}
-                  <strong className="tabular-nums">
-                    {formatNumber(meta.totalItems)}
-                  </strong>{' '}
-                  do filtro estão marcados.
-                  <button
-                    type="button"
-                    className="font-medium text-primary-ink underline"
-                    onClick={clearSelection}
-                  >
-                    Desmarcar
-                  </button>
-                </>
-              ) : (
-                <>
-                  Os {items.length} desta página estão marcados.
-                  <button
-                    type="button"
-                    className="font-medium text-primary-ink underline"
-                    onClick={() => setAllMatching(true)}
-                  >
-                    Marcar todos os {formatNumber(meta.totalItems)} do filtro
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+          {canApply &&
+            pageAllSelected &&
+            meta &&
+            meta.totalItems > items.length && (
+              <div className="flex flex-wrap items-center justify-center gap-2 border-b border-outline-variant bg-primary/10 px-3 py-1.5 text-xs">
+                {allMatching ? (
+                  <>
+                    Todos os{' '}
+                    <strong className="tabular-nums">
+                      {formatNumber(meta.totalItems)}
+                    </strong>{' '}
+                    do filtro estão marcados.
+                    <button
+                      type="button"
+                      className="font-medium text-primary-ink underline"
+                      onClick={clearSelection}
+                    >
+                      Desmarcar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Os {items.length} desta página estão marcados.
+                    <button
+                      type="button"
+                      className="font-medium text-primary-ink underline"
+                      onClick={() => setAllMatching(true)}
+                    >
+                      Marcar todos os {formatNumber(meta.totalItems)} do filtro
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] text-sm">
               <thead>
                 <tr className="bg-surface-container-low text-left text-[10.5px] uppercase tracking-wide text-on-surface-variant">
-                  <th className="w-10 px-3 py-2">
-                    <input
-                      type="checkbox"
-                      className={CHECKBOX}
-                      checked={pageAllSelected}
-                      onChange={togglePage}
-                      aria-label="Marcar a página"
-                    />
-                  </th>
+                  {canApply && (
+                    <th className="w-10 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        className={CHECKBOX}
+                        checked={pageAllSelected}
+                        onChange={togglePage}
+                        aria-label="Marcar a página"
+                      />
+                    </th>
+                  )}
                   <th className="px-3 py-2 font-semibold">Colaborador</th>
                   <th className="px-3 py-2 font-semibold">Time</th>
                   <th className="px-3 py-2 font-semibold">Cargo</th>
@@ -288,19 +297,21 @@ export function CollaboratorsPage() {
                       onClick={() => update({ pessoa: person.id }, true)}
                       className={`cursor-pointer align-top hover:bg-surface-container-low ${checked ? 'bg-primary/5' : ''}`}
                     >
-                      <td
-                        className="px-3 py-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          className={CHECKBOX}
-                          checked={checked}
-                          disabled={allMatching}
-                          onChange={() => toggleOne(person.id)}
-                          aria-label={`Marcar ${person.name}`}
-                        />
-                      </td>
+                      {canApply && (
+                        <td
+                          className="px-3 py-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            className={CHECKBOX}
+                            checked={checked}
+                            disabled={allMatching}
+                            onChange={() => toggleOne(person.id)}
+                            aria-label={`Marcar ${person.name}`}
+                          />
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         <button
                           type="button"
@@ -379,7 +390,7 @@ export function CollaboratorsPage() {
         </div>
       )}
 
-      {selectionCount > 0 && (
+      {canApply && selectionCount > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md transition-[left] duration-300 xl:left-(--sidebar-w)">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 lg:px-6">
             <span className="text-sm">

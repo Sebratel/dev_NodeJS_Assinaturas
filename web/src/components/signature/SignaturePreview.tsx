@@ -33,17 +33,28 @@ export function SignaturePreview({
     const width = Math.ceil(body.scrollWidth)
     const height = Math.ceil(body.scrollHeight)
     frame.style.width = `${width}px`
-    setSize({
-      width,
-      height,
-      scale: Math.min(1, box.clientWidth / Math.max(1, width)),
-    })
+    const scale = Math.min(1, box.clientWidth / Math.max(1, width))
+    // Mesmo tamanho: não renderiza de novo (evita reação em cadeia com o ResizeObserver).
+    setSize((current) =>
+      current.width === width &&
+      current.height === height &&
+      Math.abs(current.scale - scale) < 0.001
+        ? current
+        : { width, height, scale }
+    )
   }, [])
 
   useEffect(() => {
     const box = boxRef.current
     if (!box) return
-    const observer = new ResizeObserver(fit)
+    // Só a LARGURA do quadro muda a escala. A altura é a própria prévia que define; reagir a ela
+    // recalculava a cada mudança que o próprio cálculo causava.
+    let lastWidth = box.clientWidth
+    const observer = new ResizeObserver(() => {
+      if (box.clientWidth === lastWidth) return
+      lastWidth = box.clientWidth
+      fit()
+    })
     observer.observe(box)
     return () => observer.disconnect()
   }, [fit])

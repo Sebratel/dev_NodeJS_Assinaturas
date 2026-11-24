@@ -126,7 +126,7 @@ jobs:
         run: |
           docker compose $COMPOSE_FILES exec -T mariadb \
             mariadb -uassinaturas -pci-senha assinaturas -N -e "SHOW TABLES" > tables.txt
-          for table in settings signature_rules signature_templates signature_applications phrase_profiles collaborator_overrides typeorm_migrations; do
+          for table in settings signature_rules signature_templates signature_applications phrase_profiles collaborator_overrides users typeorm_migrations; do
             grep -qx "$table" tables.txt || { echo "::error::tabela $table não existe"; cat tables.txt; exit 1; }
           done
 

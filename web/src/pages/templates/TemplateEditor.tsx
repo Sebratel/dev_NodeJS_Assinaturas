@@ -9,11 +9,13 @@ import {
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Drawer } from '../../components/ui/Drawer'
+import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
 import { Field } from '../../components/ui/Field'
 import { Input, Select } from '../../components/ui/Input'
 import { Spinner } from '../../components/ui/Spinner'
 import { Switch } from '../../components/ui/Switch'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { collaboratorService } from '../../services/collaborator.service'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
@@ -77,6 +79,7 @@ export function TemplateEditor({
       ? chosenPersonId
       : peopleItems[0].id
 
+  const { canEdit } = usePermissions()
   const debouncedHtml = useDebouncedValue(draft.html, 400)
   const preview = useQuery({
     queryKey: ['template-preview', debouncedHtml, personId],
@@ -119,87 +122,99 @@ export function TemplateEditor({
       open
       width="lg"
       onClose={onClose}
-      title={template ? 'Editar modelo' : 'Novo modelo'}
+      title={!canEdit ? 'Modelo' : template ? 'Editar modelo' : 'Novo modelo'}
       subtitle="HTML com tabelas e estilo inline (é o que o Gmail respeita). Texto do AD entra sempre escapado."
       footer={
-        <>
-          {template &&
-            !template.isDefault &&
-            (confirmDelete ? (
-              <Button
-                variant="danger"
-                loading={remove.isPending}
-                onClick={() => remove.mutate()}
-              >
-                Confirmar exclusão
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<Trash2 className="size-4" />}
-                onClick={() => setConfirmDelete(true)}
-              >
-                Excluir
-              </Button>
-            ))}
-          <span
-            className="mr-auto min-w-0 flex-1 text-xs text-rose-700 dark:text-rose-300"
-            role="alert"
-          >
-            {apiError &&
-              `${apiError.message} ${apiError.details.map((d) => d.message).join(' ')}`}
-            {!apiError &&
-              problems.length > 0 &&
-              'Corrija os problemas do modelo para salvar.'}
-          </span>
-          <Button onClick={onClose}>Cancelar</Button>
-          <Button
-            variant="primary"
-            loading={save.isPending}
-            disabled={!draft.name.trim() || problems.length > 0}
-            onClick={() => save.mutate()}
-          >
-            Salvar modelo
-          </Button>
-        </>
+        !canEdit ? (
+          <>
+            <ReadOnlyNote className="mr-auto" />
+            <Button onClick={onClose}>Fechar</Button>
+          </>
+        ) : (
+          <>
+            {template &&
+              !template.isDefault &&
+              (confirmDelete ? (
+                <Button
+                  variant="danger"
+                  loading={remove.isPending}
+                  onClick={() => remove.mutate()}
+                >
+                  Confirmar exclusão
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 className="size-4" />}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Excluir
+                </Button>
+              ))}
+            <span
+              className="mr-auto min-w-0 flex-1 text-xs text-rose-700 dark:text-rose-300"
+              role="alert"
+            >
+              {apiError &&
+                `${apiError.message} ${apiError.details.map((d) => d.message).join(' ')}`}
+              {!apiError &&
+                problems.length > 0 &&
+                'Corrija os problemas do modelo para salvar.'}
+            </span>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button
+              variant="primary"
+              loading={save.isPending}
+              disabled={!draft.name.trim() || problems.length > 0}
+              onClick={() => save.mutate()}
+            >
+              Salvar modelo
+            </Button>
+          </>
+        )
       }
     >
       <div className="grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Field label="Nome" htmlFor="tpl-name">
+        <fieldset
+          disabled={!canEdit}
+          className="m-0 grid min-w-0 gap-4 border-0 p-0"
+        >
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <Field label="Nome" htmlFor="tpl-name">
+              <Input
+                id="tpl-name"
+                value={draft.name}
+                maxLength={80}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </Field>
+            <Field label="Padrão">
+              <div className="flex min-h-[44px] items-center">
+                <Switch
+                  checked={draft.isDefault}
+                  disabled={template?.isDefault}
+                  onChange={(isDefault) => setDraft({ ...draft, isDefault })}
+                  label={
+                    template?.isDefault
+                      ? 'É o padrão (escolha outro para trocar)'
+                      : 'Usar como padrão'
+                  }
+                />
+              </div>
+            </Field>
+          </div>
+          <Field label="Descrição" htmlFor="tpl-description">
             <Input
-              id="tpl-name"
-              value={draft.name}
-              maxLength={80}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              id="tpl-description"
+              value={draft.description}
+              maxLength={300}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
+              placeholder="Para quem é (opcional)"
             />
           </Field>
-          <Field label="Padrão">
-            <div className="flex min-h-[44px] items-center">
-              <Switch
-                checked={draft.isDefault}
-                disabled={template?.isDefault}
-                onChange={(isDefault) => setDraft({ ...draft, isDefault })}
-                label={
-                  template?.isDefault
-                    ? 'É o padrão (escolha outro para trocar)'
-                    : 'Usar como padrão'
-                }
-              />
-            </div>
-          </Field>
-        </div>
-        <Field label="Descrição" htmlFor="tpl-description">
-          <Input
-            id="tpl-description"
-            value={draft.description}
-            maxLength={300}
-            onChange={(e) =>
-              setDraft({ ...draft, description: e.target.value })
-            }
-            placeholder="Para quem é (opcional)"
-          />
-        </Field>
+        </fieldset>
 
         <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -251,31 +266,33 @@ export function TemplateEditor({
         </section>
 
         <div className="grid gap-1.5">
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-xs font-medium">Inserir:</span>
-            {variables.data?.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                title={v.description}
-                onClick={() => codeRef.current?.insert(`{{${v.key}}}`)}
-                className="rounded border border-outline-variant px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant hover:border-primary-ink hover:text-primary-ink"
+          {canEdit && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-xs font-medium">Inserir:</span>
+              {variables.data?.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  title={v.description}
+                  onClick={() => codeRef.current?.insert(`{{${v.key}}}`)}
+                  className="rounded border border-outline-variant px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant hover:border-primary-ink hover:text-primary-ink"
+                >
+                  {`{{${v.key}}}`}
+                </button>
+              ))}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                icon={<AlignLeft className="size-3.5" />}
+                onClick={() =>
+                  setDraft({ ...draft, html: formatTemplateHtml(draft.html) })
+                }
               >
-                {`{{${v.key}}}`}
-              </button>
-            ))}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto"
-              icon={<AlignLeft className="size-3.5" />}
-              onClick={() =>
-                setDraft({ ...draft, html: formatTemplateHtml(draft.html) })
-              }
-            >
-              Organizar código
-            </Button>
-          </div>
+                Organizar código
+              </Button>
+            </div>
+          )}
           <p className="text-[11px] text-on-surface-variant">
             <code className="font-mono">{'{{#frase}}…{{/frase}}'}</code> só
             aparece se houver frase;{' '}
@@ -286,6 +303,7 @@ export function TemplateEditor({
             ref={codeRef}
             value={draft.html}
             onChange={(html) => setDraft((d) => ({ ...d, html }))}
+            readOnly={!canEdit}
           />
         </div>
       </div>

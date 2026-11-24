@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Field } from '../../components/ui/Field'
 import { Input } from '../../components/ui/Input'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { collaboratorService } from '../../services/collaborator.service'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
@@ -16,6 +17,7 @@ export function InformedMobileForm({
   current: string
 }) {
   const queryClient = useQueryClient()
+  const { canEdit } = usePermissions()
   const [mobile, setMobile] = useState(current)
   const save = useMutation({
     mutationFn: (value: string) =>
@@ -34,13 +36,17 @@ export function InformedMobileForm({
       className="flex flex-wrap items-end gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3"
       onSubmit={(event) => {
         event.preventDefault()
-        save.mutate(mobile)
+        if (canEdit) save.mutate(mobile)
       }}
     >
       <Field
         label="Celular informado"
         htmlFor="informed-mobile"
-        hint="Direção e Gerência digitam o próprio"
+        hint={
+          canEdit
+            ? 'Direção e Gerência digitam o próprio'
+            : 'Somente leitura: alterar exige Editor'
+        }
         error={error}
         className="min-w-48 flex-1"
       >
@@ -49,12 +55,15 @@ export function InformedMobileForm({
           inputMode="tel"
           placeholder="(51) 99999-0000"
           value={mobile}
+          readOnly={!canEdit}
           onChange={(e) => setMobile(e.target.value)}
         />
       </Field>
-      <Button type="submit" variant="primary" loading={save.isPending}>
-        Salvar
-      </Button>
+      {canEdit && (
+        <Button type="submit" variant="primary" loading={save.isPending}>
+          Salvar
+        </Button>
+      )}
     </form>
   )
 }

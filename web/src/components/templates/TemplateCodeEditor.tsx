@@ -13,6 +13,8 @@ export interface TemplateCodeEditorHandle {
 interface TemplateCodeEditorProps {
   value: string
   onChange: (value: string) => void
+  /** Perfil sem permissão de editar: dá para ler e copiar, não para mudar. */
+  readOnly?: boolean
 }
 
 const EXTENSIONS = [html(), EditorView.lineWrapping]
@@ -21,7 +23,7 @@ const EXTENSIONS = [html(), EditorView.lineWrapping]
 export const TemplateCodeEditor = forwardRef<
   TemplateCodeEditorHandle,
   TemplateCodeEditorProps
->(function TemplateCodeEditor({ value, onChange }, ref) {
+>(function TemplateCodeEditor({ value, onChange, readOnly = false }, ref) {
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   useImperativeHandle(ref, () => ({
     insert: (text: string) => {
@@ -41,6 +43,8 @@ export const TemplateCodeEditor = forwardRef<
         ref={editorRef}
         value={value}
         onChange={onChange}
+        readOnly={readOnly}
+        editable={!readOnly}
         extensions={EXTENSIONS}
         theme={dark ? 'dark' : 'light'}
         height="460px"

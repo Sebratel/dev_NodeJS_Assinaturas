@@ -3,6 +3,7 @@ import { LogOut } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useDismiss } from '../../hooks/useDismiss'
+import { ROLE_LABELS } from '../../hooks/usePermissions'
 import { meService } from '../../services/me.service'
 import { queryKeys } from '../../services/query-keys'
 
@@ -35,8 +36,8 @@ export function ProfileMenu() {
   const local = status === 'local'
   const role = local
     ? 'Login desligado'
-    : me.data?.isAdmin
-      ? 'Administrador'
+    : me.data?.role
+      ? ROLE_LABELS[me.data.role]
       : 'Acesso liberado'
 
   const leave = async () => {

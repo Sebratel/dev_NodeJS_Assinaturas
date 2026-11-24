@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { usePermissions } from '../../hooks/usePermissions'
 import {
   EmptyState,
   ErrorState,
@@ -36,6 +37,7 @@ const GROUPS_PREVIEW = 12
 
 export function CoveragePage() {
   const navigate = useNavigate()
+  const { canEdit } = usePermissions()
   const coverage = useQuery({
     queryKey: queryKeys.coverage,
     queryFn: reportService.coverage,
@@ -207,18 +209,22 @@ export function CoveragePage() {
                       {formatNumber(group.count)}
                     </td>
                     <td className="px-3 py-1.5 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<Plus className="size-3.5" />}
-                        onClick={() =>
-                          navigate('/regras', {
-                            state: { draftFor: group } satisfies RuleDraftState,
-                          })
-                        }
-                      >
-                        Criar regra
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Plus className="size-3.5" />}
+                          onClick={() =>
+                            navigate('/regras', {
+                              state: {
+                                draftFor: group,
+                              } satisfies RuleDraftState,
+                            })
+                          }
+                        >
+                          Criar regra
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -1,13 +1,14 @@
 import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiResponseHelper } from '../../common/helpers/api-response.helper.js';
-import { CurrentUser } from '../auth/auth.decorators.js';
+import { CurrentUser, RequireRole } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/auth.service.js';
 import { DirectoryService } from '../directory/directory.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { SettingKeyEnum } from '../settings/types/setting-key.enum.js';
 import { SignatureApplicationsService } from '../signature-applications/signature-applications.service.js';
 import { AutoApplyService } from './auto-apply.service.js';
+import { UserRoleEnum } from '../users/types/user-role.enum.js';
 
 const RECENT_DAYS = 14;
 
@@ -46,6 +47,7 @@ export class AutomationController {
   }
 
   /** Lê o AD agora e roda a automação (se ligada), em nome de quem clicou. */
+  @RequireRole(UserRoleEnum.MASTER)
   @Post('run')
   @HttpCode(200)
   async runNow(@CurrentUser() user: AuthUser) {
@@ -53,6 +55,7 @@ export class AutomationController {
     return ApiResponseHelper.ok(await this.autoApplyService.run('MANUAL', user.email));
   }
 
+  @RequireRole(UserRoleEnum.MASTER)
   @Post('approve')
   @HttpCode(200)
   async approve(@CurrentUser() user: AuthUser) {

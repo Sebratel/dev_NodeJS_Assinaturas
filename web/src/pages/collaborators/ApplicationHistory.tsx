@@ -3,6 +3,7 @@ import { Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { queryKeys } from '../../services/query-keys'
 import { signatureApplicationService } from '../../services/signature-application.service'
@@ -25,6 +26,7 @@ export function ApplicationHistory({
   collaboratorId: string
 }) {
   const queryClient = useQueryClient()
+  const { canApply } = usePermissions()
   const history = useQuery({
     queryKey: queryKeys.applications(collaboratorId),
     queryFn: () => signatureApplicationService.history(collaboratorId),
@@ -46,7 +48,9 @@ export function ApplicationHistory({
   const lastWrite = items.find(
     (i) => i.status === 'APPLIED' || i.status === 'RESTORED'
   )
-  const undoableId = lastWrite?.status === 'APPLIED' ? lastWrite.id : null
+  // Desfazer grava no Gmail: só Master.
+  const undoableId =
+    canApply && lastWrite?.status === 'APPLIED' ? lastWrite.id : null
 
   return (
     <section className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">

@@ -1,6 +1,9 @@
 import { Check } from 'lucide-react'
+import { useContext } from 'react'
 import { Button } from '../../components/ui/Button'
+import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
 import { ApiError } from '../../services/api-client'
+import { SettingsLockContext } from './settings-lock'
 
 interface SaveBarProps {
   onSave: () => void
@@ -10,7 +13,14 @@ interface SaveBarProps {
 }
 
 export function SaveBar({ onSave, pending, saved, error }: SaveBarProps) {
+  const lockedNeeds = useContext(SettingsLockContext)
   const apiError = error instanceof ApiError ? error : null
+  if (lockedNeeds)
+    return (
+      <div className="flex justify-end border-t border-outline-variant pt-3">
+        <ReadOnlyNote needs={lockedNeeds} />
+      </div>
+    )
   return (
     <div className="flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-3">
       {apiError && (

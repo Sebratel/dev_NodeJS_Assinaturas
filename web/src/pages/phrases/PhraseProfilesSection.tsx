@@ -9,6 +9,7 @@ import {
   LoadingState,
 } from '../../components/ui/States'
 import { Switch } from '../../components/ui/Switch'
+import { usePermissions } from '../../hooks/usePermissions'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { phraseProfileService } from '../../services/phrase-profile.service'
 import { reportService } from '../../services/report.service'
@@ -23,6 +24,7 @@ type EditorState = { profile: PhraseProfile | null } | null
 /** Perfis de frase: "quem tem estas características usa esta frase" (nível, área, time, cargo, empresa…). */
 export function PhraseProfilesSection() {
   const queryClient = useQueryClient()
+  const { canEdit } = usePermissions()
   const profiles = useQuery({
     queryKey: queryKeys.phraseProfiles,
     queryFn: phraseProfileService.list,
@@ -71,13 +73,15 @@ export function PhraseProfilesSection() {
         ) : (
           <span />
         )}
-        <Button
-          variant="primary"
-          icon={<Plus className="size-4" />}
-          onClick={() => setEditor({ profile: null })}
-        >
-          Novo perfil
-        </Button>
+        {canEdit && (
+          <Button
+            variant="primary"
+            icon={<Plus className="size-4" />}
+            onClick={() => setEditor({ profile: null })}
+          >
+            Novo perfil
+          </Button>
+        )}
       </div>
 
       {profiles.isLoading && <LoadingState />}
@@ -179,7 +183,7 @@ export function PhraseProfilesSection() {
                           label={
                             p.active ? 'Desativar perfil' : 'Ativar perfil'
                           }
-                          disabled={toggle.isPending}
+                          disabled={toggle.isPending || !canEdit}
                         />
                       </td>
                     </tr>
