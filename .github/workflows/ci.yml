@@ -88,6 +88,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # O mesmo que o "Re-pull image" do Portainer faz antes do deploy. Sem `pull_policy: build`, falhava com
+      # "pull access denied for assinaturas-frontend" (as imagens nascem do build, não existem em registry).
+      - name: Pull como o Portainer
+        run: docker compose $COMPOSE_FILES pull
+
       - name: Construir as imagens
         run: docker compose $COMPOSE_FILES build
 
