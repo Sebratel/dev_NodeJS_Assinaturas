@@ -83,6 +83,10 @@ jobs:
       DB_USER: assinaturas
       DB_PASSWORD: ci-senha
       DB_NAME: assinaturas
+      # Entrada pelo Hub Apps: segredo e app de teste (o token é montado por .github/ci/hub-token.mjs).
+      AUTH_ADMIN_EMAILS: ci.master@sebratel.com.br
+      HUB_SSO_SECRET: ci-hub-secret
+      HUB_APP_ID: ci-app-id
       # Sem AD_BIND_*, como a produção enquanto a conta de leitura não existe: a API tem de subir mesmo assim.
       # (Em 23/11/2026 o CI passava porque preenchia AD_BIND_* com valor falso, e a produção reiniciava sem parar.)
     steps:
@@ -135,6 +139,37 @@ jobs:
           code=$(curl -s -o me.json -w '%{http_code}' http://localhost:3080/api/v1/me)
           [ "$code" = "401" ] || { echo "::error::/api/v1/me sem token devolveu $code (esperado 401)"; cat me.json; exit 1; }
           grep -q '"AUTH_REQUIRED"' me.json || { echo "::error::corpo inesperado:"; cat me.json; exit 1; }
+
+      # Mesmo caminho do Hub: token de 5 min → sessão de 8 h → rotas com a sessão. Uso único e app conferidos.
+      - name: Entrada pelo Hub Apps
+        run: |
+          hub() { node .github/ci/hub-token.mjs ci-hub-secret "$1" ci.master@sebratel.com.br; }
+          exchange() {
+            curl -s -o "$2" -w '%{http_code}' -H 'Content-Type: application/json' \
+              -d "{\"token\":\"$1\"}" http://localhost:3080/api/v1/auth/hub
+          }
+          token=$(hub ci-app-id)
+          code=$(exchange "$token" hub.json)
+          [ "$code" = 200 ] || { echo "::error::/auth/hub devolveu $code"; cat hub.json; exit 1; }
+          session=$(jq -r .data.token hub.json)
+          role=$(curl -fsS -H "Authorization: Bearer $session" http://localhost:3080/api/v1/me | jq -r .data.role)
+          [ "$role" = MASTER ] || { echo "::error::/me com a sessão do Hub devolveu perfil $role"; exit 1; }
+          code=$(exchange "$token" again.json)
+          [ "$code" = 401 ] && grep -q HUB_TOKEN_USED again.json || { echo "::error::token reusado devolveu $code"; cat again.json; exit 1; }
+          code=$(exchange "$(hub outro-app)" other.json)
+          [ "$code" = 403 ] && grep -q HUB_TOKEN_OTHER_APP other.json || { echo "::error::token de outro app devolveu $code"; cat other.json; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" http://localhost:3080/api/v1/me)
+          [ "$code" = 401 ] || { echo "::error::token cru do Hub valeu como sessão ($code)"; exit 1; }
+          curl -fsS http://localhost:3080/api/v1/auth/config | jq -e '.data.hubEnabled == true and .data.hubOnly == false' >/dev/null \
+            || { echo "::error::/auth/config inesperado"; exit 1; }
+
+      # O Hub exibe o sistema num quadro: o index.html libera o Hub em frame-ancestors (e só ele).
+      - name: Hub pode exibir o sistema num quadro
+        run: |
+          curl -sI http://localhost:3080/ | tr -d '\r' | grep -i '^content-security-policy:' | tee csp.txt
+          grep -q "frame-ancestors 'self' https://hub-apps.sebratel.net.br https://hub-apps-staging.sebratel.net.br" csp.txt \
+            || { echo "::error::frame-ancestors do Hub ausente"; exit 1; }
+          ! curl -sI http://localhost:3080/ | grep -qi '^x-frame-options' || { echo "::error::X-Frame-Options bloquearia o Hub"; exit 1; }
 
       - name: Frontend serve as telas e as rotas da SPA
         run: |

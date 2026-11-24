@@ -19,7 +19,7 @@ function initials(name: string): string {
 
 /** Avatar + nome/e-mail/papel; o "Sair" mora aqui (padroes-frontend §16). */
 export function ProfileMenu() {
-  const { user, status, signOut } = useAuth()
+  const { user, status, via, signOut } = useAuth()
   const me = useQuery({
     queryKey: queryKeys.me,
     queryFn: meService.get,
@@ -89,6 +89,11 @@ export function ProfileMenu() {
                 ? 'Ambiente local, sem login (AUTH_ENABLED=false)'
                 : user.email}
             </div>
+            {via === 'hub' && (
+              <div className="mt-0.5 text-[11px] text-on-surface-variant/80">
+                Entrou pelo Hub Apps
+              </div>
+            )}
             <span className="mt-2 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-ink">
               {role}
             </span>

@@ -12,7 +12,7 @@ services:
       dockerfile: Dockerfile.frontend
       # Públicos por design (vão para o JavaScript do navegador). Mudar exige rebuild da stack.
       args:
-        APP_VERSION: ${APP_VERSION:-1.2.0}
+        APP_VERSION: ${APP_VERSION:-1.3.0}
         VITE_API_BASE_URL: /api
         VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-true}
         VITE_AUTH_HOSTED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-sebratel.com.br}
@@ -20,12 +20,12 @@ services:
         VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-sistema-gestor-assinatur-9be62.firebaseapp.com}
         VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-sistema-gestor-assinatur-9be62}
         VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
-    image: assinaturas-frontend:${APP_VERSION:-1.2.0}
+    image: assinaturas-frontend:${APP_VERSION:-1.3.0}
     # A imagem nasce do build, não de um registry. Sem isto, o "Re-pull image" do Portainer procura
     # assinaturas-frontend no Docker Hub e o deploy falha com "pull access denied" (23/11/2026).
     pull_policy: build
     labels:
-      org.opencontainers.image.version: ${APP_VERSION:-1.2.0}
+      org.opencontainers.image.version: ${APP_VERSION:-1.3.0}
     mem_limit: 128m
     memswap_limit: 128m
     environment:
@@ -49,11 +49,11 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-1.2.0}
-    image: assinaturas-backend:${APP_VERSION:-1.2.0}
+        APP_VERSION: ${APP_VERSION:-1.3.0}
+    image: assinaturas-backend:${APP_VERSION:-1.3.0}
     pull_policy: build                # idem frontend: construída do Git, nunca baixada
     labels:
-      org.opencontainers.image.version: ${APP_VERSION:-1.2.0}
+      org.opencontainers.image.version: ${APP_VERSION:-1.3.0}
     mem_limit: 1g
     memswap_limit: 1g                 # igual ao mem_limit = sem swap
     environment:
@@ -69,6 +69,12 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-sistema-gestor-assinatur-9be62}
       AUTH_ALLOWED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-sebratel.com.br}
       AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS}
+      # Entrada pelo Hub Apps (sistema embutido). HUB_SSO_SECRET = o SSO_JWT_SECRET da stack do Hub; HUB_APP_ID = id do app
+      # no DB_Hub_Apps. HUB_ONLY=true fecha o login direto para quem não é master (ignorado sem os dois de cima).
+      HUB_SSO_SECRET: ${HUB_SSO_SECRET:-}
+      HUB_APP_ID: ${HUB_APP_ID:-16651205-0436-4ed8-80b1-d7ab4da9e48a}
+      HUB_ONLY: ${HUB_ONLY:-false}
+      HUB_URL: ${HUB_URL:-https://hub-apps.sebratel.net.br}
 
       # Banco: tabelas por migration ao subir (nunca synchronize).
       DB_TYPE: mariadb

@@ -16,6 +16,7 @@ export const queryKeys = {
   phraseProfiles: ['phrase-profiles'] as const,
   automation: ['automation'] as const,
   me: ['me'] as const,
+  authConfig: ['auth-config'] as const,
   users: ['users'] as const,
 }
 

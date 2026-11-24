@@ -1,6 +1,7 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { config } from '../config'
 import { firebaseAuthService } from './firebase-auth.service'
+import { hubSession } from './hub-session'
 import type { PaginationMeta } from '../types/api'
 
 /** Erro da API já traduzido do envelope { success:false, error:{ code, message, details } }. */
@@ -39,9 +40,17 @@ export function setSessionExpiredHandler(handler: () => void) {
   onSessionExpired = handler
 }
 
-/** Token de cada requisição vem do SDK (padrao-login-sso); nunca guardado em variável. */
+/**
+ * Token de cada requisição: a sessão do Hub (sistema aberto dentro do Hub Apps) tem prioridade; senão, o do
+ * SDK do Firebase (padrao-login-sso), nunca guardado em variável.
+ */
 httpClient.interceptors.request.use(async (request) => {
   if (!config.auth.enabled) return request
+  const hub = hubSession.get()
+  if (hub) {
+    request.headers.set('Authorization', `Bearer ${hub.token}`)
+    return request
+  }
   try {
     const token = await firebaseAuthService.getIdToken()
     if (token) request.headers.set('Authorization', `Bearer ${token}`)
@@ -55,7 +64,18 @@ httpClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<Envelope<unknown>>) => {
     const original = error.config as RetriableRequest | undefined
+    // Sessão do Hub não se renova aqui: 401 = acabou (venceu as 8 h). O fim de sessão abaixo leva ao login,
+    // que explica que é para abrir de novo pelo Hub.
     if (
+      config.auth.enabled &&
+      error.response?.status === 401 &&
+      hubSession.get()
+    ) {
+      hubSession.clear()
+      hubSession.setError(
+        'Sua sessão do Hub terminou. Abra o sistema de novo pelo Hub Apps.'
+      )
+    } else if (
       config.auth.enabled &&
       error.response?.status === 401 &&
       original &&

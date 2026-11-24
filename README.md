@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.2.0)
+## Estado (1.3.0)
 
 | Parte | Situação |
 |---|---|
@@ -12,6 +12,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
 | Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Só o perfil **Master** grava, desfaz e liga a automação. |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
+| Hub Apps | Abre **dentro do Hub Apps** (app "Gestor de Assinaturas - Sebratel", `gestor-assinaturas.sebratel.net.br`): o Hub passa um token de 5 min, a API troca por uma sessão de 8 h. Com `HUB_ONLY=true`, só master entra direto; os demais pelo Hub. |
 | Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Entra quem está em `AUTH_ADMIN_EMAILS` (master fixo) ou na tela **Usuários**, com perfil Master, Editor ou Visualizador. Em desenvolvimento, `AUTH_ENABLED=false` (entra como Master). |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). O nginx do frontend também loga em JSON (`assinaturas-frontend`) e repassa o `requestId`. |
@@ -103,11 +104,34 @@ Contrato entre a tela e a API (padrão `padrao-login-sso`):
 - Ninguém muda o próprio perfil nem se remove; remover é exclusão lógica, e incluir de novo restaura.
 - Substitui a antiga **lista de teste** (`apply-scope`, `GOOGLE_APPLY_ALLOWLIST`): quem limita a gravação agora é o perfil Master. A linha `apply-scope` fica no banco sem uso.
 
+### Entrada pelo Hub Apps (1.3.0)
+
+Segue o guia "Apps embutidos no Hub" (modelo do Data Hub). Fluxo:
+
+1. A pessoa clica no card do Hub. O Hub abre `/app/:id`: um quadro com `https://gestor-assinaturas.sebratel.net.br/?sso_token=…`.
+2. Antes de montar a tela (`web/src/main.tsx` → `services/hub-session.ts`), o token sai da URL e vai para `POST /api/v1/auth/hub`.
+3. A API (`auth/hub-sso.service.ts`) confere o token e devolve uma sessão própria de 8 h, que fica no `sessionStorage` do quadro. Uma aba aberta direto no sistema não herda essa sessão.
+4. Toda chamada usa a sessão (Bearer). O perfil é lido de novo a cada pedido na tela Usuários: quem é removido perde o acesso na hora, mesmo com sessão.
+
+O que a API confere no token do Hub:
+- HS256 com `HUB_SSO_SECRET` (o `SSO_JWT_SECRET` do Hub);
+- vencimento;
+- `appId` = `HUB_APP_ID`, porque o segredo é o mesmo para todos os apps do Hub;
+- e-mail @sebratel.com.br;
+- uso único.
+
+A sessão é assinada com chave derivada: o token do Hub não vale como sessão e a sessão não vale como token do Hub.
+
+- **Quem entra:** o Hub decide quem vê o card; a tela **Usuários** decide quem entra e com que perfil. Quem não está cadastrado vê "sem acesso", mesmo vindo do Hub.
+- **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para quem não é master. A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`). O master continua entrando direto: é a porta de emergência se o Hub cair. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
+- **Quadro:** o nginx do frontend manda `Content-Security-Policy: frame-ancestors 'self' https://hub-apps.sebratel.net.br https://hub-apps-staging.sebratel.net.br`. Fica no nginx do sistema, porque o NPM ignora `add_header` na aba Advanced.
+- **Rotas públicas:** `GET /api/v1/auth/config` (`hubOnly`, `hubEnabled`, `hubUrl`) e `POST /api/v1/auth/hub`.
+
 ## Estrutura
 
 ```
 api/   NestJS 12 (ESM) + TypeORM, um módulo por domínio
-  auth/                   login: verificação do token, guard global com perfil mínimo (@RequireRole), GET /v1/me
+  auth/                   login: verificação do token, entrada pelo Hub (hub-sso), guard global com perfil mínimo, GET /v1/me
   users/                  tela Usuários: perfis Master, Editor e Visualizador
   directory/              leitura do AD (LDAP, Windows ou snapshot) e tradução para colaborador
   settings/               origem dos campos, sinônimos, de-para, frases, filtros
@@ -145,7 +169,7 @@ São os que sempre esquecem. Nenhum deles está no código.
 1. **Firebase** [PADRÃO]. Projeto `sistema-gestor-assinatur-9be62` (criado no console em 23/11/2026), só deste sistema (nunca reaproveitar o de outro setor). O app Web já existe; o Analytics que o console sugere não é usado.
    Conferir de fora, sem console: `GET https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=<VITE_FIREBASE_API_KEY>` devolve os domínios autorizados e os provedores ativos.
    1. Authentication › Sign-in method › **Google › Ativar**. Projeto novo vem com tudo desligado.
-   2. Authentication › Settings › **Authorized domains**: adicionar o domínio do sistema. Só `localhost` vem liberado. Sem isso o login falha com `auth/unauthorized-domain`, e só no primeiro clique real.
+   2. Authentication › Settings › **Authorized domains**: adicionar o domínio do sistema (`gestor-assinaturas.sebratel.net.br`), usado pelo master no login direto. Só `localhost` vem liberado. Sem isso o login falha com `auth/unauthorized-domain`, e só no primeiro clique real.
    3. Configurações do projeto › Seus apps › **Web**: copiar `apiKey`, `authDomain` e `appId` para as variáveis `VITE_FIREBASE_*`.
    4. Google Cloud › Credenciais [RECOMENDADO]:
       - restringir a chave de API a Identity Toolkit e Token Service;
@@ -201,6 +225,9 @@ Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no ar
 | `AD_BIND_PASSWORD` | para ler o AD | | **sim** |
 | `AD_URL`, `AD_BASE_DN` | não | `ldap://10.0.11.251`, `DC=corp,DC=sebratel,DC=com,DC=br` | |
 | `AUTH_ADMIN_EMAILS` | sim | masters fixos, separados por vírgula (os demais na tela Usuários) | |
+| `HUB_SSO_SECRET` | para o Hub | o **mesmo** valor do `SSO_JWT_SECRET` da stack do Hub Apps | **sim** |
+| `HUB_APP_ID` | não | `16651205-0436-4ed8-80b1-d7ab4da9e48a` (id do app no `DB_Hub_Apps`) | |
+| `HUB_ONLY` | não | `false`. `true` só depois de testar a entrada pelo Hub | |
 | `FIREBASE_PROJECT_ID` | não | `sistema-gestor-assinatur-9be62` | |
 | `VITE_FIREBASE_API_KEY` | sim | do app Web do Firebase (público por design) | |
 | `VITE_FIREBASE_AUTH_DOMAIN` | não | `sistema-gestor-assinatur-9be62.firebaseapp.com` | |
@@ -224,6 +251,7 @@ Já fixos no compose [PADRÃO]:
 
 ### 3. Conferir depois do deploy
 
+1. Pelo Hub Apps: o card "Gestor de Assinaturas" abre o sistema dentro do Hub, já logado. `curl -sI https://gestor-assinaturas.sebratel.net.br/ | grep -i content-security` mostra o `frame-ancestors` do Hub.
 1. `http://<servidor>:3080/api/health` (pelo frontend) responde `"status":"ok"` com a versão. `directory.ok: false` = conta do AD faltando ou errada (o motivo está no Monitoramento).
 2. A tela abre, o login com Google funciona e quem não está em `AUTH_ADMIN_EMAILS` nem na tela Usuários vê "sem acesso".
 3. No Kibana:

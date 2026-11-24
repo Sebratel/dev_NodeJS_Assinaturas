@@ -6,6 +6,7 @@ import { type CertificateMap, FirebaseCertsStore } from './firebase-certs.store.
 import { type FirebaseIdTokenClaims, TokenRejectedError, verifyFirebaseIdToken } from './firebase-token.verifier.js';
 import { UserRoleEnum } from '../users/types/user-role.enum.js';
 import { UsersService } from '../users/users.service.js';
+import { HubSsoService } from './hub-sso.service.js';
 
 export interface AuthUser {
   email: string;
@@ -34,6 +35,7 @@ export class AuthService implements OnModuleInit {
     configService: ConfigService,
     private readonly certs: FirebaseCertsStore,
     private readonly usersService: UsersService,
+    private readonly hubSso: HubSsoService,
   ) {
     this.settings = readAuthSettings(configService);
   }
@@ -64,20 +66,35 @@ export class AuthService implements OnModuleInit {
     const match = /^Bearer\s+(\S+)\s*$/i.exec(authorization ?? '');
     if (!match) throw new BusinessException('AUTH_REQUIRED', 'Faça login para continuar.', HttpStatus.UNAUTHORIZED);
 
+    // Sessão da entrada pelo Hub (emitida por esta API) vem primeiro. O perfil é lido de novo a cada pedido.
+    const hub = this.hubSso.verifySession(match[1]);
+    if (hub) return this.withRole(hub.email, hub.name);
+
     const claims = await this.verify(match[1]);
     if (!claims.emailVerified) return this.forbid(claims.email, 'EMAIL_NOT_VERIFIED', 'O e-mail desta conta Google não está verificado.');
     if (!claims.email.endsWith(`@${this.settings.allowedDomain}`)) {
       return this.forbid(claims.email, 'DOMAIN', `Entre com a sua conta @${this.settings.allowedDomain}.`);
     }
-    const role = await this.usersService.findRole(claims.email);
+    const user = await this.withRole(claims.email, claims.name || claims.email.split('@')[0]);
+    // HUB_ONLY: login direto (Google na própria página) só para master, a porta de emergência se o Hub cair.
+    if (this.hubSso.isHubOnly() && user.role !== UserRoleEnum.MASTER) {
+      this.logger.warn({ msg: 'auth forbidden', reason: 'HUB_ONLY', userEmail: user.email });
+      throw new BusinessException('HUB_ONLY', 'O acesso a este sistema é pelo Hub Apps.', HttpStatus.FORBIDDEN);
+    }
+    return user;
+  }
+
+  /** Perfil de quem entrou (tela Usuários ou master da stack). Sem perfil = 403, também para quem veio do Hub. */
+  async withRole(email: string, name: string): Promise<AuthUser> {
+    const role = await this.usersService.findRole(email);
     if (!role) {
       return this.forbid(
-        claims.email,
+        email,
         'NOT_REGISTERED',
         'Seu e-mail ainda não tem acesso a este sistema. Peça a um master para incluí-lo em Usuários.',
       );
     }
-    return { email: claims.email, name: claims.name || claims.email.split('@')[0], role };
+    return { email: email.toLowerCase(), name, role };
   }
 
   private async verify(token: string): Promise<FirebaseIdTokenClaims> {

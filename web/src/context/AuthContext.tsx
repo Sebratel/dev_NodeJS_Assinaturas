@@ -5,6 +5,7 @@ import {
   describeSignInError,
   firebaseAuthService,
 } from '../services/firebase-auth.service'
+import { hubSession } from '../services/hub-session'
 import {
   AuthContext,
   type AuthContextValue,
@@ -18,38 +19,65 @@ const LOCAL_USER: SessionUser = {
   photoUrl: null,
 }
 
-/** Sessão do usuário. Com login desligado (desenvolvimento local), entra direto como "Modo local". */
+function hubUser(): SessionUser | null {
+  const session = config.auth.enabled ? hubSession.get() : null
+  return session
+    ? { email: session.user.email, name: session.user.name, photoUrl: null }
+    : null
+}
+
+/**
+ * Sessão do usuário. Duas entradas: pelo Hub Apps (sessão trocada em main.tsx, só neste quadro) ou login com
+ * Google na própria página (Firebase). A do Hub tem prioridade. Com login desligado (desenvolvimento local),
+ * entra direto como "Modo local".
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>(
+  const [hub, setHub] = useState<SessionUser | null>(hubUser)
+  const [firebaseStatus, setFirebaseStatus] = useState<AuthStatus>(
     config.auth.enabled ? 'loading' : 'local'
   )
-  const [user, setUser] = useState<SessionUser | null>(
+  const [firebaseUser, setFirebaseUser] = useState<SessionUser | null>(
     config.auth.enabled ? null : LOCAL_USER
   )
-  const [signInError, setSignInError] = useState<string | null>(null)
+  // Motivo de uma entrada pelo Hub recusada (token vencido, usado, sem acesso...): aparece na tela de login.
+  const [signInError, setSignInError] = useState<string | null>(() =>
+    hubSession.takeError()
+  )
 
   useEffect(() => {
     if (!config.auth.enabled) return
     // 401 que persiste depois de renovar o token: a sessão acabou de verdade (padrao-login-sso).
-    setSessionExpiredHandler(() => void firebaseAuthService.signOut())
-    return firebaseAuthService.onUserChanged((firebaseUser) => {
-      setUser(
-        firebaseUser
+    setSessionExpiredHandler(() => {
+      if (hubSession.get() === null && hub) {
+        setHub(null)
+        setSignInError(hubSession.takeError())
+        return
+      }
+      void firebaseAuthService.signOut()
+    })
+  }, [hub])
+
+  useEffect(() => {
+    if (!config.auth.enabled) return
+    return firebaseAuthService.onUserChanged((user) => {
+      setFirebaseUser(
+        user
           ? {
-              email: firebaseUser.email ?? '',
-              name: firebaseUser.displayName ?? firebaseUser.email ?? '',
-              photoUrl: firebaseUser.photoURL,
+              email: user.email ?? '',
+              name: user.displayName ?? user.email ?? '',
+              photoUrl: user.photoURL,
             }
           : null
       )
-      setStatus(firebaseUser ? 'signed-in' : 'signed-out')
+      setFirebaseStatus(user ? 'signed-in' : 'signed-out')
     })
   }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      status,
-      user,
+      status: hub ? 'signed-in' : firebaseStatus,
+      user: hub ?? firebaseUser,
+      via: !config.auth.enabled ? 'local' : hub ? 'hub' : 'google',
       signInError,
       signIn: async () => {
         setSignInError(null)
@@ -60,10 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
       signOut: async () => {
+        hubSession.clear()
+        setHub(null)
         if (config.auth.enabled) await firebaseAuthService.signOut()
       },
     }),
-    [status, user, signInError]
+    [hub, firebaseStatus, firebaseUser, signInError]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
