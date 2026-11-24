@@ -67,7 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Usuários',
     icon: ShieldCheck,
     description:
-      'Quem entra no sistema e o que pode fazer: ver, editar regras e modelos, ou gravar no Gmail.',
+      'Toda a organização vê o sistema como Visualizador. Aqui você dá perfil de Editor (regras, modelos e frases) ou Master (gravar no Gmail).',
     masterOnly: true,
   },
 ]

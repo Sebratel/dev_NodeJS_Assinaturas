@@ -25,8 +25,9 @@ export interface UserView {
 }
 
 /**
- * Quem entra e com que perfil. Os e-mails do AUTH_ADMIN_EMAILS são MASTER fixos: garantem que sempre existe
- * alguém capaz de gerenciar o acesso, mesmo com a tabela vazia ou alterada por engano.
+ * Perfil de cada pessoa (decisão do usuário em 24/11/2026): toda conta do domínio entra como VIEWER, sem cadastro;
+ * a tabela users guarda só quem tem MAIS que isso (EDITOR ou MASTER). Os e-mails do AUTH_ADMIN_EMAILS são MASTER
+ * fixos: garantem que sempre existe alguém capaz de dar perfis, mesmo com a tabela vazia ou alterada por engano.
  */
 @Injectable()
 export class UsersService {
@@ -42,12 +43,14 @@ export class UsersService {
     this.allowedDomain = settings.allowedDomain;
   }
 
-  /** Perfil de quem fez login; null = sem acesso. */
+  /** Perfil de quem fez login: master da stack, o da tabela, ou VIEWER para o resto do domínio. null = fora do domínio. */
   async findRole(email: string): Promise<UserRoleEnum | null> {
     const normalized = email.trim().toLowerCase();
     if (this.fixedMasters.has(normalized)) return UserRoleEnum.MASTER;
+    // Defesa em profundidade: quem chama já conferiu o domínio, mas fora dele nunca sai perfil daqui.
+    if (!normalized.endsWith(`@${this.allowedDomain}`)) return null;
     const user = await this.userRepository.findOneBy({ email: normalized });
-    return user?.role ?? null;
+    return user?.role ?? UserRoleEnum.VIEWER;
   }
 
   /** Último acesso e nome da conta Google, para a tela. Master fixo sem linha: nada a registrar. */
@@ -80,12 +83,20 @@ export class UsersService {
         { field: 'email', message: `o e-mail precisa ser @${this.allowedDomain}.` },
       ]);
     }
+    if (dto.role === UserRoleEnum.VIEWER) {
+      throw new BusinessException(
+        'USER_INVALID',
+        `Toda conta @${this.allowedDomain} já entra como Visualizador. Aqui só se dá perfil de Editor ou Master.`,
+        HttpStatus.BAD_REQUEST,
+        [{ field: 'role', message: 'use EDITOR ou MASTER.' }],
+      );
+    }
     if (this.fixedMasters.has(email)) {
       throw new BusinessException('USER_ALREADY_EXISTS', 'Este e-mail já é master pela stack (AUTH_ADMIN_EMAILS).', HttpStatus.CONFLICT);
     }
     const existing = await this.userRepository.findOne({ where: { email }, withDeleted: true });
     if (existing && !existing.deletedAt) {
-      throw new BusinessException('USER_ALREADY_EXISTS', 'Este e-mail já tem acesso. Troque o perfil na lista.', HttpStatus.CONFLICT);
+      throw new BusinessException('USER_ALREADY_EXISTS', 'Este e-mail já tem perfil. Troque o perfil na lista.', HttpStatus.CONFLICT);
     }
     if (existing) {
       // Removido antes: volta com o perfil novo (o e-mail é único, então a linha antiga é reaproveitada).
@@ -103,7 +114,7 @@ export class UsersService {
     return UsersService.toView(await this.userRepository.save(Object.assign(user, { role: dto.role, updatedBy: actor.email })));
   }
 
-  /** Exclusão lógica: a pessoa perde o acesso no próximo pedido; a linha fica para auditoria. */
+  /** Exclusão lógica: a pessoa volta a ser Visualizador no próximo pedido; a linha fica para auditoria. */
   async remove(id: string, actor: AuthUser): Promise<void> {
     const user = await this.findEditable(id, actor);
     await this.userRepository.update({ id: user.id }, { updatedBy: actor.email });

@@ -76,30 +76,40 @@ describe('UsersService', () => {
     expect(repository.rows[0]).toMatchObject({ email: 'nova.pessoa@sebratel.com.br', createdBy: MASTER.email });
   });
 
-  it('recusa e-mail de fora do domínio, master da stack e e-mail repetido', async () => {
-    expect(await failure(service.create({ email: 'alguem@gmail.com', role: UserRoleEnum.VIEWER }, MASTER))).toEqual({
+  it('toda conta do domínio é Visualizador sem cadastro; fora do domínio, nenhum perfil', async () => {
+    expect(await service.findRole('Qualquer.Pessoa@sebratel.com.br')).toBe(UserRoleEnum.VIEWER);
+    expect(await service.findRole('pessoa@gmail.com')).toBeNull();
+    expect(await service.findRole('pessoa@sebratel.com.br.evil.com')).toBeNull();
+  });
+
+  it('recusa e-mail de fora do domínio, incluir como Visualizador, master da stack e e-mail repetido', async () => {
+    expect(await failure(service.create({ email: 'alguem@gmail.com', role: UserRoleEnum.EDITOR }, MASTER))).toEqual({
       status: HttpStatus.BAD_REQUEST,
       code: 'USER_INVALID',
     });
-    expect(await failure(service.create({ email: MASTER.email, role: UserRoleEnum.VIEWER }, MASTER))).toEqual({
+    expect(await failure(service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.VIEWER }, MASTER))).toEqual({
+      status: HttpStatus.BAD_REQUEST,
+      code: 'USER_INVALID',
+    });
+    expect(await failure(service.create({ email: MASTER.email, role: UserRoleEnum.EDITOR }, MASTER))).toEqual({
       status: HttpStatus.CONFLICT,
       code: 'USER_ALREADY_EXISTS',
     });
-    await service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.VIEWER }, MASTER);
-    expect(await failure(service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.EDITOR }, MASTER))).toMatchObject({
+    await service.create({ email: 'editora@sebratel.com.br', role: UserRoleEnum.EDITOR }, MASTER);
+    expect(await failure(service.create({ email: 'editora@sebratel.com.br', role: UserRoleEnum.MASTER }, MASTER))).toMatchObject({
       code: 'USER_ALREADY_EXISTS',
     });
   });
 
-  it('remover é lógico: perde o acesso, e incluir de novo reaproveita a linha com o perfil novo', async () => {
-    const user = await service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.VIEWER }, MASTER);
+  it('remover é lógico: volta a Visualizador, e incluir de novo reaproveita a linha com o perfil novo', async () => {
+    const user = await service.create({ email: 'editora@sebratel.com.br', role: UserRoleEnum.EDITOR }, MASTER);
     await service.remove(user.id!, MASTER);
-    expect(await service.findRole('leitor@sebratel.com.br')).toBeNull();
+    expect(await service.findRole('editora@sebratel.com.br')).toBe(UserRoleEnum.VIEWER);
     expect(repository.rows).toHaveLength(1);
 
-    const again = await service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.EDITOR }, MASTER);
+    const again = await service.create({ email: 'editora@sebratel.com.br', role: UserRoleEnum.MASTER }, MASTER);
     expect(again.id).toBe(user.id);
-    expect(await service.findRole('leitor@sebratel.com.br')).toBe(UserRoleEnum.EDITOR);
+    expect(await service.findRole('editora@sebratel.com.br')).toBe(UserRoleEnum.MASTER);
     expect(repository.rows).toHaveLength(1);
   });
 
@@ -115,11 +125,11 @@ describe('UsersService', () => {
   });
 
   it('lista os masters da stack primeiro, fixos e sem id', async () => {
-    await service.create({ email: 'leitor@sebratel.com.br', role: UserRoleEnum.VIEWER }, MASTER);
+    await service.create({ email: 'editora@sebratel.com.br', role: UserRoleEnum.EDITOR }, MASTER);
     const list = await service.findAll();
     expect(list.map(({ email, role, fixed, id }) => ({ email, role, fixed, hasId: id !== null }))).toEqual([
       { email: MASTER.email, role: UserRoleEnum.MASTER, fixed: true, hasId: false },
-      { email: 'leitor@sebratel.com.br', role: UserRoleEnum.VIEWER, fixed: false, hasId: true },
+      { email: 'editora@sebratel.com.br', role: UserRoleEnum.EDITOR, fixed: false, hasId: true },
     ]);
   });
 });
