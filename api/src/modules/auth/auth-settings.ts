@@ -3,7 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 export interface AuthSettings {
   /** false só em desenvolvimento local: toda requisição vira o usuário "local". */
   enabled: boolean;
-  /** Projeto Firebase deste sistema (padrão: authentication-assinaturas). */
+  /** Projeto Firebase deste sistema (padrão: sistema-gestor-assinatur-9be62). */
   projectId: string;
   /** Domínio aceito no e-mail do token. */
   allowedDomain: string;
@@ -20,7 +20,7 @@ export function readAuthSettings(config: ConfigService): AuthSettings {
   const enabled = parseBoolean(config.get('AUTH_ENABLED'), true);
   const projectId = String(config.get('FIREBASE_PROJECT_ID') ?? '').trim();
   if (enabled && !projectId) {
-    throw new Error('AUTH_ENABLED=true exige FIREBASE_PROJECT_ID (projeto Firebase do sistema, ex.: authentication-assinaturas).');
+    throw new Error('AUTH_ENABLED=true exige FIREBASE_PROJECT_ID (projeto Firebase do sistema, ex.: sistema-gestor-assinatur-9be62).');
   }
   const adminEmails = String(config.get('AUTH_ADMIN_EMAILS') ?? '')
     .split(',')
