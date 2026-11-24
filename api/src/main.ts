@@ -8,7 +8,6 @@ import { createAppLogger } from './common/logging/app-logger.js';
 import { PinoLoggerService } from './common/logging/pino-logger.service.js';
 import { requestLoggingMiddleware } from './common/logging/request-logging.middleware.js';
 import { APP_VERSION } from './config/app-version.js';
-import { serveWebApp } from './config/web-app.js';
 
 const logger = createAppLogger();
 
@@ -17,9 +16,9 @@ async function bootstrap(): Promise<void> {
   app.useLogger(new PinoLoggerService(logger));
   app.disable('x-powered-by');
 
-  // Primeiro middleware: toda requisição (API e frontend) ganha requestId e um log de acesso.
+  // Primeiro middleware: toda requisição ganha requestId e um log de acesso.
+  // As telas ficam no container `frontend` (nginx), que repassa /api para cá pela rede interna da stack.
   app.use(requestLoggingMiddleware(logger, Number(process.env.SLOW_REQUEST_MS ?? 5000)));
-  serveWebApp(app, logger);
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

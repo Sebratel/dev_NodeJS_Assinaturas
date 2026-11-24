@@ -2,11 +2,11 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.0.0)
+## Estado (1.1.0)
 
 | Parte | Situação |
 |---|---|
-| Leitura do AD | Local: AD ao vivo com o login do Windows (`DIRECTORY_SOURCE=windows`, a cada 5 min e pelo botão ↻). Servidor: LDAP (`ldap`) com conta só de leitura. A leitura por LDAP ainda não foi testada contra o AD. |
+| Leitura do AD | Local: AD ao vivo com o login do Windows (`DIRECTORY_SOURCE=windows`, a cada 5 min e pelo botão ↻). Servidor: LDAP (`ldap`) com conta só de leitura. Sem a conta (`AD_BIND_*` vazios), a API sobe com a lista vazia e o Monitoramento mostra o aviso. A leitura por LDAP ainda não foi testada contra o AD. |
 | Campos do AD | 0800 = General › Telephone number (só sai se for um 0800 válido). Ramal = Telephones › IP phone. Celular = Telephones › Mobile. B2B = Company "Sebratel Empresas". |
 | Regras, motor e simulação | Prontos, com testes |
 | Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
@@ -14,8 +14,8 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
 | Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Só entra quem está em `AUTH_ADMIN_EMAILS`. Em desenvolvimento, `AUTH_ENABLED=false`. |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
-| Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). |
-| Entrega | Uma imagem só (a API serve a tela), compose do Portainer e CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stacks ainda não criadas. |
+| Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). O nginx do frontend também loga em JSON (`assinaturas-frontend`) e repassa o `requestId`. |
+| Entrega | Um repositório, dois containers na mesma stack: `frontend` (nginx com as telas, porta 3080) repassa `/api` para o `backend` (API, sem porta no servidor). CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stack de produção criada em 23/11/2026. |
 
 ## Rodar local
 
@@ -32,7 +32,7 @@ cd api; copy .env.example .env; npm install; npm run build; npm start
 cd web; npm install; npm run dev
 ```
 
-Com `web/dist` gerado (`cd web; npm run build`), a própria API serve a tela em http://127.0.0.1:3180.
+No local, o Vite (5180) repassa `/api` para a API (3180). Em produção quem faz esse papel é o nginx do container `frontend`.
 
 | Comando (em `api/`) | O que faz |
 |---|---|
@@ -110,7 +110,10 @@ web/   Vite + React 19 + Tailwind 4 + TanStack Query; casca do padroes-frontend 
   src/components/layout/  topo, menu lateral, sino, perfil, cabeçalho de página, portão do login
   src/services/           chamadas à API (api-client com token e renovação) e Firebase Auth
 scripts/exportar-ad.ps1   leitura do AD na máquina de dev
-Dockerfile, docker-compose.portainer.yml, .github/workflows/ci.yml
+Dockerfile                imagem do backend (API)
+Dockerfile.frontend       imagem do frontend (build do Vite num nginx sem root)
+docker/nginx-frontend.conf  telas, rotas da SPA, repasse de /api para o backend, log em JSON
+docker-compose.portainer.yml, .github/workflows/ci.yml
 ```
 
 API REST em `/api/v1/*` com o envelope `{ success, data, meta }`. O health check fica em `/api/health` (sem login, sem envelope).
@@ -168,7 +171,8 @@ Em Portainer › Stacks › Add stack › **Repository**:
 - **Repositório:** `https://github.com/Sebratel/dev_NodeJS_Assinaturas` (privado). Marque *Authentication* com um token do GitHub **só de leitura** neste repositório.
 - **Nome da stack** = `name:` do compose = nome do repositório em minúsculas (o CI confere). Renomear depois cria um volume novo e vazio.
 - **Compose path:** `docker-compose.portainer.yml`.
-- **Porta 3180**, a mesma nos dois ambientes. Conferida livre em PROD e STAGING na planilha `Portas_Containers_Portainer_Sebratel` em 23/11/2026; registrar a linha nas duas abas (Backend / API, porta sugerida 3180).
+- **Dois containers:** `frontend` publica a **porta 3080** (a mesma nos dois ambientes); `backend` não publica porta, só é alcançado pelo frontend na rede interna da stack. A 3080 foi conferida livre em PROD e STAGING (planilha `Portas_Containers_Portainer_Sebratel` e `docker ps` dos dois servidores) em 23/11/2026; registrar nas duas abas: `frontend` → 3080 (Frontend / Web UI) e `backend` → sem porta exposta (Backend / API).
+- O proxy (NPM) do domínio aponta para `<servidor>:3080`.
 - Em staging, deixe a gravação na **lista de teste** (Configurações › Google): a conta de serviço grava no Gmail de verdade, em qualquer ambiente.
 
 Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no arquivo:
@@ -179,8 +183,8 @@ Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no ar
 | `DB_USER` | sim | `assinaturas_app` | |
 | `DB_PASSWORD` | sim | | **sim** |
 | `DB_NAME` | não | `DB_Assinaturas` (staging: `DB_Assinaturas_Staging`) | |
-| `AD_BIND_USER` | sim | conta só de leitura (ex.: `SEBRATEL\svc-assinaturas`) | |
-| `AD_BIND_PASSWORD` | sim | | **sim** |
+| `AD_BIND_USER` | para ler o AD | conta só de leitura (ex.: `SEBRATEL\svc-assinaturas`). Vazio: a API sobe, sem colaboradores | |
+| `AD_BIND_PASSWORD` | para ler o AD | | **sim** |
 | `AD_URL`, `AD_BASE_DN` | não | `ldap://10.0.11.251`, `DC=corp,DC=sebratel,DC=com,DC=br` | |
 | `AUTH_ADMIN_EMAILS` | sim | e-mails separados por vírgula | |
 | `FIREBASE_PROJECT_ID` | não | `sistema-gestor-assinatur-9be62` | |
@@ -190,22 +194,23 @@ Variáveis no painel **Environment** da stack. Segredo fica só ali, nunca no ar
 | `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | sim | JSON da chave, em base64 | **sim** |
 | `GOOGLE_DELEGATION_TEST_USER` | sim | um e-mail do domínio (só testa a delegação) | |
 | `GOOGLE_APPLY_ALLOWLIST` | não | semente da lista de teste (só na 1ª subida) | |
-| `APP_PORT` | não | `3180` (faixa Backend/API 3100–3199; confira com `docker ps`) | |
+| `APP_PORT` | não | `3080`: porta do frontend no servidor (faixa Frontend / Web UI 3000–3099; confira com `docker ps`) | |
 | `ELASTIC_APM_SERVER_URL` | não | `https://apm.sebratel.net.br`. Vazio desliga | |
 | `ELASTIC_APM_ENVIRONMENT` | não | `production` (`staging` na stack de testes) | |
 
 Já fixos no compose [PADRÃO]:
 
 - `DB_TYPE=mariadb`, `DIRECTORY_SOURCE=ldap` e `HOST=0.0.0.0`;
-- healthcheck em `http://127.0.0.1:3180/api/health` (nunca `localhost`);
-- `mem_limit` de 1 GB sem swap e `restart: unless-stopped`;
+- healthcheck do backend em `http://127.0.0.1:3180/api/health` e do frontend em `http://127.0.0.1:8080/healthz` (nunca `localhost`);
+- o frontend só sobe depois do backend saudável (`depends_on: service_healthy`);
+- `mem_limit` sem swap (backend 1 GB, frontend 128 MB) e `restart: unless-stopped`;
 - volume nomeado `data` para `/app/data` (bind mount é apagado no deploy por repositório).
 
 `VITE_*` são gravadas no JavaScript **no build**. Mudou alguma, faça **Pull and redeploy** com rebuild; só reiniciar não muda nada.
 
 ### 3. Conferir depois do deploy
 
-1. `http://<servidor>:3180/api/health` responde `"status":"ok"` com a versão.
+1. `http://<servidor>:3080/api/health` (pelo frontend) responde `"status":"ok"` com a versão. `directory.ok: false` = conta do AD faltando ou errada (o motivo está no Monitoramento).
 2. A tela abre, o login com Google funciona e quem não está em `AUTH_ADMIN_EMAILS` vê "sem acesso".
 3. No Kibana:
    - logs com `service: assinaturas-backend`;
@@ -222,14 +227,14 @@ Já fixos no compose [PADRÃO]:
 - `.github/workflows/ci.yml` roda em PR e push para `main` e `staging`:
   - **API**: ESLint, Prettier, tipos, testes e build;
   - **Web**: ESLint, Prettier, tipos, testes e build;
-  - **imagem**: constrói, sobe a stack com um MariaDB descartável e confere health, tabelas da migration, 401 sem login e a tela servida;
+  - **imagem**: constrói as duas imagens, sobe a stack com um MariaDB descartável e sem a conta do AD, e confere pelo frontend: health, aviso do AD, backend sem porta publicada, tabelas da migration, 401 sem login e as rotas da tela;
   - **validacoes**: `validate-version.py` e `validate-compose.py --strict-ports` (scripts da skill em `.github/scripts/`).
 - Fluxo: trabalho na `staging` (deploy de staging) → PR para a `main` (produção).
 - Proteção da `main` [PADRÃO]: PR com 1 aprovação, check obrigatório **`ci-ok`** (só ele), sem push direto nem force push. **Não disponível hoje**: a org está no plano Free, que não aplica regra de proteção em repositório privado. Até assinar o Team, a regra vale por combinado.
 
 ### 6. Versão [PADRÃO]
 
-- A versão do sistema fica no `package.json` da raiz e é a mesma em `api/`, `web/`, nos locks e no `${APP_VERSION:-X.Y.Z}` do compose. Ela aparece no `/api/health` e na imagem do Portainer (`assinaturas-backend:X.Y.Z`).
+- A versão do sistema fica no `package.json` da raiz e é a mesma em `api/`, `web/`, nos locks e no `${APP_VERSION:-X.Y.Z}` do compose. Ela aparece no `/api/health` e nas imagens do Portainer (`assinaturas-frontend:X.Y.Z` e `assinaturas-backend:X.Y.Z`).
 - Mudar: `npm run version:set -- X.Y.Z` (na raiz). Todo commit que sobe para um ambiente precisa de versão **maior** que a que está lá; o CI recusa igual ou menor.
 
 ## Antes de produção

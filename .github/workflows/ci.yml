@@ -77,16 +77,14 @@ jobs:
       COMPOSE_PROJECT_NAME: assinaturas-ci
       COMPOSE_FILES: -f docker-compose.portainer.yml -f .github/ci/docker-compose.ci.yml
       ELASTIC_APM_SERVER_URL: ''      # vazio = APM desligado. Sem isso o CI polui o APM de produção
-      APP_PORT: '3180'
+      APP_PORT: '3080'                # porta do frontend; o backend não publica porta
       # Banco descartável do .github/ci/docker-compose.ci.yml: o smoke roda as migrations de verdade.
       DB_HOST: mariadb
       DB_USER: assinaturas
       DB_PASSWORD: ci-senha
       DB_NAME: assinaturas
-      # AD inexistente: a leitura falha rápido, vira log de erro e a API continua de pé (é o comportamento esperado).
-      AD_URL: ldap://127.0.0.1:1
-      AD_BIND_USER: ci
-      AD_BIND_PASSWORD: ci
+      # Sem AD_BIND_*, como a produção enquanto a conta de leitura não existe: a API tem de subir mesmo assim.
+      # (Em 23/11/2026 o CI passava porque preenchia AD_BIND_* com valor falso, e a produção reiniciava sem parar.)
     steps:
       - uses: actions/checkout@v4
 
@@ -97,12 +95,27 @@ jobs:
       - name: Subir a stack
         run: docker compose $COMPOSE_FILES up -d --wait
 
+      # Pelo frontend: testa também o repasse do nginx para o backend.
       - name: Health responde ok
         run: |
           curl -fsS --retry 15 --retry-delay 3 --retry-connrefused \
-            http://localhost:3180/api/health -o health.json
+            http://localhost:3080/api/health -o health.json
           grep -q '"status":"ok"' health.json || {
             echo "::error::/api/health devolveu resposta inesperada:"; cat health.json; exit 1; }
+
+      - name: Sem a conta do AD, a API sobe e avisa
+        run: |
+          docker compose $COMPOSE_FILES logs --no-color backend > backend.log
+          grep -q 'AD não configurado' backend.log || {
+            echo "::error::faltou o aviso de AD não configurado no log do backend"; tail -50 backend.log; exit 1; }
+          grep -q '"ok":false' health.json || {
+            echo "::error::/api/health deveria mostrar directory.ok=false sem a conta do AD"; cat health.json; exit 1; }
+
+      - name: Backend não publica porta no servidor
+        run: |
+          bindings=$(docker inspect --format '{{json .HostConfig.PortBindings}}' "$(docker compose $COMPOSE_FILES ps -q backend)")
+          [ "$bindings" = "{}" ] || {
+            echo "::error::o backend publicou porta no servidor ($bindings); só o frontend deve publicar"; exit 1; }
 
       - name: Migrations criaram as tabelas no MariaDB
         run: |
@@ -114,14 +127,18 @@ jobs:
 
       - name: Login exigido nas rotas da API
         run: |
-          code=$(curl -s -o me.json -w '%{http_code}' http://localhost:3180/api/v1/me)
+          code=$(curl -s -o me.json -w '%{http_code}' http://localhost:3080/api/v1/me)
           [ "$code" = "401" ] || { echo "::error::/api/v1/me sem token devolveu $code (esperado 401)"; cat me.json; exit 1; }
           grep -q '"AUTH_REQUIRED"' me.json || { echo "::error::corpo inesperado:"; cat me.json; exit 1; }
 
-      - name: Frontend servido pela API
+      - name: Frontend serve as telas e as rotas da SPA
         run: |
-          curl -fsS http://localhost:3180/ -o index.html
-          grep -q '<div id="root"' index.html || { echo "::error::/ não devolveu o index.html do frontend"; head -c 500 index.html; exit 1; }
+          for path in / /monitoramento; do
+            curl -fsS "http://localhost:3080$path" -o index.html
+            grep -q '<div id="root"' index.html || {
+              echo "::error::$path não devolveu o index.html do frontend"; head -c 500 index.html; exit 1; }
+          done
+          curl -fsS http://localhost:3080/healthz | grep -qx ok || { echo "::error::/healthz do nginx falhou"; exit 1; }
 
       - name: Logs da stack
         if: failure()

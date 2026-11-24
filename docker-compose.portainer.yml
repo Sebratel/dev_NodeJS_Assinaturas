@@ -3,14 +3,16 @@
 # Renomear depois cria volume NOVO e vazio.
 name: dev_nodejs_assinaturas
 
+# Dois containers, um repositório: `frontend` (telas, nginx) recebe o acesso e repassa /api para o `backend` (API)
+# pela rede interna da stack. Só o frontend publica porta; o backend não fica exposto no servidor.
 services:
-  backend:                            # papel do serviço; sem container_name (o Compose gera assinaturas-backend-1)
+  frontend:                           # papel do serviço; sem container_name (o Compose nomeia <stack>-frontend-1)
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.frontend
       # Públicos por design (vão para o JavaScript do navegador). Mudar exige rebuild da stack.
       args:
-        APP_VERSION: ${APP_VERSION:-1.0.1}
+        APP_VERSION: ${APP_VERSION:-1.1.0}
         VITE_API_BASE_URL: /api
         VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-true}
         VITE_AUTH_HOSTED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-sebratel.com.br}
@@ -18,9 +20,36 @@ services:
         VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-sistema-gestor-assinatur-9be62.firebaseapp.com}
         VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-sistema-gestor-assinatur-9be62}
         VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
-    image: assinaturas-backend:${APP_VERSION:-1.0.1}
+    image: assinaturas-frontend:${APP_VERSION:-1.1.0}
     labels:
-      org.opencontainers.image.version: ${APP_VERSION:-1.0.1}
+      org.opencontainers.image.version: ${APP_VERSION:-1.1.0}
+    mem_limit: 128m
+    memswap_limit: 128m
+    environment:
+      TZ: America/Sao_Paulo
+    ports:
+      - "${APP_PORT:-3080}:8080"      # faixa Frontend / Web UI (3000–3099); ver cicd-deploy-backend › portas.md
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, nunca localhost (no Alpine, localhost resolve para ::1).
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-1.1.0}
+    image: assinaturas-backend:${APP_VERSION:-1.1.0}
+    labels:
+      org.opencontainers.image.version: ${APP_VERSION:-1.1.0}
     mem_limit: 1g
     memswap_limit: 1g                 # igual ao mem_limit = sem swap
     environment:
@@ -45,7 +74,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}     # valor vem do painel Environment da stack no Portainer
       DB_NAME: ${DB_NAME:-DB_Assinaturas}
 
-      # Diretório: AD por LDAP com conta só de leitura.
+      # Diretório: AD por LDAP com conta só de leitura. Sem AD_BIND_*, a API sobe e o Monitoramento mostra o motivo.
       DIRECTORY_SOURCE: ldap
       DIRECTORY_SYNC_INTERVAL_MINUTES: ${DIRECTORY_SYNC_INTERVAL_MINUTES:-10}
       AD_URL: ${AD_URL:-ldap://10.0.11.251}
@@ -66,8 +95,9 @@ services:
       ELASTIC_APM_SERVER_URL: ${ELASTIC_APM_SERVER_URL-https://apm.sebratel.net.br}
       ELASTIC_APM_SERVICE_NAME: ${ELASTIC_APM_SERVICE_NAME:-assinaturas-backend}
       ELASTIC_APM_ENVIRONMENT: ${ELASTIC_APM_ENVIRONMENT:-production}
-    ports:
-      - "${APP_PORT:-3180}:3180"      # faixa Backend/API (3100–3199); ver cicd-deploy-backend › portas.md
+    # Sem `ports:`: só o frontend fala com a API (http://backend:3180). Diagnóstico: <porta do frontend>/api/health.
+    expose:
+      - "3180"
     volumes:
       - data:/app/data                # volume NOMEADO: deploy por repositório no Portainer apaga bind mount
     healthcheck:

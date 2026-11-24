@@ -5,7 +5,7 @@ import { attachRequestContext, requestContext, type RequestContextStore } from '
 
 const MAX_REQUEST_ID_LENGTH = 200;
 
-/** Requisições que não entram no log de acesso em `info`: arquivos do frontend e o health do Docker (a cada 10 s). */
+/** Requisições que não entram no log de acesso em `info`: o health do Docker (a cada 10 s) e o que não for /api. */
 function isRoutine(path: string, status: number): boolean {
   if (status >= 400) return false;
   return path === '/api/health' || !path.startsWith('/api/');
