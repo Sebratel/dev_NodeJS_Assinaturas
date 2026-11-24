@@ -288,7 +288,8 @@ export function UsersPage() {
         <strong>Visualizador</strong> {ROLE_HELP.VIEWER}: toda conta @{domain},
         sem cadastro. <strong>Editor</strong> {ROLE_HELP.EDITOR}.{' '}
         <strong>Master</strong> {ROLE_HELP.MASTER}. Masters da stack
-        (AUTH_ADMIN_EMAILS) não mudam por aqui.
+        (AUTH_ADMIN_EMAILS) não mudam por aqui e, com o acesso só pelo Hub, são
+        os únicos que entram sem ele.
       </p>
 
       <Modal

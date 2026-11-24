@@ -53,6 +53,11 @@ export class UsersService {
     return user?.role ?? UserRoleEnum.VIEWER;
   }
 
+  /** Master da stack (AUTH_ADMIN_EMAILS): com HUB_ONLY, o único que entra direto, sem passar pelo Hub. */
+  isStackMaster(email: string): boolean {
+    return this.fixedMasters.has(email.trim().toLowerCase());
+  }
+
   /** Último acesso e nome da conta Google, para a tela. Master fixo sem linha: nada a registrar. */
   async touchLogin(email: string, name: string): Promise<void> {
     await this.userRepository.update({ email: email.trim().toLowerCase() }, { lastLoginAt: new Date(), name: name.slice(0, 120) });

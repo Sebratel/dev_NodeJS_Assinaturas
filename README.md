@@ -12,7 +12,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
 | Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Só o perfil **Master** grava, desfaz e liga a automação. |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
-| Hub Apps | Abre **dentro do Hub Apps** (app "Gestor de Assinaturas - Sebratel", `gestor-assinaturas.sebratel.net.br`): o Hub passa um token de 5 min, a API troca por uma sessão de 8 h. Com `HUB_ONLY=true`, só master entra direto; os demais pelo Hub. |
+| Hub Apps | Abre **dentro do Hub Apps** (app "Gestor de Assinaturas - Sebratel", `gestor-assinaturas.sebratel.net.br`): o Hub passa um token de 5 min, a API troca por uma sessão de 8 h. Com `HUB_ONLY=true`, só os masters da stack (`AUTH_ADMIN_EMAILS`) entram direto; todos os outros, inclusive masters dados pela tela, entram pelo Hub. |
 | Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Toda conta @sebratel.com.br entra como **Visualizador**. Editor e Master são dados na tela **Usuários**, e quem está em `AUTH_ADMIN_EMAILS` é master fixo. Em desenvolvimento, `AUTH_ENABLED=false` (entra como Master). |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). O nginx do frontend também loga em JSON (`assinaturas-frontend`) e repassa o `requestId`. |
@@ -126,7 +126,7 @@ O que a API confere no token do Hub:
 A sessão é assinada com chave derivada: o token do Hub não vale como sessão e a sessão não vale como token do Hub.
 
 - **Quem entra:** toda a organização, como Visualizador (o card do Hub fica sem restrição). Editor e Master vêm da tela **Usuários**, também para quem entra pelo Hub.
-- **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para quem não é master. A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`). O master continua entrando direto: é a porta de emergência se o Hub cair. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
+- **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para todos, menos os masters da stack (`AUTH_ADMIN_EMAILS`). Master dado pela tela Usuários também entra só pelo Hub. A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`). Os masters da stack são a porta de emergência se o Hub cair. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
 - **Quadro:** o nginx do frontend manda `Content-Security-Policy: frame-ancestors 'self' https://hub-apps.sebratel.net.br https://hub-apps-staging.sebratel.net.br`. Fica no nginx do sistema, porque o NPM ignora `add_header` na aba Advanced.
 - **Rotas públicas:** `GET /api/v1/auth/config` (`hubOnly`, `hubEnabled`, `hubUrl`) e `POST /api/v1/auth/hub`.
 

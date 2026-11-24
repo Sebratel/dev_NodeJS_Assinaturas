@@ -228,8 +228,24 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
       });
     });
 
-    it('master continua entrando direto (porta de emergência se o Hub cair)', async () => {
+    it('master da stack (AUTH_ADMIN_EMAILS) continua entrando direto (porta de emergência se o Hub cair)', async () => {
       await expect(buildService(HUB).authenticate(bearer(signRs256(claims())))).resolves.toMatchObject({ role: UserRoleEnum.MASTER });
+    });
+
+    it('master dado pela tela Usuários NÃO entra direto: só pelo Hub', async () => {
+      const masters = { 'outro.master@sebratel.com.br': UserRoleEnum.MASTER };
+      const direct = signRs256(claims({ email: 'outro.master@sebratel.com.br' }));
+      expect(await rejection(buildService(HUB, undefined, masters).authenticate(bearer(direct)))).toEqual({
+        status: HttpStatus.FORBIDDEN,
+        code: 'HUB_ONLY',
+      });
+      const session = new HubSsoService(new ConfigServiceStub(HUB) as unknown as ConfigService).issueSession({
+        email: 'outro.master@sebratel.com.br',
+        name: 'Outro Master',
+      });
+      await expect(buildService(HUB, undefined, masters).authenticate(bearer(session.token))).resolves.toMatchObject({
+        role: UserRoleEnum.MASTER,
+      });
     });
 
     it('quem vem pelo Hub (sessão da troca) entra com o perfil da tela Usuários', async () => {

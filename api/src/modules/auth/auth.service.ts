@@ -76,8 +76,9 @@ export class AuthService implements OnModuleInit {
       return this.forbid(claims.email, 'DOMAIN', `Entre com a sua conta @${this.settings.allowedDomain}.`);
     }
     const user = await this.withRole(claims.email, claims.name || claims.email.split('@')[0]);
-    // HUB_ONLY: login direto (Google na própria página) só para master, a porta de emergência se o Hub cair.
-    if (this.hubSso.isHubOnly() && user.role !== UserRoleEnum.MASTER) {
+    // HUB_ONLY: login direto (Google na própria página) só para o master DA STACK (AUTH_ADMIN_EMAILS), a porta de
+    // emergência se o Hub cair. Master dado pela tela Usuários também entra só pelo Hub (decisão de 24/11/2026).
+    if (this.hubSso.isHubOnly() && !this.usersService.isStackMaster(user.email)) {
       this.logger.warn({ msg: 'auth forbidden', reason: 'HUB_ONLY', userEmail: user.email });
       throw new BusinessException('HUB_ONLY', 'O acesso a este sistema é pelo Hub Apps.', HttpStatus.FORBIDDEN);
     }

@@ -1,6 +1,6 @@
 {
   "name": "dev_nodejs_assinaturas",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "description": "Versão do sistema (api + web). Mude só com npm run version:set -- X.Y.Z",
   "scripts": {
