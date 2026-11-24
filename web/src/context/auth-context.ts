@@ -15,7 +15,10 @@ export interface AuthContextValue {
   status: AuthStatus
   user: SessionUser | null
   via: AuthEntry
+  /** Erro do login com Google (popup fechado, domínio não autorizado...). */
   signInError: string | null
+  /** Motivo de uma entrada pelo Hub recusada ou encerrada (token vencido, já usado, sessão acabou). */
+  hubError: string | null
   signIn: () => Promise<void>
   signOut: () => Promise<void>
 }

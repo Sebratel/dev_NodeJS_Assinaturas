@@ -39,8 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<SessionUser | null>(
     config.auth.enabled ? null : LOCAL_USER
   )
-  // Motivo de uma entrada pelo Hub recusada (token vencido, usado, sem acesso...): aparece na tela de login.
-  const [signInError, setSignInError] = useState<string | null>(() =>
+  const [signInError, setSignInError] = useState<string | null>(null)
+  // Motivo de uma entrada pelo Hub recusada (token vencido, já usado...): aparece na caixa do Hub, no login.
+  const [hubError, setHubError] = useState<string | null>(() =>
     hubSession.takeError()
   )
 
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionExpiredHandler(() => {
       if (hubSession.get() === null && hub) {
         setHub(null)
-        setSignInError(hubSession.takeError())
+        setHubError(hubSession.takeError())
         return
       }
       void firebaseAuthService.signOut()
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: hub ?? firebaseUser,
       via: !config.auth.enabled ? 'local' : hub ? 'hub' : 'google',
       signInError,
+      hubError,
       signIn: async () => {
         setSignInError(null)
         try {
@@ -93,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (config.auth.enabled) await firebaseAuthService.signOut()
       },
     }),
-    [hub, firebaseStatus, firebaseUser, signInError]
+    [hub, firebaseStatus, firebaseUser, signInError, hubError]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

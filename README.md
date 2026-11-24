@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.4.0)
+## Estado (1.4.1)
 
 | Parte | Situação |
 |---|---|
@@ -71,6 +71,8 @@ As **Configurações** definem o atributo do AD de cada campo. A origem pode ser
 - `telephoneNumber` **não** é o telefone da pessoa: é o 0800.
 
 ## Login
+
+A tela de login segue o padrão visual "Operação Sebratel", igual ao do Data Hub e do churn_mvp: imagem em tela cheia, marca à esquerda, cartão creme e a faixa "Ambiente seguro e monitorado" (`web/src/pages/login/LoginShell.tsx`). A tela de "sem acesso" usa a mesma moldura.
 
 Contrato entre a tela e a API (padrão `padrao-login-sso`):
 

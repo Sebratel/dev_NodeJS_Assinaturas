@@ -1,8 +1,8 @@
 import { ExternalLink } from 'lucide-react'
 
 /**
- * Abre o Hub Apps na janela inteira (target="_top"): dentro de um quadro, um link comum abriria o Hub dentro
- * do próprio sistema.
+ * Leva ao Hub Apps na janela inteira (target="_top"): dentro do quadro do Hub, um link comum abriria o Hub
+ * dentro do próprio sistema. Mesmo botão do Data Hub.
  */
 export function HubLink({ href }: { href: string }) {
   return (
@@ -10,10 +10,10 @@ export function HubLink({ href }: { href: string }) {
       href={href}
       target="_top"
       rel="noopener"
-      className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+      className="mt-2.5 inline-flex min-h-[36px] w-full items-center justify-center gap-2 rounded-xl bg-[#FFB800] px-4 text-sm font-semibold text-[#252423] shadow-sm transition hover:bg-[#e6a800] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
     >
-      <ExternalLink className="size-4" aria-hidden />
-      Abrir o Hub Apps
+      <ExternalLink className="h-4 w-4" aria-hidden />
+      Ir para o Hub Apps
     </a>
   )
 }
