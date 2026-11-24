@@ -16,6 +16,7 @@ export const queryKeys = {
   phraseProfiles: ['phrase-profiles'] as const,
   automation: ['automation'] as const,
   me: ['me'] as const,
+  users: ['users'] as const,
 }
 
 /** Tudo que depende de regra/configuração/diretório e precisa recalcular depois de uma gravação. */

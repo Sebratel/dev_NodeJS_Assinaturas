@@ -5,6 +5,7 @@ import { AppPageHeader } from '../../components/layout/AppPageHeader'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ErrorState, LoadingState } from '../../components/ui/States'
+import { usePermissions } from '../../hooks/usePermissions'
 import { queryKeys } from '../../services/query-keys'
 import { signatureRuleService } from '../../services/signature-rule.service'
 import { signatureTemplateService } from '../../services/signature-template.service'
@@ -19,6 +20,7 @@ type EditorState = {
 
 /** Modelos de assinatura (layout HTML com variáveis). As regras escolhem qual usar; sem escolha, vale o padrão. */
 export function TemplatesPage() {
+  const { canEdit } = usePermissions()
   const templates = useQuery({
     queryKey: queryKeys.templates,
     queryFn: signatureTemplateService.list,
@@ -61,14 +63,16 @@ export function TemplatesPage() {
           </>
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Plus className="size-4" />}
-            disabled={!defaultTemplate}
-            onClick={() => defaultTemplate && duplicate(defaultTemplate)}
-          >
-            Novo modelo
-          </Button>
+          canEdit ? (
+            <Button
+              variant="primary"
+              icon={<Plus className="size-4" />}
+              disabled={!defaultTemplate}
+              onClick={() => defaultTemplate && duplicate(defaultTemplate)}
+            >
+              Novo modelo
+            </Button>
+          ) : undefined
         }
       />
 
@@ -130,14 +134,16 @@ export function TemplatesPage() {
                     className="px-3 py-2 text-right"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={<Copy className="size-3.5" />}
-                      onClick={() => duplicate(template)}
-                    >
-                      Duplicar
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<Copy className="size-3.5" />}
+                        onClick={() => duplicate(template)}
+                      >
+                        Duplicar
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

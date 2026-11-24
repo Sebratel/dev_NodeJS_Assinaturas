@@ -357,7 +357,6 @@ export interface Settings {
     byTeam: Array<{ area?: string; team: string; phrase: string }>
   }
   'directory-filters': { excludedOuKeywords: string[]; requireEmail: boolean }
-  'apply-scope': ApplyScope
   'auto-apply': AutoApplySettings
 }
 export type SettingKey = keyof Settings
@@ -370,13 +369,22 @@ export interface GoogleIntegrationStatus {
   keyFilePresent: boolean
   testUser: string | null
   scopes: string[]
-  applyScope: ApplyScope
   applyEnabled: boolean
 }
 
-export interface ApplyScope {
-  mode: 'LIST' | 'ALL'
-  emails: string[]
+/** Perfil de acesso: VIEWER só vê; EDITOR edita regras, modelos e frases; MASTER também grava no Gmail. */
+export type UserRole = 'MASTER' | 'EDITOR' | 'VIEWER'
+
+/** Quem pode entrar no sistema (tela Usuários). `fixed` = master do AUTH_ADMIN_EMAILS da stack. */
+export interface AppUser {
+  id: string | null
+  email: string
+  name: string | null
+  role: UserRole
+  fixed: boolean
+  lastLoginAt: string | null
+  createdBy: string | null
+  createdAt: string | null
 }
 
 export interface SignatureTemplate {
@@ -409,7 +417,6 @@ export interface ApplicationBatch {
   processed: number
   counts: Record<ApplicationStatus, number>
   includePending: boolean
-  scopeMode: ApplyScope['mode']
   finished: boolean
   startedAt: string
   finishedAt: string | null

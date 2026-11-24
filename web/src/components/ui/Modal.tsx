@@ -55,7 +55,9 @@ export function Modal({
             <X className="size-5" aria-hidden />
           </button>
         </header>
-        <div className="min-h-0 overflow-y-auto p-5">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-5 [scrollbar-gutter:stable]">
+          {children}
+        </div>
         {footer && (
           <footer className="flex flex-wrap justify-end gap-2 border-t border-outline-variant px-5 py-3.5">
             {footer}

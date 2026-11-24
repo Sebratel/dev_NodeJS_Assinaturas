@@ -41,8 +41,6 @@ export const DEFAULT_SETTINGS: SettingsValues = {
     excludedOuKeywords: ['DESATIVADOS', 'Conta de Serviço'],
     requireEmail: true,
   },
-  // Começa travado: só a lista de teste (semeada de GOOGLE_APPLY_ALLOWLIST na primeira subida).
-  [SettingKeyEnum.APPLY_SCOPE]: { mode: 'LIST', emails: [] },
   // Começa desligada: quem liga é o admin, na tela Monitoramento.
   [SettingKeyEnum.AUTO_APPLY]: {
     enabled: false,

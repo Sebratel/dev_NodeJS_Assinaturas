@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { BusinessException } from '../../common/exceptions/business.exception.js';
 import { AuthService, LOCAL_USER } from './auth.service.js';
 import type { CertificateMap, FirebaseCertsStore } from './firebase-certs.store.js';
+import type { Repository } from 'typeorm';
+import type { UserEntity } from '../users/entities/user.entity.js';
+import { UserRoleEnum } from '../users/types/user-role.enum.js';
+import { UsersService } from '../users/users.service.js';
 
 // Os avisos de recusa são esperados aqui; sem isso poluem a saída do teste.
 Logger.overrideLogger(false);
@@ -37,7 +41,19 @@ function signRs256(payload: object, header: object = { alg: 'RS256', kid: KID, t
   return `${unsigned}.${createSign('RSA-SHA256').update(unsigned).sign(key).toString('base64url')}`;
 }
 
-function buildService(env: Record<string, string> = {}, keys: CertificateMap = { [KID]: PUBLIC_PEM }): AuthService {
+/** Tabela users em memória: só o que o AuthService consulta (perfil por e-mail; removidos já não aparecem). */
+function usersWith(config: ConfigService, registered: Record<string, UserRoleEnum> = {}): UsersService {
+  const repository = {
+    findOneBy: async ({ email }: { email: string }) => (registered[email] ? { email, role: registered[email] } : null),
+  } as unknown as Repository<UserEntity>;
+  return new UsersService(repository, config);
+}
+
+function buildService(
+  env: Record<string, string> = {},
+  keys: CertificateMap = { [KID]: PUBLIC_PEM },
+  registered: Record<string, UserRoleEnum> = {},
+): AuthService {
   const values: Record<string, string> = {
     AUTH_ENABLED: 'true',
     FIREBASE_PROJECT_ID: PROJECT_ID,
@@ -47,7 +63,7 @@ function buildService(env: Record<string, string> = {}, keys: CertificateMap = {
   };
   const config = { get: (key: string) => values[key] } as unknown as ConfigService;
   const certs = { getKeys: async () => keys, refreshIfOlderThan: async () => keys } as unknown as FirebaseCertsStore;
-  return new AuthService(config, certs);
+  return new AuthService(config, certs, usersWith(config, registered));
 }
 
 async function rejection(promise: Promise<unknown>): Promise<{ status: number; code: string }> {
@@ -67,7 +83,7 @@ const FORBIDDEN = { status: HttpStatus.FORBIDDEN, code: 'AUTH_FORBIDDEN' };
 describe('AuthService.authenticate (ID token do Firebase)', () => {
   it('aceita token válido e devolve o e-mail em minúsculas', async () => {
     const user = await buildService().authenticate(bearer(signRs256(claims())));
-    expect(user).toEqual({ email: 'misael.cruz@sebratel.com.br', name: 'Misael Cruz' });
+    expect(user).toEqual({ email: 'misael.cruz@sebratel.com.br', name: 'Misael Cruz', role: UserRoleEnum.MASTER });
   });
 
   it('recusa requisição sem Authorization ou sem Bearer (401 AUTH_REQUIRED)', async () => {
@@ -139,14 +155,31 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
     expect(await rejection(service.authenticate(bearer(lookalike)))).toEqual(FORBIDDEN);
   });
 
-  it('recusa e-mail do domínio fora de AUTH_ADMIN_EMAILS (403)', async () => {
+  it('recusa e-mail do domínio sem cadastro: nem na stack nem na tela Usuários (403)', async () => {
     const token = signRs256(claims({ email: 'colaborador@sebratel.com.br' }));
     expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(FORBIDDEN);
   });
 
-  it('AUTH_ADMIN_EMAILS vazio não libera ninguém (403)', async () => {
-    const token = signRs256(claims());
-    expect(await rejection(buildService({ AUTH_ADMIN_EMAILS: '' }).authenticate(bearer(token)))).toEqual(FORBIDDEN);
+  it('quem está na tela Usuários entra com o perfil de lá', async () => {
+    const token = signRs256(claims({ email: 'Editora@sebratel.com.br', name: 'Editora' }));
+    const service = buildService({}, undefined, { 'editora@sebratel.com.br': UserRoleEnum.EDITOR });
+    await expect(service.authenticate(bearer(token))).resolves.toEqual({
+      email: 'editora@sebratel.com.br',
+      name: 'Editora',
+      role: UserRoleEnum.EDITOR,
+    });
+  });
+
+  it('master da stack vence o perfil da tabela (não dá para rebaixar pela tela)', async () => {
+    const service = buildService({}, undefined, { 'misael.cruz@sebratel.com.br': UserRoleEnum.VIEWER });
+    await expect(service.authenticate(bearer(signRs256(claims())))).resolves.toMatchObject({ role: UserRoleEnum.MASTER });
+  });
+
+  it('AUTH_ADMIN_EMAILS vazio: só entra quem está na tabela', async () => {
+    const service = buildService({ AUTH_ADMIN_EMAILS: '' }, undefined, { 'leitor@sebratel.com.br': UserRoleEnum.VIEWER });
+    expect(await rejection(service.authenticate(bearer(signRs256(claims()))))).toEqual(FORBIDDEN);
+    const reader = signRs256(claims({ email: 'leitor@sebratel.com.br' }));
+    await expect(service.authenticate(bearer(reader))).resolves.toMatchObject({ role: UserRoleEnum.VIEWER });
   });
 
   it('sem certificados disponíveis responde 503, não 401', async () => {
@@ -156,7 +189,7 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
         throw new Error('rede bloqueada');
       },
     } as unknown as FirebaseCertsStore;
-    expect(await rejection(new AuthService(config, failing).authenticate(bearer(signRs256(claims()))))).toEqual({
+    expect(await rejection(new AuthService(config, failing, usersWith(config)).authenticate(bearer(signRs256(claims()))))).toEqual({
       status: HttpStatus.SERVICE_UNAVAILABLE,
       code: 'AUTH_UNAVAILABLE',
     });

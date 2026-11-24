@@ -4,21 +4,25 @@ import { BusinessException } from '../../common/exceptions/business.exception.js
 import { type AuthSettings, readAuthSettings } from './auth-settings.js';
 import { type CertificateMap, FirebaseCertsStore } from './firebase-certs.store.js';
 import { type FirebaseIdTokenClaims, TokenRejectedError, verifyFirebaseIdToken } from './firebase-token.verifier.js';
+import { UserRoleEnum } from '../users/types/user-role.enum.js';
+import { UsersService } from '../users/users.service.js';
 
 export interface AuthUser {
   email: string;
   name: string;
+  role: UserRoleEnum;
 }
 
 /** Usuário de todas as requisições quando AUTH_ENABLED=false (só desenvolvimento local). */
-export const LOCAL_USER: AuthUser = { email: 'local', name: 'Modo local' };
+export const LOCAL_USER: AuthUser = { email: 'local', name: 'Modo local', role: UserRoleEnum.MASTER };
 
 /** Com `kid` desconhecido, renova os certificados no máximo uma vez por minuto. */
 const UNKNOWN_KEY_REFRESH_MS = 60_000;
 
 /**
  * Login SSO (padrao-login-sso): o frontend manda o ID token do Firebase em `Authorization: Bearer`,
- * a API confere a assinatura localmente, o domínio do e-mail e a lista AUTH_ADMIN_EMAILS.
+ * a API confere a assinatura localmente e o domínio do e-mail; o perfil vem do AUTH_ADMIN_EMAILS (master fixo)
+ * ou da tela Usuários (tabela users). Sem perfil = sem acesso.
  * 401 = sem login ou login inválido (o frontend renova o token e tenta de novo); 403 = logado, mas sem acesso.
  */
 @Injectable()
@@ -29,6 +33,7 @@ export class AuthService implements OnModuleInit {
   constructor(
     configService: ConfigService,
     private readonly certs: FirebaseCertsStore,
+    private readonly usersService: UsersService,
   ) {
     this.settings = readAuthSettings(configService);
   }
@@ -44,7 +49,11 @@ export class AuthService implements OnModuleInit {
       allowedDomain: this.settings.allowedDomain,
       adminCount: this.settings.adminEmails.size,
     });
-    if (!this.settings.adminEmails.size) this.logger.warn({ msg: 'AUTH_ADMIN_EMAILS is empty: nobody can use the system' });
+    if (!this.settings.adminEmails.size) {
+      this.logger.warn({
+        msg: 'AUTH_ADMIN_EMAILS is empty: no fixed master, only users already registered in the users table can sign in',
+      });
+    }
     // Aquece o cache para a primeira requisição não esperar o Google. Falha aqui só vira log.
     this.certs.getKeys().catch(() => undefined);
   }
@@ -60,14 +69,15 @@ export class AuthService implements OnModuleInit {
     if (!claims.email.endsWith(`@${this.settings.allowedDomain}`)) {
       return this.forbid(claims.email, 'DOMAIN', `Entre com a sua conta @${this.settings.allowedDomain}.`);
     }
-    if (!this.settings.adminEmails.has(claims.email)) {
+    const role = await this.usersService.findRole(claims.email);
+    if (!role) {
       return this.forbid(
         claims.email,
-        'NOT_ADMIN',
-        'Seu e-mail não tem acesso a este sistema. Peça à TI para incluí-lo em AUTH_ADMIN_EMAILS.',
+        'NOT_REGISTERED',
+        'Seu e-mail ainda não tem acesso a este sistema. Peça a um master para incluí-lo em Usuários.',
       );
     }
-    return { email: claims.email, name: claims.name || claims.email.split('@')[0] };
+    return { email: claims.email, name: claims.name || claims.email.split('@')[0], role };
   }
 
   private async verify(token: string): Promise<FirebaseIdTokenClaims> {

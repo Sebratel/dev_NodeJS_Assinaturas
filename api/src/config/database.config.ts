@@ -2,12 +2,14 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { resolve } from 'node:path';
 import { CreateInitialSchema1795450477057 } from '../migrations/1795450477057-CreateInitialSchema.js';
+import { CreateUsers1795540000000 } from '../migrations/1795540000000-CreateUsers.js';
 import { CollaboratorOverrideEntity } from '../modules/directory/entities/collaborator-override.entity.js';
 import { PhraseProfileEntity } from '../modules/phrase-profiles/entities/phrase-profile.entity.js';
 import { SettingEntity } from '../modules/settings/entities/setting.entity.js';
 import { SignatureApplicationEntity } from '../modules/signature-applications/entities/signature-application.entity.js';
 import { SignatureRuleEntity } from '../modules/signature-rules/entities/signature-rule.entity.js';
 import { SignatureTemplateEntity } from '../modules/signature-templates/entities/signature-template.entity.js';
+import { UserEntity } from '../modules/users/entities/user.entity.js';
 
 const ENTITIES = [
   SettingEntity,
@@ -16,13 +18,14 @@ const ENTITIES = [
   SignatureTemplateEntity,
   SignatureApplicationEntity,
   PhraseProfileEntity,
+  UserEntity,
 ];
 
 /**
  * Migrations do MariaDB, em ordem. Importadas pela classe (e não por glob) para funcionar igual em src (testes) e dist.
  * Migration nova: arquivo `src/migrations/{timestamp}-Nome.ts` e uma linha aqui. Nunca editar uma que já rodou.
  */
-export const MIGRATIONS = [CreateInitialSchema1795450477057];
+export const MIGRATIONS = [CreateInitialSchema1795450477057, CreateUsers1795540000000];
 
 /**
  * DB_TYPE=sqljs → arquivo local (desenvolvimento, sem servidor de banco; cria as tabelas sozinho).

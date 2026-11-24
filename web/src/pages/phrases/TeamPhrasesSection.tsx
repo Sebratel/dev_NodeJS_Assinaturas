@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
 import { Segmented } from '../../components/ui/Segmented'
 import { ErrorState, LoadingState } from '../../components/ui/States'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { collaboratorService } from '../../services/collaborator.service'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
@@ -24,6 +26,7 @@ const keyOf = (t: { area: string; team: string }) => `${t.area}|${t.team}`
 /** Frase de cada time do AD e a frase padrão. Grava na configuração team-phrases. */
 export function TeamPhrasesSection() {
   const queryClient = useQueryClient()
+  const { canEdit } = usePermissions()
   const facets = useQuery({
     queryKey: queryKeys.facets,
     queryFn: collaboratorService.facets,
@@ -162,7 +165,7 @@ export function TeamPhrasesSection() {
     defaultPhrase.length > MAX
 
   return (
-    <div className="grid gap-3 pb-16">
+    <div className={cn('grid gap-3', canEdit && 'pb-16')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-on-surface-variant">
           <strong className="tabular-nums text-on-surface">
@@ -172,12 +175,16 @@ export function TeamPhrasesSection() {
           <span className="tabular-nums">{formatNumber(peopleWithPhrase)}</span>{' '}
           de {formatNumber(totalPeople)} pessoas. Time sem frase usa a padrão.
         </p>
-        <Button
-          icon={<FileSpreadsheet className="size-4" />}
-          onClick={() => setImporting(true)}
-        >
-          Importar da planilha
-        </Button>
+        {canEdit ? (
+          <Button
+            icon={<FileSpreadsheet className="size-4" />}
+            onClick={() => setImporting(true)}
+          >
+            Importar da planilha
+          </Button>
+        ) : (
+          <ReadOnlyNote />
+        )}
       </div>
 
       <div className="grid gap-1 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3">
@@ -200,6 +207,7 @@ export function TeamPhrasesSection() {
         <Input
           id="default-phrase"
           value={defaultPhrase}
+          readOnly={!canEdit}
           onChange={(e) => setDefaultPhrase(e.target.value)}
         />
       </div>
@@ -269,6 +277,7 @@ export function TeamPhrasesSection() {
                     <td className="px-3 py-1.5">
                       <Input
                         value={value}
+                        readOnly={!canEdit}
                         onChange={(e) => setPhrase(key, e.target.value)}
                         placeholder={`usa a padrão: ${defaultPhrase}`}
                         aria-label={`Frase de ${t.team} (${t.area})`}
@@ -298,51 +307,55 @@ export function TeamPhrasesSection() {
                 <span className="min-w-0 flex-1 truncate text-on-surface-variant">
                   {o.phrase}
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label="Tirar"
-                  onClick={() => {
-                    setOrphans(orphans.filter((_, j) => j !== i))
-                    setOrphansChanged(true)
-                  }}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                {canEdit && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Tirar"
+                    onClick={() => {
+                      setOrphans(orphans.filter((_, j) => j !== i))
+                      setOrphansChanged(true)
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md transition-[left] duration-300 xl:left-(--sidebar-w)">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-3 px-4 py-2 lg:px-6">
-          {save.error instanceof ApiError && (
-            <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">
-              {save.error.message}
-            </span>
-          )}
-          {tooLong && (
-            <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">
-              Há frase com mais de {MAX} caracteres.
-            </span>
-          )}
-          {save.isSuccess && !dirty && (
-            <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
-              <Check className="size-3.5" /> Salvo. Prévias e cobertura
-              recalculadas.
-            </span>
-          )}
-          <Button
-            variant="primary"
-            loading={save.isPending}
-            disabled={!dirty || tooLong}
-            onClick={() => save.mutate()}
-          >
-            Salvar frases
-          </Button>
+      {canEdit && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur-md transition-[left] duration-300 xl:left-(--sidebar-w)">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-3 px-4 py-2 lg:px-6">
+            {save.error instanceof ApiError && (
+              <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">
+                {save.error.message}
+              </span>
+            )}
+            {tooLong && (
+              <span className="mr-auto text-xs text-rose-700 dark:text-rose-300">
+                Há frase com mais de {MAX} caracteres.
+              </span>
+            )}
+            {save.isSuccess && !dirty && (
+              <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
+                <Check className="size-3.5" /> Salvo. Prévias e cobertura
+                recalculadas.
+              </span>
+            )}
+            <Button
+              variant="primary"
+              loading={save.isPending}
+              disabled={!dirty || tooLong}
+              onClick={() => save.mutate()}
+            >
+              Salvar frases
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {importing && (
         <ImportPhrasesDialog

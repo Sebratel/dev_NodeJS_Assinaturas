@@ -3,6 +3,7 @@ import {
   LayoutTemplate,
   MessageSquareQuote,
   Settings2,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
   type LucideIcon,
@@ -14,6 +15,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Texto do cabeçalho da página quando ela não passa um próprio. */
   description: string
+  /** Só aparece no menu para o perfil Master. */
+  masterOnly?: boolean
 }
 
 /** Seções do menu lateral. O título e o ícone do cabeçalho de cada página saem daqui. */
@@ -58,6 +61,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Settings2,
     description:
       'De onde vem cada campo do AD, níveis do cargo, de-para de times, diretório e Google.',
+  },
+  {
+    to: '/usuarios',
+    label: 'Usuários',
+    icon: ShieldCheck,
+    description:
+      'Quem entra no sistema e o que pode fazer: ver, editar regras e modelos, ou gravar no Gmail.',
+    masterOnly: true,
   },
 ]
 

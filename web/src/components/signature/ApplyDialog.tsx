@@ -61,11 +61,9 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
       queryClient.invalidateQueries({ queryKey: ['signature-applications'] })
     onClose()
   }
-  const scope = google.data?.applyScope
-  const allowlist = scope?.mode === 'LIST' ? scope.emails : []
   const notReady = google.data && !google.data.applyEnabled
-  // Liberado para todos e lote grande: um clique a mais antes de trocar a assinatura de muita gente.
-  const needsConfirmation = scope?.mode === 'ALL' && count > LARGE_BATCH
+  // Lote grande: um clique a mais antes de trocar a assinatura de muita gente.
+  const needsConfirmation = count > LARGE_BATCH
   const startError =
     start.error instanceof ApiError ? start.error.message : null
   const progress = batch.data
@@ -123,26 +121,12 @@ export function ApplyDialog({ target, count, onClose }: ApplyDialogProps) {
               </span>
             </span>
           </label>
-          {scope?.mode === 'LIST' && (
-            <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
-              <AlertTriangle className="size-4 shrink-0" aria-hidden />
-              <span>
-                Modo de teste: só grava para a lista de teste (
-                {allowlist.length}{' '}
-                {allowlist.length === 1 ? 'pessoa' : 'pessoas'}
-                {allowlist.length > 0 && allowlist.length <= 5
-                  ? `: ${allowlist.join(', ')}`
-                  : ''}
-                ). Os demais aparecem como “Pulada”.
-              </span>
-            </p>
-          )}
-          {scope?.mode === 'ALL' && (
+          {count > 1 && (
             <p className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span>
-                Gravação liberada para todos: vai trocar a assinatura no Gmail
-                de até <strong>{formatNumber(count)}</strong> pessoas.
+                Vai trocar a assinatura no Gmail de até{' '}
+                <strong>{formatNumber(count)}</strong> pessoas.
               </span>
             </p>
           )}

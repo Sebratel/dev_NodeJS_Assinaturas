@@ -8,7 +8,7 @@ import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Drawer } from '../../components/ui/Drawer'
 import { ErrorState, LoadingState } from '../../components/ui/States'
-import { useApplyScope } from '../../hooks/useApplyScope'
+import { usePermissions } from '../../hooks/usePermissions'
 import { collaboratorService } from '../../services/collaborator.service'
 import { queryKeys } from '../../services/query-keys'
 import { googleIntegrationService } from '../../services/report.service'
@@ -35,11 +35,12 @@ export function CollaboratorDrawer({
     queryFn: () => collaboratorService.getSignature(collaboratorId!),
     enabled: Boolean(collaboratorId),
   })
+  const { canApply } = usePermissions()
   const google = useQuery({
     queryKey: queryKeys.googleIntegration,
     queryFn: googleIntegrationService.status,
+    enabled: canApply,
   })
-  const applyScope = useApplyScope()
   // O diálogo de gravação vale para a pessoa aberta: trocar de pessoa já o fecha.
   const [applyingFor, setApplyingFor] = useState<string | null>(null)
   const applying = applyingFor !== null && applyingFor === collaboratorId
@@ -61,22 +62,7 @@ export function CollaboratorDrawer({
             : undefined
         }
         footer={
-          <>
-            {person && applyScope.scope.mode === 'LIST' && (
-              <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--color-primary)]"
-                  checked={applyScope.inList(person.email)}
-                  disabled={applyScope.save.isPending}
-                  onChange={() => applyScope.toggleEmail(person.email)}
-                />
-                Na lista de teste
-                <span className="text-xs text-on-surface-variant">
-                  (pode receber gravação)
-                </span>
-              </label>
-            )}
+          canApply ? (
             <Button
               variant="primary"
               icon={<Mail className="size-4" />}
@@ -90,7 +76,7 @@ export function CollaboratorDrawer({
             >
               Aplicar no Gmail
             </Button>
-          </>
+          ) : undefined
         }
       >
         {signature.isLoading && <LoadingState />}

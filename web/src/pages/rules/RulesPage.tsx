@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ErrorState, LoadingState } from '../../components/ui/States'
 import { Switch } from '../../components/ui/Switch'
+import { usePermissions } from '../../hooks/usePermissions'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { reportService } from '../../services/report.service'
 import { signatureRuleService } from '../../services/signature-rule.service'
@@ -34,6 +35,7 @@ type EditorState = {
 
 export function RulesPage() {
   const queryClient = useQueryClient()
+  const { canEdit } = usePermissions()
   const location = useLocation()
   const navigate = useNavigate()
   const rules = useQuery({
@@ -97,13 +99,15 @@ export function RulesPage() {
           </>
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Plus className="size-4" />}
-            onClick={() => setEditor({ rule: null })}
-          >
-            Nova regra
-          </Button>
+          canEdit ? (
+            <Button
+              variant="primary"
+              icon={<Plus className="size-4" />}
+              onClick={() => setEditor({ rule: null })}
+            >
+              Nova regra
+            </Button>
+          ) : undefined
         }
       />
 
@@ -214,7 +218,7 @@ export function RulesPage() {
                           label={
                             rule.active ? 'Desativar regra' : 'Ativar regra'
                           }
-                          disabled={toggle.isPending}
+                          disabled={toggle.isPending || !canEdit}
                         />
                       </td>
                     </tr>

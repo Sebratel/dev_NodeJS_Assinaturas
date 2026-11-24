@@ -1,5 +1,4 @@
 import { HttpStatus, Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BusinessException } from '../../common/exceptions/business.exception.js';
@@ -17,26 +16,13 @@ export class SettingsService implements OnModuleInit {
   /** Contador que muda a cada gravação: quem guarda cálculo derivado das configurações usa para invalidar. */
   private revision = 0;
 
-  constructor(
-    @InjectRepository(SettingEntity) private readonly settingRepository: Repository<SettingEntity>,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(@InjectRepository(SettingEntity) private readonly settingRepository: Repository<SettingEntity>) {}
 
   async onModuleInit(): Promise<void> {
     for (const key of Object.values(SettingKeyEnum)) {
       const exists = await this.settingRepository.findOneBy({ key });
-      if (!exists) await this.settingRepository.save({ key, value: this.initialValue(key) });
+      if (!exists) await this.settingRepository.save({ key, value: DEFAULT_SETTINGS[key] });
     }
-  }
-
-  /** A lista de teste nasce do GOOGLE_APPLY_ALLOWLIST (fase em que ela vivia no .env); depois é só pela tela. */
-  private initialValue(key: SettingKeyEnum): unknown {
-    if (key !== SettingKeyEnum.APPLY_SCOPE) return DEFAULT_SETTINGS[key];
-    const emails = (this.configService.get<string>('GOOGLE_APPLY_ALLOWLIST') ?? '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    return { mode: 'LIST', emails };
   }
 
   getRevision(): number {
@@ -46,7 +32,9 @@ export class SettingsService implements OnModuleInit {
   async findAll(): Promise<SettingsValues> {
     const rows = await this.settingRepository.find();
     const result = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
-    for (const row of rows) result[row.key] = SettingsService.withDefaults(row.key as SettingKeyEnum, row.value);
+    const known = new Set<string>(Object.values(SettingKeyEnum));
+    // Linha de configuração que saiu do sistema (ex.: apply-scope, a antiga lista de teste) fica no banco, mas não vai à tela.
+    for (const row of rows) if (known.has(row.key)) result[row.key] = SettingsService.withDefaults(row.key as SettingKeyEnum, row.value);
     return result as unknown as SettingsValues;
   }
 
@@ -69,10 +57,6 @@ export class SettingsService implements OnModuleInit {
     const problems = this.validate(key as SettingKeyEnum, value);
     if (problems.length) {
       throw new BusinessException('SETTING_INVALID', 'Configuração com valores inválidos.', HttpStatus.BAD_REQUEST, problems);
-    }
-    if (key === SettingKeyEnum.APPLY_SCOPE) {
-      const scope = value as { mode: string; emails: string[] };
-      value = { mode: scope.mode, emails: [...new Set(scope.emails.map((e) => e.trim().toLowerCase()))] };
     }
     if (key === SettingKeyEnum.AUTO_APPLY) {
       // enabledAt é da API: marca a hora em que foi ligada (é a linha de corte de "colaborador novo").
@@ -152,19 +136,6 @@ export class SettingsService implements OnModuleInit {
         const max = auto?.maxPerRun;
         if (typeof max !== 'number' || !Number.isInteger(max) || max < 1 || max > 2000) {
           problems.push({ field: 'maxPerRun', message: 'número inteiro entre 1 e 2000.' });
-        }
-        break;
-      }
-      case SettingKeyEnum.APPLY_SCOPE: {
-        const scope = value as { mode?: unknown; emails?: unknown };
-        if (scope?.mode !== 'LIST' && scope?.mode !== 'ALL') problems.push({ field: 'mode', message: 'use LIST ou ALL.' });
-        if (!Array.isArray(scope?.emails) || scope.emails.length > 500) {
-          problems.push({ field: 'emails', message: 'esperada uma lista de até 500 e-mails.' });
-        } else {
-          scope.emails.forEach((e: unknown, i: number) => {
-            if (!isText(e) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
-              problems.push({ field: `emails[${i}]`, message: `e-mail inválido: ${String(e)}` });
-          });
         }
         break;
       }

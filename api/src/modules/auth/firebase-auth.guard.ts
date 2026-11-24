@@ -1,10 +1,11 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { getRequestContext } from '../../common/logging/request-context.js';
-import { type AuthenticatedRequest, IS_PUBLIC_KEY } from './auth.decorators.js';
+import { UserRoleEnum } from '../users/types/user-role.enum.js';
+import { assertRole, type AuthenticatedRequest, IS_PUBLIC_KEY, REQUIRED_ROLE_KEY } from './auth.decorators.js';
 import { AuthService } from './auth.service.js';
 
-/** Guard global: toda rota exige login, menos as marcadas com @Public(). */
+/** Guard global: toda rota exige login, menos as marcadas com @Public(); e o perfil mínimo do @RequireRole (padrão VIEWER). */
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
   constructor(
@@ -23,6 +24,12 @@ export class FirebaseAuthGuard implements CanActivate {
     // O log de acesso e os logs dos serviços passam a levar o e-mail de quem pediu.
     const store = getRequestContext(request);
     if (store) store.userEmail = user.email;
+
+    const required = this.reflector.getAllAndOverride<UserRoleEnum | undefined>(REQUIRED_ROLE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    assertRole(user, required ?? UserRoleEnum.VIEWER);
     return true;
   }
 }

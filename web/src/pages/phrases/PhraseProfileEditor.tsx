@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { ConditionsEditor } from '../../components/rules/ConditionsEditor'
 import { Button } from '../../components/ui/Button'
 import { Drawer } from '../../components/ui/Drawer'
+import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
 import { Field } from '../../components/ui/Field'
 import { Input } from '../../components/ui/Input'
 import { Spinner } from '../../components/ui/Spinner'
 import { Switch } from '../../components/ui/Switch'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ApiError } from '../../services/api-client'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { phraseProfileService } from '../../services/phrase-profile.service'
@@ -37,6 +39,7 @@ export function PhraseProfileEditor({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+  const { canEdit } = usePermissions()
   const [draft, setDraft] = useState<PhraseProfileInput>(() =>
     profile
       ? {
@@ -111,103 +114,121 @@ export function PhraseProfileEditor({
       open
       width="lg"
       onClose={onClose}
-      title={profile ? 'Editar perfil de frase' : 'Novo perfil de frase'}
+      title={
+        !canEdit
+          ? 'Perfil de frase'
+          : profile
+            ? 'Editar perfil de frase'
+            : 'Novo perfil de frase'
+      }
       subtitle="Quem casar com as condições usa esta frase (se nenhum perfil de prioridade maior também casar)."
       footer={
-        <>
-          {profile &&
-            (confirmDelete ? (
-              <Button
-                variant="danger"
-                loading={remove.isPending}
-                onClick={() => remove.mutate()}
-              >
-                Confirmar exclusão
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<Trash2 className="size-4" />}
-                onClick={() => setConfirmDelete(true)}
-              >
-                Excluir
-              </Button>
-            ))}
-          <span
-            className="mr-auto min-w-0 flex-1 text-xs text-rose-700 dark:text-rose-300"
-            role="alert"
-          >
-            {apiError &&
-              `${apiError.message} ${apiError.details.map((d) => d.message).join(' ')}`}
-          </span>
-          <Button onClick={onClose}>Cancelar</Button>
-          <Button
-            variant="primary"
-            loading={save.isPending}
-            disabled={!ready || !draft.name.trim()}
-            onClick={() => save.mutate()}
-          >
-            Salvar perfil
-          </Button>
-        </>
+        !canEdit ? (
+          <>
+            <ReadOnlyNote className="mr-auto" />
+            <Button onClick={onClose}>Fechar</Button>
+          </>
+        ) : (
+          <>
+            {profile &&
+              (confirmDelete ? (
+                <Button
+                  variant="danger"
+                  loading={remove.isPending}
+                  onClick={() => remove.mutate()}
+                >
+                  Confirmar exclusão
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 className="size-4" />}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Excluir
+                </Button>
+              ))}
+            <span
+              className="mr-auto min-w-0 flex-1 text-xs text-rose-700 dark:text-rose-300"
+              role="alert"
+            >
+              {apiError &&
+                `${apiError.message} ${apiError.details.map((d) => d.message).join(' ')}`}
+            </span>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button
+              variant="primary"
+              loading={save.isPending}
+              disabled={!ready || !draft.name.trim()}
+              onClick={() => save.mutate()}
+            >
+              Salvar perfil
+            </Button>
+          </>
+        )
       }
     >
       <div className="grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_8rem_auto]">
-          <Field label="Nome" htmlFor="pf-name">
-            <Input
-              id="pf-name"
-              value={draft.name}
-              maxLength={80}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="Ex.: Diretoria técnica"
-            />
-          </Field>
-          <Field label="Prioridade" htmlFor="pf-priority">
-            <Input
-              id="pf-priority"
-              type="number"
-              min={0}
-              max={1000}
-              value={draft.priority}
-              onChange={(e) =>
-                setDraft({ ...draft, priority: Number(e.target.value) || 0 })
-              }
-            />
-          </Field>
-          <Field label="Ativo">
-            <div className="flex min-h-[44px] items-center">
-              <Switch
-                checked={draft.active}
-                onChange={(active) => setDraft({ ...draft, active })}
-                label="Perfil ativo"
-              />
-            </div>
-          </Field>
-        </div>
-
-        <ConditionsEditor
-          conditions={draft.conditions}
-          onChange={(conditions) => setDraft({ ...draft, conditions })}
-          errors={conditionErrors}
-          emptyHint="Sem condição: vale para todos."
-        />
-
-        <Field
-          label="Frase"
-          htmlFor="pf-phrase"
-          hint={`${draft.phrase.length}/${MAX}`}
-          error={
-            draft.phrase.length > MAX ? `Até ${MAX} caracteres.` : undefined
-          }
+        <fieldset
+          disabled={!canEdit}
+          className="m-0 grid min-w-0 gap-4 border-0 p-0"
         >
-          <Input
-            id="pf-phrase"
-            value={draft.phrase}
-            onChange={(e) => setDraft({ ...draft, phrase: e.target.value })}
-            placeholder="Ex.: A rede inteira a gente garante."
+          <div className="grid gap-3 sm:grid-cols-[1fr_8rem_auto]">
+            <Field label="Nome" htmlFor="pf-name">
+              <Input
+                id="pf-name"
+                value={draft.name}
+                maxLength={80}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="Ex.: Diretoria técnica"
+              />
+            </Field>
+            <Field label="Prioridade" htmlFor="pf-priority">
+              <Input
+                id="pf-priority"
+                type="number"
+                min={0}
+                max={1000}
+                value={draft.priority}
+                onChange={(e) =>
+                  setDraft({ ...draft, priority: Number(e.target.value) || 0 })
+                }
+              />
+            </Field>
+            <Field label="Ativo">
+              <div className="flex min-h-[44px] items-center">
+                <Switch
+                  checked={draft.active}
+                  onChange={(active) => setDraft({ ...draft, active })}
+                  label="Perfil ativo"
+                />
+              </div>
+            </Field>
+          </div>
+
+          <ConditionsEditor
+            conditions={draft.conditions}
+            onChange={(conditions) => setDraft({ ...draft, conditions })}
+            errors={conditionErrors}
+            emptyHint="Sem condição: vale para todos."
           />
-        </Field>
+
+          <Field
+            label="Frase"
+            htmlFor="pf-phrase"
+            hint={`${draft.phrase.length}/${MAX}`}
+            error={
+              draft.phrase.length > MAX ? `Até ${MAX} caracteres.` : undefined
+            }
+          >
+            <Input
+              id="pf-phrase"
+              value={draft.phrase}
+              onChange={(e) => setDraft({ ...draft, phrase: e.target.value })}
+              placeholder="Ex.: A rede inteira a gente garante."
+            />
+          </Field>
+        </fieldset>
 
         <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
           <h3 className="text-sm font-semibold">Efeito</h3>

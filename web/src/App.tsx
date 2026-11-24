@@ -33,6 +33,9 @@ const SettingsPage = lazy(() =>
     default: m.SettingsPage,
   }))
 )
+const UsersPage = lazy(() =>
+  import('./pages/users/UsersPage').then((m) => ({ default: m.UsersPage }))
+)
 
 function Page({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingState />}>{children}</Suspense>
@@ -94,6 +97,15 @@ export function App() {
               element={
                 <Page>
                   <SettingsPage />
+                </Page>
+              }
+            />
+            {/* Só Master: a própria tela redireciona os outros perfis. */}
+            <Route
+              path="/usuarios"
+              element={
+                <Page>
+                  <UsersPage />
                 </Page>
               }
             />

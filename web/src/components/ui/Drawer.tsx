@@ -66,7 +66,11 @@ export function Drawer({
             <X className="size-5" aria-hidden />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        {/* scrollbar-gutter: a largura não muda quando a barra aparece. Sem isso, a prévia da assinatura (que
+            encolhe para caber) entrava em laço: barra aparece → prévia encolhe → barra some → prévia cresce. */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-gutter:stable]">
+          {children}
+        </div>
         {footer && (
           <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest px-5 py-3.5">
             {footer}
