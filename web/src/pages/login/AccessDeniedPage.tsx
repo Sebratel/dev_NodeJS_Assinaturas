@@ -1,15 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { ShieldX } from 'lucide-react'
-import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { useAuthConfig } from '../../hooks/useAuthConfig'
-import { AuthCard } from './AuthCard'
 import { HubLink } from './HubLink'
+import {
+  LoginCardHeader,
+  LoginHelp,
+  LoginNotice,
+  LoginShell,
+} from './LoginShell'
 
 /**
- * A API conferiu o login e recusou:
- * - 403 AUTH_FORBIDDEN: conta fora do domínio ou sem cadastro na tela Usuários;
- * - 403 HUB_ONLY: tem acesso, mas o login direto está fechado (só master); o caminho é o Hub Apps.
+ * A API conferiu o login e recusou, na mesma moldura do login:
+ * - 403 AUTH_FORBIDDEN: conta fora do domínio ou e-mail não verificado;
+ * - 403 HUB_ONLY: login direto fechado para quem não é master; o caminho é o Hub Apps.
  */
 export function AccessDeniedPage({
   message,
@@ -23,27 +27,38 @@ export function AccessDeniedPage({
   const queryClient = useQueryClient()
 
   return (
-    <AuthCard
-      title={hubOnly ? 'Acesse pelo Hub Apps' : 'Sem acesso'}
-      subtitle={message}
-    >
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
-        <ShieldX
-          className="size-4 shrink-0 text-rose-600 dark:text-rose-400"
-          aria-hidden
-        />
+    <LoginShell>
+      <LoginCardHeader
+        title={hubOnly ? 'Acesse pelo Hub Apps' : 'Sem acesso'}
+        text={message}
+      />
+
+      <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700">
+        <ShieldX className="h-4 w-4 shrink-0 text-rose-600" aria-hidden />
         <span className="truncate">{user?.email}</span>
       </div>
-      {hubOnly && <HubLink href={hubUrl} />}
-      <Button
-        variant="secondary"
-        className="w-full"
+
+      {hubOnly && (
+        <LoginNotice>
+          <p className="text-xs leading-relaxed text-neutral-700">
+            As Assinaturas abrem dentro do Hub Apps. Entre no Hub e clique em
+            Gestor de Assinaturas.
+          </p>
+          <HubLink href={hubUrl} />
+        </LoginNotice>
+      )}
+
+      <button
+        type="button"
         onClick={() => {
           void signOut().then(() => queryClient.clear())
         }}
+        className="flex min-h-[36px] w-full items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-[#252423] transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
       >
         Sair e usar outra conta
-      </Button>
-    </AuthCard>
+      </button>
+
+      <LoginHelp />
+    </LoginShell>
   )
 }

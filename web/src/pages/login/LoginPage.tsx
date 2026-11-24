@@ -1,86 +1,154 @@
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Loader2, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useAuthConfig } from '../../hooks/useAuthConfig'
-import { AuthCard } from './AuthCard'
+import { cn } from '../../utils/cn'
 import { HubLink } from './HubLink'
+import {
+  LoginCardHeader,
+  LoginHelp,
+  LoginNotice,
+  LoginShell,
+} from './LoginShell'
 
-function GoogleMark() {
+function GoogleMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className="size-5" aria-hidden>
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
       <path
-        fill="#FFC107"
-        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.25 1.3-1 2.4-2.1 3.1l3.4 2.6c2-1.8 3.1-4.5 3.1-7.7 0-.75-.07-1.5-.2-2.2H12z"
       />
       <path
-        fill="#FF3D00"
-        d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+        fill="#34A853"
+        d="M5.8 14.1l-.9.7-2.5 1.9C4.2 20.8 7.9 23 12 23c3 0 5.5-1 7.3-2.7l-3.4-2.6c-.9.6-2.1 1-3.9 1-3 0-5.5-2-6.4-4.7z"
       />
       <path
-        fill="#4CAF50"
-        d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"
+        fill="#FBBC05"
+        d="M5.5 9.3 2.9 7.1C1.1 10.4 1.1 14.3 2.9 17.6l2.6-2c-.4-1.2-.4-2.5 0-3.7z"
       />
       <path
-        fill="#1976D2"
-        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"
+        fill="#4285F4"
+        d="M12 5.8c1.7 0 3.2.6 4.4 1.8l3.3-3.3C16.5 2.1 14.4 1 12 1 7.9 1 4.2 3.2 2.9 7.1l2.6 2C6.5 7.4 9.1 5.8 12 5.8z"
       />
     </svg>
   )
 }
 
+/** Dentro do quadro do Hub Apps (window.top é outra página). */
+function isFramed(): boolean {
+  try {
+    return window.self !== window.top
+  } catch {
+    return true
+  }
+}
+
 /**
- * Login com a conta Google da Sebratel (Firebase Auth, padrao-login-sso). Com HUB_ONLY ligado na API, o caminho
- * normal é o Hub Apps; o Google aqui fica só para master (porta de emergência se o Hub cair).
+ * Login no padrão visual "Operação Sebratel" (o mesmo do Data Hub). Autenticação: Firebase (padrao-login-sso).
+ * Com HUB_ONLY, uma entrada pelo Hub recusada, ou dentro do quadro do Hub, a chamada principal é o Hub Apps e o
+ * Google fica discreto: é a porta do master se o Hub cair.
  */
 export function LoginPage() {
-  const { signIn, signInError } = useAuth()
-  const { hubOnly, hubUrl } = useAuthConfig()
-  const [pending, setPending] = useState(false)
+  const { signIn, signInError, hubError } = useAuth()
+  const { hubOnly, hubEnabled, hubUrl } = useAuthConfig()
+  const [busy, setBusy] = useState(false)
+  const [framed] = useState(isFramed)
+  const showHub = hubOnly || !!hubError || (framed && hubEnabled)
 
-  const onClick = async () => {
-    setPending(true)
+  const onGoogle = async () => {
+    setBusy(true)
     await signIn()
-    setPending(false)
+    setBusy(false)
   }
 
   return (
-    <AuthCard
-      title="Assinaturas de e-mail"
-      subtitle={
-        hubOnly
-          ? 'O acesso a este sistema é pelo Hub Apps.'
-          : 'Gestão das assinaturas do Gmail da Sebratel. Entre com a sua conta corporativa.'
-      }
-    >
+    <LoginShell shakeKey={signInError}>
+      <LoginCardHeader
+        title="Acessar plataforma"
+        text="Acesso com conta Google para controle de permissões por papel."
+      />
+
+      {showHub ? (
+        <LoginNotice>
+          <p className="text-sm font-semibold text-[#252423]">
+            Acesse pelo Hub Apps
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-neutral-700">
+            {framed
+              ? 'Sua sessão terminou. Use o botão Recarregar do Hub ou abra as Assinaturas de novo.'
+              : 'As Assinaturas abrem dentro do Hub Apps. Entre no Hub e clique em Gestor de Assinaturas.'}
+          </p>
+          {hubError && (
+            <p
+              className="mt-1.5 break-words text-xs text-rose-800"
+              role="alert"
+            >
+              {hubError}
+            </p>
+          )}
+          <HubLink href={hubUrl} />
+        </LoginNotice>
+      ) : (
+        <LoginNotice>
+          <div className="flex gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/50 bg-amber-100/80 text-amber-700">
+              <Shield className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm text-[#252423]">
+                Domínio liberado:{' '}
+                <span className="font-semibold">@sebratel.com.br</span>
+              </p>
+              <p className="text-xs text-neutral-600">
+                Toda a organização entra como Visualizador.
+              </p>
+            </div>
+          </div>
+        </LoginNotice>
+      )}
+
       {signInError && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-xl border border-rose-200/90 bg-rose-50/95 px-3 py-2.5 text-left text-sm text-rose-900 shadow-sm dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex gap-2 rounded-xl border border-rose-200/90 bg-rose-50/95 px-3 py-2.5 text-sm text-rose-900 shadow-sm"
         >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {signInError}
+          <AlertCircle
+            className="mt-0.5 h-4 w-4 shrink-0 text-rose-600"
+            aria-hidden
+          />
+          <span className="min-w-0 break-words">{signInError}</span>
         </div>
       )}
-      {hubOnly && (
-        <>
-          <HubLink href={hubUrl} />
-          <p className="text-xs text-on-surface-variant">
-            Master do sistema: entre direto com o Google.
-          </p>
-        </>
-      )}
+
       <button
         type="button"
-        onClick={() => void onClick()}
-        disabled={pending}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-surface-container-lowest px-4 py-2.5 text-sm font-semibold text-on-surface shadow-sm transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5"
+        onClick={() => void onGoogle()}
+        disabled={busy}
+        aria-busy={busy}
+        className={cn(
+          'group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl px-4 text-sm font-semibold text-[#252423] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-60 motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0',
+          showHub
+            ? 'min-h-[36px] border border-neutral-300 bg-white py-2 hover:bg-neutral-50'
+            : 'min-h-[44px] bg-[#FFB800] py-3.5 shadow-md hover:bg-[#e6a800] hover:shadow-lg'
+        )}
       >
-        <GoogleMark />
-        {pending ? 'Abrindo o Google…' : 'Entrar com Google'}
+        {busy ? (
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+        ) : (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+            <GoogleMark className="h-5 w-5" />
+          </span>
+        )}
+        <span>
+          {busy
+            ? 'Autenticando…'
+            : showHub
+              ? 'Entrar com Google (master)'
+              : 'Entrar com Google'}
+        </span>
       </button>
-      <p className="text-xs text-on-surface-variant">
-        Só contas @sebratel.com.br.
-      </p>
-    </AuthCard>
+
+      <LoginHelp />
+    </LoginShell>
   )
 }
