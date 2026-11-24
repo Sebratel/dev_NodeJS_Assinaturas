@@ -8,9 +8,13 @@ export interface SessionUser {
 
 export type AuthStatus = 'loading' | 'signed-out' | 'signed-in' | 'local'
 
+/** Por onde a pessoa entrou: Hub Apps (quadro), Google na própria página, ou modo local sem login. */
+export type AuthEntry = 'hub' | 'google' | 'local'
+
 export interface AuthContextValue {
   status: AuthStatus
   user: SessionUser | null
+  via: AuthEntry
   signInError: string | null
   signIn: () => Promise<void>
   signOut: () => Promise<void>

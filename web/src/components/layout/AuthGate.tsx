@@ -38,7 +38,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (status === 'loading') return <FullScreenLoading />
   if (status === 'signed-out') return <LoginPage />
   if (me.isLoading) return <FullScreenLoading />
-  if (me.error instanceof ApiError && me.error.code === 'AUTH_FORBIDDEN')
-    return <AccessDeniedPage message={me.error.message} />
+  if (
+    me.error instanceof ApiError &&
+    (me.error.code === 'AUTH_FORBIDDEN' || me.error.code === 'HUB_ONLY')
+  )
+    return (
+      <AccessDeniedPage
+        message={me.error.message}
+        hubOnly={me.error.code === 'HUB_ONLY'}
+      />
+    )
   return <>{children}</>
 }

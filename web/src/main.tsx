@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { AuthProvider } from './context/AuthContext'
 import './index.css'
+import { enterFromHub } from './services/hub-session'
 import { applyInitialTheme } from './utils/theme'
 
 applyInitialTheme()
@@ -14,12 +15,15 @@ const queryClient = new QueryClient({
   },
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </QueryClientProvider>
-  </StrictMode>
-)
+// Aberto pelo Hub Apps (?sso_token=): troca o token pela sessão ANTES de montar a tela (ver hub-session.ts).
+void enterFromHub().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </QueryClientProvider>
+    </StrictMode>
+  )
+})

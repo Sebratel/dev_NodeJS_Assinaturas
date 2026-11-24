@@ -1,7 +1,9 @@
 import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useAuthConfig } from '../../hooks/useAuthConfig'
 import { AuthCard } from './AuthCard'
+import { HubLink } from './HubLink'
 
 function GoogleMark() {
   return (
@@ -26,9 +28,13 @@ function GoogleMark() {
   )
 }
 
-/** Login com a conta Google da Sebratel (Firebase Auth, padrao-login-sso). */
+/**
+ * Login com a conta Google da Sebratel (Firebase Auth, padrao-login-sso). Com HUB_ONLY ligado na API, o caminho
+ * normal é o Hub Apps; o Google aqui fica só para master (porta de emergência se o Hub cair).
+ */
 export function LoginPage() {
   const { signIn, signInError } = useAuth()
+  const { hubOnly, hubUrl } = useAuthConfig()
   const [pending, setPending] = useState(false)
 
   const onClick = async () => {
@@ -40,7 +46,11 @@ export function LoginPage() {
   return (
     <AuthCard
       title="Assinaturas de e-mail"
-      subtitle="Gestão das assinaturas do Gmail da Sebratel. Entre com a sua conta corporativa."
+      subtitle={
+        hubOnly
+          ? 'O acesso a este sistema é pelo Hub Apps.'
+          : 'Gestão das assinaturas do Gmail da Sebratel. Entre com a sua conta corporativa.'
+      }
     >
       {signInError && (
         <div
@@ -50,6 +60,14 @@ export function LoginPage() {
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
           {signInError}
         </div>
+      )}
+      {hubOnly && (
+        <>
+          <HubLink href={hubUrl} />
+          <p className="text-xs text-on-surface-variant">
+            Master do sistema: entre direto com o Google.
+          </p>
+        </>
       )}
       <button
         type="button"
