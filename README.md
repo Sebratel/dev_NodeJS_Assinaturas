@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.3.0)
+## Estado (1.4.0)
 
 | Parte | Situação |
 |---|---|
@@ -13,7 +13,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Só o perfil **Master** grava, desfaz e liga a automação. |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
 | Hub Apps | Abre **dentro do Hub Apps** (app "Gestor de Assinaturas - Sebratel", `gestor-assinaturas.sebratel.net.br`): o Hub passa um token de 5 min, a API troca por uma sessão de 8 h. Com `HUB_ONLY=true`, só master entra direto; os demais pelo Hub. |
-| Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Entra quem está em `AUTH_ADMIN_EMAILS` (master fixo) ou na tela **Usuários**, com perfil Master, Editor ou Visualizador. Em desenvolvimento, `AUTH_ENABLED=false` (entra como Master). |
+| Login (SSO) | Google pelo Firebase (projeto `sistema-gestor-assinatur-9be62`), token conferido na própria API. Toda conta @sebratel.com.br entra como **Visualizador**. Editor e Master são dados na tela **Usuários**, e quem está em `AUTH_ADMIN_EMAILS` é master fixo. Em desenvolvimento, `AUTH_ENABLED=false` (entra como Master). |
 | Banco | Local: arquivo (sql.js). Produção: MariaDB, com as tabelas criadas por migration ao subir. |
 | Observabilidade | Log em JSON (pino) com `requestId` e `userEmail`, um log por requisição, Elastic APM (`assinaturas-backend`). O nginx do frontend também loga em JSON (`assinaturas-frontend`) e repassa o `requestId`. |
 | Entrega | Um repositório, dois containers na mesma stack: `frontend` (nginx com as telas, porta 3080) repassa `/api` para o `backend` (API, sem porta no servidor). CI no GitHub Actions. Repositório `Sebratel/dev_NodeJS_Assinaturas` (privado), branches `staging` e `main`. Stack de produção criada em 23/11/2026. |
@@ -82,12 +82,12 @@ Contrato entre a tela e a API (padrão `padrao-login-sso`):
   - validade;
   - e-mail verificado;
   - domínio `sebratel.com.br`;
-  - e o perfil: `AUTH_ADMIN_EMAILS` (master fixo) ou a tabela `users` (tela Usuários). Sem perfil = 403 `AUTH_FORBIDDEN`.
+  - e o perfil: `AUTH_ADMIN_EMAILS` (master fixo), a tabela `users` (tela Usuários) ou, para o resto do domínio, Visualizador.
 
   Os certificados do Google ficam em memória e numa cópia em `data/firebase-certs.json`, renovada a cada 6 h.
 - `GET /api/v1/me` devolve `{ success, data: { email, name, authEnabled } }`.
 - **401** (`AUTH_REQUIRED`, `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED`): a tela renova o token e tenta de novo uma vez. Só sai se o 401 continuar.
-- **403** (`AUTH_FORBIDDEN`): logado, mas sem acesso. A tela mostra a mensagem, sem pedir login de novo.
+- **403** (`AUTH_FORBIDDEN`): logado, mas sem acesso (conta fora do domínio ou e-mail não verificado). A tela mostra a mensagem, sem pedir login de novo.
 - **403** (`ROLE_FORBIDDEN`): tem acesso, mas o perfil não alcança a ação. A tela mostra a mensagem e segue normal.
 - **503** (`AUTH_UNAVAILABLE`): a API não conseguiu os certificados do Google. É oscilação: não desloga.
 - O histórico de gravações guarda quem pediu em `requested_by`: o e-mail da pessoa, ou `AUTO` na gravação automática.
@@ -96,12 +96,13 @@ Contrato entre a tela e a API (padrão `padrao-login-sso`):
 
 | Perfil | Pode |
 |---|---|
-| Visualizador | Ver tudo, simular regras e pré-visualizar modelos. Sincronizar o AD (↻). |
+| Visualizador | **Toda conta @sebratel.com.br, sem cadastro.** Ver tudo, simular regras e pré-visualizar modelos. Sincronizar o AD (↻). |
 | Editor | + regras, modelos, frases por time e perfis de frase, de-para de times, níveis do cargo, celular informado. |
 | Master | + gravar no Gmail (aplicar, desfazer), automação, origem dos campos do AD, filtros do diretório, teste da delegação e a tela **Usuários**. |
 
 - A API confere o perfil em cada rota (`@RequireRole`; sem ele, basta estar logado). A tela só esconde o que daria 403.
-- Ninguém muda o próprio perfil nem se remove; remover é exclusão lógica, e incluir de novo restaura.
+- A tela Usuários guarda só quem tem mais que Visualizador; incluir alguém como Visualizador é recusado.
+- Ninguém muda o próprio perfil nem se remove. Remover é exclusão lógica: a pessoa volta a Visualizador, e incluir de novo restaura a linha.
 - Substitui a antiga **lista de teste** (`apply-scope`, `GOOGLE_APPLY_ALLOWLIST`): quem limita a gravação agora é o perfil Master. A linha `apply-scope` fica no banco sem uso.
 
 ### Entrada pelo Hub Apps (1.3.0)
@@ -122,7 +123,7 @@ O que a API confere no token do Hub:
 
 A sessão é assinada com chave derivada: o token do Hub não vale como sessão e a sessão não vale como token do Hub.
 
-- **Quem entra:** o Hub decide quem vê o card; a tela **Usuários** decide quem entra e com que perfil. Quem não está cadastrado vê "sem acesso", mesmo vindo do Hub.
+- **Quem entra:** toda a organização, como Visualizador (o card do Hub fica sem restrição). Editor e Master vêm da tela **Usuários**, também para quem entra pelo Hub.
 - **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para quem não é master. A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`). O master continua entrando direto: é a porta de emergência se o Hub cair. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
 - **Quadro:** o nginx do frontend manda `Content-Security-Policy: frame-ancestors 'self' https://hub-apps.sebratel.net.br https://hub-apps-staging.sebratel.net.br`. Fica no nginx do sistema, porque o NPM ignora `add_header` na aba Advanced.
 - **Rotas públicas:** `GET /api/v1/auth/config` (`hubOnly`, `hubEnabled`, `hubUrl`) e `POST /api/v1/auth/hub`.
@@ -187,7 +188,7 @@ São os que sempre esquecem. Nenhum deles está no código.
 
    O DDL é necessário porque a migration roda ao subir. Sem `DROP`: desfazer migration é manual. Staging usa outro banco (ex.: `DB_Assinaturas_Staging`) com o mesmo GRANT.
 3. **AD** [PADRÃO]. Uma conta **só de leitura** para o LDAP. Atenção: hoje "Domain Users" está dentro de "Administrators", então qualquer conta do domínio é administradora. Trate essa senha como senha de admin até isso ser corrigido.
-4. **Quem acessa**. Os e-mails em `AUTH_ADMIN_EMAILS` (separados por vírgula) são **masters fixos**: sempre entram e não podem ser rebaixados pela tela. Os demais são incluídos na tela **Usuários**.
+4. **Quem acessa**. Os e-mails em `AUTH_ADMIN_EMAILS` (separados por vírgula) são **masters fixos**: sempre entram e não podem ser rebaixados pela tela. Toda conta do domínio entra como Visualizador; Editores e outros Masters são dados na tela **Usuários**.
 5. **Chave do Google**. No painel ela vai em `GOOGLE_SERVICE_ACCOUNT_KEY_JSON`, de preferência em base64 (uma linha, sem aspas para escapar):
 
    ```powershell
@@ -253,7 +254,7 @@ Já fixos no compose [PADRÃO]:
 
 1. Pelo Hub Apps: o card "Gestor de Assinaturas" abre o sistema dentro do Hub, já logado. `curl -sI https://gestor-assinaturas.sebratel.net.br/ | grep -i content-security` mostra o `frame-ancestors` do Hub.
 1. `http://<servidor>:3080/api/health` (pelo frontend) responde `"status":"ok"` com a versão. `directory.ok: false` = conta do AD faltando ou errada (o motivo está no Monitoramento).
-2. A tela abre, o login com Google funciona e quem não está em `AUTH_ADMIN_EMAILS` nem na tela Usuários vê "sem acesso".
+2. A tela abre, o login funciona, uma conta qualquer do domínio entra como Visualizador e uma conta de fora do domínio vê "sem acesso".
 3. No Kibana:
    - logs com `service: assinaturas-backend`;
    - no APM, o serviço `assinaturas-backend` no ambiente `production`.

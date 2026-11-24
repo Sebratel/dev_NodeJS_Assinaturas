@@ -163,9 +163,13 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
     expect(await rejection(service.authenticate(bearer(lookalike)))).toEqual(FORBIDDEN);
   });
 
-  it('recusa e-mail do domínio sem cadastro: nem na stack nem na tela Usuários (403)', async () => {
-    const token = signRs256(claims({ email: 'colaborador@sebratel.com.br' }));
-    expect(await rejection(buildService().authenticate(bearer(token)))).toEqual(FORBIDDEN);
+  it('conta do domínio sem cadastro entra como Visualizador (toda a organização vê)', async () => {
+    const token = signRs256(claims({ email: 'colaborador@sebratel.com.br', name: 'Colaborador' }));
+    await expect(buildService().authenticate(bearer(token))).resolves.toEqual({
+      email: 'colaborador@sebratel.com.br',
+      name: 'Colaborador',
+      role: UserRoleEnum.VIEWER,
+    });
   });
 
   it('quem está na tela Usuários entra com o perfil de lá', async () => {
@@ -183,11 +187,11 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
     await expect(service.authenticate(bearer(signRs256(claims())))).resolves.toMatchObject({ role: UserRoleEnum.MASTER });
   });
 
-  it('AUTH_ADMIN_EMAILS vazio: só entra quem está na tabela', async () => {
-    const service = buildService({ AUTH_ADMIN_EMAILS: '' }, undefined, { 'leitor@sebratel.com.br': UserRoleEnum.VIEWER });
-    expect(await rejection(service.authenticate(bearer(signRs256(claims()))))).toEqual(FORBIDDEN);
-    const reader = signRs256(claims({ email: 'leitor@sebratel.com.br' }));
-    await expect(service.authenticate(bearer(reader))).resolves.toMatchObject({ role: UserRoleEnum.VIEWER });
+  it('AUTH_ADMIN_EMAILS vazio: ninguém é master fixo; perfil maior só pela tabela', async () => {
+    const service = buildService({ AUTH_ADMIN_EMAILS: '' }, undefined, { 'editora@sebratel.com.br': UserRoleEnum.EDITOR });
+    await expect(service.authenticate(bearer(signRs256(claims())))).resolves.toMatchObject({ role: UserRoleEnum.VIEWER });
+    const editor = signRs256(claims({ email: 'editora@sebratel.com.br' }));
+    await expect(service.authenticate(bearer(editor))).resolves.toMatchObject({ role: UserRoleEnum.EDITOR });
   });
 
   it('sem certificados disponíveis responde 503, não 401', async () => {
@@ -241,12 +245,17 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
       });
     });
 
-    it('sessão do Hub de quem foi removido da tela Usuários: 403 na hora', async () => {
+    it('sessão do Hub de quem perdeu o perfil na tela Usuários: volta a Visualizador na hora', async () => {
       const session = new HubSsoService(new ConfigServiceStub(HUB) as unknown as ConfigService).issueSession({
         email: 'saiu@sebratel.com.br',
         name: 'Saiu',
       });
-      expect(await rejection(buildService(HUB).authenticate(bearer(session.token)))).toEqual(FORBIDDEN);
+      await expect(buildService(HUB).authenticate(bearer(session.token))).resolves.toMatchObject({ role: UserRoleEnum.VIEWER });
+    });
+
+    it('Visualizador (resto da organização) também só entra pelo Hub', async () => {
+      const token = signRs256(claims({ email: 'colaborador@sebratel.com.br' }));
+      expect(await rejection(buildService(HUB).authenticate(bearer(token)))).toEqual({ status: HttpStatus.FORBIDDEN, code: 'HUB_ONLY' });
     });
 
     it('sem HUB_SSO_SECRET/HUB_APP_ID o HUB_ONLY é ignorado (senão trancaria todo mundo)', async () => {

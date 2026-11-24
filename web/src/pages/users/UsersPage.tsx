@@ -26,6 +26,8 @@ import { formatRelative } from '../../utils/format'
 import { isCompanyEmail, normalizeUserEmail } from './user-email'
 
 const ROLES: UserRole[] = ['VIEWER', 'EDITOR', 'MASTER']
+/** Visualizador não se inclui: toda conta do domínio já entra assim. */
+const GRANTABLE_ROLES: UserRole[] = ['EDITOR', 'MASTER']
 const ROLE_TONES: Record<UserRole, BadgeTone> = {
   MASTER: 'brand',
   EDITOR: 'info',
@@ -41,7 +43,10 @@ function errorMessage(error: unknown): string | null {
   return error instanceof ApiError ? error.message : null
 }
 
-/** Quem entra no sistema e com qual perfil. Só Master; para os outros a rota volta para Colaboradores. */
+/**
+ * Perfis acima de Visualizador. Toda conta do domínio já entra como Visualizador, sem cadastro; aqui ficam só
+ * Editores e Masters. Só Master vê a tela; para os outros a rota volta para Colaboradores.
+ */
 export function UsersPage() {
   const { isMaster } = usePermissions()
   const queryClient = useQueryClient()
@@ -61,14 +66,14 @@ export function UsersPage() {
 
   const domain = config.auth.hostedDomain
   const [emailInput, setEmailInput] = useState('')
-  const [newRole, setNewRole] = useState<UserRole>('VIEWER')
+  const [newRole, setNewRole] = useState<UserRole>('EDITOR')
   const [removing, setRemoving] = useState<AppUser | null>(null)
 
   const create = useMutation({
     mutationFn: userService.create,
     onSuccess: () => {
       setEmailInput('')
-      setNewRole('VIEWER')
+      setNewRole('EDITOR')
       refresh()
     },
   })
@@ -98,8 +103,8 @@ export function UsersPage() {
       <AppPageHeader />
 
       <Card
-        title="Incluir pessoa"
-        subtitle={`Só contas @${domain}. A pessoa entra com o Google na próxima vez que abrir o sistema.`}
+        title="Dar perfil de Editor ou Master"
+        subtitle={`Toda conta @${domain} já entra como Visualizador. Aqui você dá mais acesso a quem precisa.`}
       >
         <form
           className="flex flex-wrap items-end gap-3"
@@ -134,7 +139,7 @@ export function UsersPage() {
               ariaLabel="Perfil da pessoa"
               value={newRole}
               onChange={setNewRole}
-              options={ROLES.map((role) => ({
+              options={GRANTABLE_ROLES.map((role) => ({
                 value: role,
                 label: ROLE_LABELS[role],
               }))}
@@ -280,15 +285,15 @@ export function UsersPage() {
       )}
 
       <p className="text-xs text-on-surface-variant">
-        <strong>Visualizador</strong> {ROLE_HELP.VIEWER}.{' '}
-        <strong>Editor</strong> {ROLE_HELP.EDITOR}. <strong>Master</strong>{' '}
-        {ROLE_HELP.MASTER}. Masters da stack (AUTH_ADMIN_EMAILS) não mudam por
-        aqui.
+        <strong>Visualizador</strong> {ROLE_HELP.VIEWER}: toda conta @{domain},
+        sem cadastro. <strong>Editor</strong> {ROLE_HELP.EDITOR}.{' '}
+        <strong>Master</strong> {ROLE_HELP.MASTER}. Masters da stack
+        (AUTH_ADMIN_EMAILS) não mudam por aqui.
       </p>
 
       <Modal
         open={removing !== null}
-        title="Remover acesso"
+        title="Tirar o perfil"
         onClose={() => setRemoving(null)}
         footer={
           <>
@@ -305,9 +310,9 @@ export function UsersPage() {
       >
         <div className="grid gap-2 text-sm">
           <p>
-            <strong>{removing?.email}</strong> deixa de entrar no sistema. O
-            histórico de gravações que essa pessoa fez continua guardado. Dá
-            para incluir de novo depois.
+            <strong>{removing?.email}</strong> volta a ser Visualizador, como
+            toda conta @{domain}. O histórico de gravações que essa pessoa fez
+            continua guardado. Dá para dar o perfil de novo depois.
           </p>
           {errorMessage(remove.error) && (
             <p className="text-xs text-rose-700 dark:text-rose-300">

@@ -23,7 +23,7 @@ const UNKNOWN_KEY_REFRESH_MS = 60_000;
 /**
  * Login SSO (padrao-login-sso): o frontend manda o ID token do Firebase em `Authorization: Bearer`,
  * a API confere a assinatura localmente e o domínio do e-mail; o perfil vem do AUTH_ADMIN_EMAILS (master fixo)
- * ou da tela Usuários (tabela users). Sem perfil = sem acesso.
+ * ou da tela Usuários (tabela users); o resto do domínio entra como Visualizador.
  * 401 = sem login ou login inválido (o frontend renova o token e tenta de novo); 403 = logado, mas sem acesso.
  */
 @Injectable()
@@ -84,15 +84,11 @@ export class AuthService implements OnModuleInit {
     return user;
   }
 
-  /** Perfil de quem entrou (tela Usuários ou master da stack). Sem perfil = 403, também para quem veio do Hub. */
+  /** Perfil de quem entrou: master da stack, tela Usuários ou Visualizador (resto do domínio). Fora do domínio = 403. */
   async withRole(email: string, name: string): Promise<AuthUser> {
     const role = await this.usersService.findRole(email);
     if (!role) {
-      return this.forbid(
-        email,
-        'NOT_REGISTERED',
-        'Seu e-mail ainda não tem acesso a este sistema. Peça a um master para incluí-lo em Usuários.',
-      );
+      return this.forbid(email, 'DOMAIN', `Entre com a sua conta @${this.settings.allowedDomain}.`);
     }
     return { email: email.toLowerCase(), name, role };
   }
