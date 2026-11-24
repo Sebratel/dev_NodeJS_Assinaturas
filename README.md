@@ -203,6 +203,7 @@ Já fixos no compose [PADRÃO]:
 - `DB_TYPE=mariadb`, `DIRECTORY_SOURCE=ldap` e `HOST=0.0.0.0`;
 - healthcheck do backend em `http://127.0.0.1:3180/api/health` e do frontend em `http://127.0.0.1:8080/healthz` (nunca `localhost`);
 - o frontend só sobe depois do backend saudável (`depends_on: service_healthy`);
+- `pull_policy: build` nas duas imagens: elas nascem do build, então *Re-pull image* pode ficar ligado (sem isso o deploy falha com "pull access denied for assinaturas-frontend");
 - `mem_limit` sem swap (backend 1 GB, frontend 128 MB) e `restart: unless-stopped`;
 - volume nomeado `data` para `/app/data` (bind mount é apagado no deploy por repositório).
 
