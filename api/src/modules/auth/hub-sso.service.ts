@@ -37,7 +37,8 @@ function verifyHs256(token: unknown, key: string | Buffer): Record<string, unkno
 /**
  * Entrada pelo Hub Apps (guia "Apps embutidos no Hub", modelo do Data Hub):
  * o Hub abre o sistema num quadro com `?sso_token=` (JWT HS256 de 5 min, assinado com o SSO_JWT_SECRET do Hub),
- * a tela troca esse token por uma sessão própria de 8 h. HUB_ONLY fecha o login direto para quem não é master.
+ * a tela troca esse token por uma sessão própria de 8 h. HUB_ONLY fecha o login direto
+ * para todos, menos os masters da stack (AUTH_ADMIN_EMAILS).
  */
 @Injectable()
 export class HubSsoService {

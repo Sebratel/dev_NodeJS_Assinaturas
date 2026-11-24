@@ -13,7 +13,8 @@ import {
 /**
  * A API conferiu o login e recusou, na mesma moldura do login:
  * - 403 AUTH_FORBIDDEN: conta fora do domínio ou e-mail não verificado;
- * - 403 HUB_ONLY: login direto fechado para quem não é master; o caminho é o Hub Apps.
+ * - 403 HUB_ONLY: login direto fechado (só os masters da stack, AUTH_ADMIN_EMAILS, entram
+ *   sem o Hub); o caminho é o Hub Apps.
  */
 export function AccessDeniedPage({
   message,

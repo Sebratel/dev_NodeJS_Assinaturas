@@ -46,7 +46,8 @@ function isFramed(): boolean {
 /**
  * Login no padrão visual "Operação Sebratel" (o mesmo do Data Hub). Autenticação: Firebase (padrao-login-sso).
  * Com HUB_ONLY, uma entrada pelo Hub recusada, ou dentro do quadro do Hub, a chamada principal é o Hub Apps e o
- * Google fica discreto: é a porta do master se o Hub cair.
+ * Google fica discreto: é a porta dos masters da stack (AUTH_ADMIN_EMAILS) se o Hub cair. Master dado pela tela
+ * Usuários também entra só pelo Hub.
  */
 export function LoginPage() {
   const { signIn, signInError, hubError } = useAuth()
@@ -143,7 +144,7 @@ export function LoginPage() {
           {busy
             ? 'Autenticando…'
             : showHub
-              ? 'Entrar com Google (master)'
+              ? 'Entrar com Google (administrador)'
               : 'Entrar com Google'}
         </span>
       </button>
