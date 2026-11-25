@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.4.1)
+## Estado (1.5.0)
 
 | Parte | Situação |
 |---|---|
@@ -49,7 +49,7 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
 ## Como as regras funcionam
 
 - Toda regra ativa cujas condições casam com a pessoa **se aplica**. As condições dentro de uma regra se combinam com "E"; os valores dentro de uma condição, com "OU".
-- A assinatura tem 4 partes: **0800**, **contato** (celular corporativo, celular informado, ramal ou nenhum), **área ou time** antes do cargo e **frase**.
+- A assinatura tem 4 partes: **0800**, **contato** (celular corporativo, celular informado, ramal ou nenhum), **área ou time** antes do cargo (ou nada, só o cargo) e **frase**. O que a pessoa não deve ter na assinatura sai pela regra ("Sem contato", "Sem frase", "Nada") ou pelo modelo, que esconde a parte vazia com `{{#parte}}…{{/parte}}`.
 - Em cada parte, vence a regra de **prioridade maior**. Uma regra só mexe no que define: o resto vem das regras de prioridade menor.
 - Se duas regras com a **mesma prioridade** decidirem diferente a mesma parte, o status fica **Conflito** e a tela aponta quais são as regras.
 - O status de cada pessoa pode ser:

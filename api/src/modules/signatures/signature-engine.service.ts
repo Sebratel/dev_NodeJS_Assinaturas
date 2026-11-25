@@ -124,7 +124,10 @@ export class SignatureEngineService {
 
   private buildContent(collaborator: Collaborator, decisions: SignatureDecisions, phraseText: string) {
     const label = decisions.sectorLabel?.value ?? SectorLabelEnum.TEAM;
-    const sectorText = (label === SectorLabelEnum.AREA ? collaborator.area : collaborator.team) || collaborator.team || collaborator.area;
+    const sectorText =
+      label === SectorLabelEnum.NONE
+        ? ''
+        : (label === SectorLabelEnum.AREA ? collaborator.area : collaborator.team) || collaborator.team || collaborator.area;
 
     const contactType = decisions.contact?.value ?? ContactTypeEnum.NONE;
     let contactText = '';

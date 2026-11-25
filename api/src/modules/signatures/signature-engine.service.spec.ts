@@ -109,6 +109,23 @@ describe('SignatureEngineService', () => {
     expect(result.decisions.contact?.value).toBe(ContactTypeEnum.INFORMED_MOBILE);
   });
 
+  it('"Nada" antes do cargo deixa o setor vazio (o modelo mostra só o cargo)', () => {
+    const soCargo: SignatureRule = {
+      id: 'sc',
+      name: 'Sebratel Empresas: só o cargo',
+      description: '',
+      priority: 15,
+      active: true,
+      conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
+      outputs: { sectorLabel: SectorLabelEnum.NONE },
+    };
+    // celular preenchido: a regra B2B pede o corporativo (sem ele, ficaria Pendente por outro motivo)
+    const result = engine.evaluate(person({ company: 'Sebratel Empresas', corporateMobile: '47999990000' }), [...rules, soCargo], phrases);
+    expect(result.decisions.sectorLabel?.value).toBe(SectorLabelEnum.NONE);
+    expect(result.content.sectorText).toBe('');
+    expect(result.status).toBe(SignatureStatusEnum.READY);
+  });
+
   it('aponta conflito quando duas regras de mesma prioridade decidem diferente a mesma parte', () => {
     const result = engine.evaluate(
       person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }),

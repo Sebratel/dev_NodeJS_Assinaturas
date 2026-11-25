@@ -11,7 +11,7 @@ export type Level =
 export type SignatureStatus = 'READY' | 'PENDING' | 'CONFLICT' | 'NO_RULE'
 export type ContactType =
   'NONE' | 'CORPORATE_MOBILE' | 'INFORMED_MOBILE' | 'EXTENSION'
-export type SectorLabel = 'AREA' | 'TEAM'
+export type SectorLabel = 'AREA' | 'TEAM' | 'NONE'
 export type PhraseMode = 'TEAM' | 'FIXED' | 'NONE'
 export type Phone0800Mode = 'DIRECTORY' | 'FIXED'
 export type RuleOperator =

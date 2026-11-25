@@ -50,7 +50,7 @@ export const ruleFormSchema = z
         'INFORMED_MOBILE',
         'EXTENSION',
       ]),
-      sectorLabel: z.enum(['', 'AREA', 'TEAM']),
+      sectorLabel: z.enum(['', 'AREA', 'TEAM', 'NONE']),
       phraseMode: z.enum(['', 'TEAM', 'FIXED', 'NONE']),
       phraseText: z.string().max(140, 'Até 140 caracteres.'),
     }),
