@@ -46,6 +46,7 @@ export const CONTACT_LABELS: Record<ContactType, string> = {
 export const SECTOR_LABELS: Record<SectorLabel, string> = {
   AREA: 'Área',
   TEAM: 'Time',
+  NONE: 'Nada (só o cargo)',
 }
 
 export const PHONE0800_MODE_LABELS = {
