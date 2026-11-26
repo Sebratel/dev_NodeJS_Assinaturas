@@ -8,7 +8,7 @@ import type { SettingsService } from '../settings/settings.service.js';
 import { DEFAULT_SIGNATURE_RULES } from '../signature-rules/default-signature-rules.js';
 import type { SignatureRulesService } from '../signature-rules/signature-rules.service.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
-import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
+import { VariableSourceEnum } from '../signature-rules/types/variable-source.enum.js';
 import type { SignatureTemplatesService } from '../signature-templates/signature-templates.service.js';
 import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
 import { SignatureEngineService } from './signature-engine.service.js';
@@ -44,7 +44,7 @@ const EMPRESAS = {
   id: 't-empresas',
   name: 'Sebratel Empresas',
   isDefault: false,
-  html: '<p>EMPRESAS {{nome}} {{#setor}}{{setor}} | {{/setor}}{{cargo}}</p>',
+  html: '<p>EMPRESAS {{nome}} {{#setor}}{{setor}} | {{/setor}}{{cargo}} {{TESTE}}</p>',
 };
 const PESSOAS = [
   person({ id: 'a', name: 'Ana Interna' }),
@@ -65,7 +65,7 @@ function service(): SignaturesService {
   );
 }
 
-/** Rascunho: Sebratel Empresas com modelo próprio e nada antes do cargo. */
+/** Rascunho: Sebratel Empresas com modelo próprio, nada antes do cargo e {{TESTE}} = Empresa. */
 function rascunho(extra: Partial<SimulateSignatureRuleDTO> = {}): SimulateSignatureRuleDTO {
   return {
     name: 'Sebratel Empresas: modelo próprio',
@@ -73,7 +73,13 @@ function rascunho(extra: Partial<SimulateSignatureRuleDTO> = {}): SimulateSignat
     priority: 15,
     active: true,
     conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
-    outputs: { templateId: EMPRESAS.id, sectorLabel: SectorLabelEnum.NONE },
+    outputs: {
+      templateId: EMPRESAS.id,
+      variables: [
+        { key: 'setor', source: VariableSourceEnum.EMPTY },
+        { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa' },
+      ],
+    },
     ...extra,
   } as SimulateSignatureRuleDTO;
 }
@@ -89,8 +95,8 @@ describe('SignaturesService.simulate · prévia da assinatura no editor de regra
       matched: true,
       changed: true,
     });
-    expect(preview?.html).toBe('<p>EMPRESAS Bruno B2B Analista</p>');
-    expect(preview?.decidedHere.sort()).toEqual(['sectorLabel', 'template']);
+    expect(preview?.html).toBe('<p>EMPRESAS Bruno B2B Analista Sebratel Empresas</p>');
+    expect(preview?.decidedHere.sort()).toEqual(['template', 'var:TESTE', 'var:setor']);
   });
 
   it('mostra a pessoa pedida', async () => {

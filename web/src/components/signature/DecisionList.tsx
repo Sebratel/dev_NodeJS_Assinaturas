@@ -1,10 +1,8 @@
+import { useTemplateVariables } from '../../hooks/useTemplateVariables'
 import type { DecisionSlot, SignatureEvaluation } from '../../types/api'
 import {
-  CONTACT_LABELS,
-  PHONE0800_MODE_LABELS,
-  PHRASE_MODE_LABELS,
+  choiceLabel,
   PHRASE_ORIGIN_LABELS,
-  SECTOR_LABELS,
   slotLabel,
 } from '../../utils/labels'
 
@@ -16,15 +14,25 @@ function phraseOriginText(origin: SignatureEvaluation['phraseOrigin']): string {
   return PHRASE_ORIGIN_LABELS[origin.kind]
 }
 
-/** "Por que saiu assim": cada parte da assinatura, o valor e a regra que decidiu. */
+/**
+ * "Por que saiu assim": o modelo e cada variável que ele usa — o valor final, de onde veio e a regra que decidiu.
+ * `variables`: as variáveis do modelo da pessoa, na ordem em que aparecem.
+ */
 export function DecisionList({
   evaluation,
   templateName,
+  variables,
 }: {
   evaluation: SignatureEvaluation
   templateName: string
+  variables: string[]
 }) {
   const { decisions, content } = evaluation
+  const info = useTemplateVariables()
+  const defaults = new Map(
+    (info.data?.variables ?? []).map((v) => [v.key, v.defaultLabel])
+  )
+
   const rows: Array<{
     slot: DecisionSlot
     value: string
@@ -33,56 +41,30 @@ export function DecisionList({
     priority: number | null
   }> = [
     {
-      slot: 'phone0800',
-      value: content.phone0800 || '—',
-      detail: decisions.phone0800
-        ? PHONE0800_MODE_LABELS[decisions.phone0800.value.mode]
-        : '',
-      rule: decisions.phone0800?.ruleName ?? null,
-      priority: decisions.phone0800?.priority ?? null,
-    },
-    {
-      slot: 'contact',
-      value: CONTACT_LABELS[content.contactType],
-      detail:
-        content.contactText ||
-        (content.contactType !== 'NONE' ? 'sem dado' : ''),
-      rule: decisions.contact?.ruleName ?? null,
-      priority: decisions.contact?.priority ?? null,
-    },
-    {
-      slot: 'sectorLabel',
-      value: decisions.sectorLabel
-        ? SECTOR_LABELS[decisions.sectorLabel.value]
-        : 'Time',
-      detail: content.sectorText,
-      rule: decisions.sectorLabel?.ruleName ?? null,
-      priority: decisions.sectorLabel?.priority ?? null,
-    },
-    {
-      slot: 'phrase',
-      value: phraseOriginText(evaluation.phraseOrigin),
-      detail: content.phrase,
-      rule: decisions.phrase
-        ? `${decisions.phrase.ruleName} (${PHRASE_MODE_LABELS[decisions.phrase.value.mode].toLowerCase()})`
-        : null,
-      priority: decisions.phrase?.priority ?? null,
-    },
-    {
       slot: 'template',
       value: templateName,
       detail: decisions.template ? '' : 'modelo padrão',
       rule: decisions.template?.ruleName ?? null,
       priority: decisions.template?.priority ?? null,
     },
-    // Variáveis do modelo que alguma regra escondeu ou trocou (aplicadas por último).
-    ...Object.entries(decisions.variables ?? {}).map(([key, decision]) => ({
-      slot: `var:${key}` as DecisionSlot,
-      value: decision.value.mode === 'HIDE' ? 'Oculta' : 'Trocada',
-      detail: decision.value.mode === 'TEXT' ? (decision.value.text ?? '') : '',
-      rule: decision.ruleName,
-      priority: decision.priority,
-    })),
+    ...variables.map((key) => {
+      const decision = decisions.variables[key]
+      const usesPhrase = decision
+        ? decision.value.source === 'FIELD' && decision.value.field === 'frase'
+        : key === 'frase'
+      const source = decision
+        ? choiceLabel(decision.value, info.fieldLabels)
+        : `padrão: ${defaults.get(key) ?? 'Vazio'}`
+      return {
+        slot: `var:${key}` as DecisionSlot,
+        value: content.values[key] || '—',
+        detail: usesPhrase
+          ? `${source} · ${phraseOriginText(evaluation.phraseOrigin)}`
+          : source,
+        rule: decision?.ruleName ?? null,
+        priority: decision?.priority ?? null,
+      }
+    }),
   ]
 
   return (
@@ -97,7 +79,7 @@ export function DecisionList({
       <tbody className="divide-y divide-outline-variant">
         {rows.map((row) => (
           <tr key={row.slot} className="align-top">
-            <td className="px-2.5 py-2 text-on-surface-variant">
+            <td className="px-2.5 py-2 font-mono text-[12.5px] text-on-surface-variant">
               {slotLabel(row.slot)}
             </td>
             <td className="px-2.5 py-2">

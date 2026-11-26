@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { AfterLoad, Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { RuleOutputsHelper } from '../rule-outputs.helper.js';
 import type { RuleCondition, RuleOutputs } from '../types/signature-rule.types.js';
 
 @Entity({ name: 'signature_rules' })
@@ -33,4 +34,10 @@ export class SignatureRuleEntity {
   /** Exclusão lógica: a regra some das telas e do motor, mas a linha fica no banco. */
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;
+
+  /** Regra gravada no formato antigo (partes fixas) chega às telas e ao motor já em variáveis. */
+  @AfterLoad()
+  normalizeOutputs(): void {
+    this.outputs = RuleOutputsHelper.normalize(this.outputs);
+  }
 }

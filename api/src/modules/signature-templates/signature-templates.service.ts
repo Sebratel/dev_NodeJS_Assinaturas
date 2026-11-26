@@ -5,6 +5,7 @@ import { BusinessException } from '../../common/exceptions/business.exception.js
 import { DEFAULT_TEMPLATE } from './default-signature-template.js';
 import { SaveSignatureTemplateDTO } from './dto/save-signature-template.dto.js';
 import { SignatureTemplateEntity } from './entities/signature-template.entity.js';
+import { SignatureField, SignatureFieldsHelper } from './signature-fields.js';
 import { TemplateRenderHelper } from './template-render.helper.js';
 
 @Injectable()
@@ -18,6 +19,28 @@ export class SignatureTemplatesService implements OnModuleInit {
 
   findAll(): Promise<SignatureTemplateEntity[]> {
     return this.templateRepository.find({ order: { isDefault: 'DESC', name: 'ASC' } });
+  }
+
+  /**
+   * Cada variável usada em algum modelo vira um campo nas regras. Junto vão os campos que a regra pode escolher.
+   * `defaultLabel`: o que a variável mostra quando nenhuma regra decide.
+   */
+  async getVariables(): Promise<{
+    fields: SignatureField[];
+    variables: Array<{ key: string; defaultLabel: string; templates: Array<{ id: string; name: string }> }>;
+  }> {
+    const variables = new Map<string, Array<{ id: string; name: string }>>();
+    for (const template of await this.findAll()) {
+      for (const key of TemplateRenderHelper.variablesOf(template.html)) {
+        variables.set(key, [...(variables.get(key) ?? []), { id: template.id, name: template.name }]);
+      }
+    }
+    return {
+      fields: SignatureFieldsHelper.list(),
+      variables: [...variables.entries()]
+        .map(([key, templates]) => ({ key, defaultLabel: SignatureFieldsHelper.defaultLabel(key), templates }))
+        .sort((a, b) => a.key.localeCompare(b.key, 'pt-BR')),
+    };
   }
 
   async findOne(id: string): Promise<SignatureTemplateEntity> {

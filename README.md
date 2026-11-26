@@ -9,7 +9,7 @@ Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colabo
 | Leitura do AD | Local: AD ao vivo com o login do Windows (`DIRECTORY_SOURCE=windows`, a cada 5 min e pelo botão ↻). Servidor: LDAP (`ldap`) com conta só de leitura. Sem a conta (`AD_BIND_*` vazios), a API sobe com a lista vazia e o Monitoramento mostra o aviso. A leitura por LDAP ainda não foi testada contra o AD. |
 | Campos do AD | 0800 = General › Telephone number (só sai se for um 0800 válido). Ramal = Telephones › IP phone. Celular = Telephones › Mobile. B2B = Company "Sebratel Empresas". |
 | Regras, motor e simulação | Prontos, com testes |
-| Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`) e prévia com pessoa real. A regra escolhe o modelo; sem escolha, vale o padrão. |
+| Modelos de assinatura | Tela "Modelos": HTML com variáveis (`{{nome}}`, `{{#frase}}…{{/frase}}`, ou qualquer nome novo) e prévia com pessoa real. A regra escolhe o modelo e o valor de cada variável; sem escolha, vale o padrão. |
 | Gravar no Gmail | Funciona: delegação autorizada (client ID `113892655020718818138`), só no endereço principal, em lote e com histórico. Desfaz a última gravação. Só o perfil **Master** grava, desfaz e liga a automação. |
 | Gravação automática | Depois de cada leitura do AD, grava para quem entrou ou mudou. Acima do limite, espera aprovação na tela Monitoramento. |
 | Hub Apps | Abre **dentro do Hub Apps** (app "Gestor de Assinaturas - Sebratel", `gestor-assinaturas.sebratel.net.br`): o Hub passa um token de 5 min, a API troca por uma sessão de 8 h. Com `HUB_ONLY=true`, só os masters da stack (`AUTH_ADMIN_EMAILS`) entram direto; todos os outros, inclusive masters dados pela tela, entram pelo Hub. |
@@ -49,14 +49,17 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
 ## Como as regras funcionam
 
 - Toda regra ativa cujas condições casam com a pessoa **se aplica**. As condições dentro de uma regra se combinam com "E"; os valores dentro de uma condição, com "OU".
-- A assinatura tem 4 partes: **0800**, **contato** (celular corporativo, celular informado, ramal ou nenhum), **área ou time** antes do cargo (ou nada, só o cargo) e **frase**. O que a pessoa não deve ter na assinatura sai pela regra ("Sem contato", "Sem frase", "Nada") ou pelo modelo, que esconde a parte vazia com `{{#parte}}…{{/parte}}`.
-- **Variáveis do modelo:** além das 4 partes, a regra pode mexer em qualquer variável do modelo (`{{cargo}}`, `{{setor}}`, `{{email}}`, `{{empresa}}`…, menos `{{img}}`):
-  - **Ocultar:** a variável fica vazia, e some junto o bloco `{{#variavel}}…{{/variavel}}` do modelo;
-  - **Trocar por:** um texto, que pode usar outras variáveis (`{{cargo}} · {{empresa}}`). Valem os valores de antes de qualquer troca, então a ordem não importa.
-  - A troca é aplicada por último, depois das 4 partes, e segue a mesma cascata: em cada variável, vence a regra de prioridade maior; empate com valores diferentes vira Conflito em `{{variavel}}`.
-  - Variáveis só de leitura, vindas do AD, para usar no modelo ou no texto: `{{empresa}}`, `{{departamento}}`, `{{segmento}}`, `{{estado}}`, `{{escritorio}}`.
-- Em cada parte, vence a regra de **prioridade maior**. Uma regra só mexe no que define: o resto vem das regras de prioridade menor.
-- Se duas regras com a **mesma prioridade** decidirem diferente a mesma parte, o status fica **Conflito** e a tela aponta quais são as regras.
+- **O modelo define as variáveis.** Toda variável usada em algum modelo (`{{cargo}}`, `{{setor}}`, ou um nome novo como `{{teste}}`) vira uma linha no editor de regra. Só `{{img}}` (endereço das imagens) fica de fora.
+- **A regra escolhe o valor de cada variável:**
+  - **Não muda:** a regra não mexe; vale a de prioridade menor ou o padrão;
+  - **Vazio (em branco):** a variável fica vazia, e some junto o bloco `{{#variavel}}…{{/variavel}}` do modelo;
+  - **Texto fixo:** por exemplo `0800 365 8000`. Pode citar campos (`Ramal {{ramal}}`); se um campo citado estiver vazio, a variável fica vazia;
+  - **Um campo:** nome, e-mail, cargo, área, time, departamento, empresa, segmento, estado, escritório, celular corporativo, ramal, 0800 do AD, celular informado pela pessoa ou a frase da tela Frases (`api/src/modules/signature-templates/signature-fields.ts`).
+- **Padrão sem regra:** a variável com nome de campo mostra o campo (`{{cargo}}` → Cargo). `{{setor}}` mostra o Time. As demais ficam vazias.
+- Em cada variável, e no modelo, vence a regra de **prioridade maior**. Uma regra só mexe no que define.
+- Se duas regras com a **mesma prioridade** decidirem diferente a mesma variável, o status fica **Conflito em `{{variavel}}`** e a tela aponta quais são as regras.
+- **Pendência:** celular corporativo, celular informado, ramal e 0800 escolhidos por regra (direto ou dentro de um texto) e vazios no AD deixam a pessoa **Pendente**.
+- **Regras gravadas antes da 1.8.0** (0800, Contato, "Antes do cargo", Frase) são convertidas em variáveis na leitura, com o mesmo resultado. O banco só muda quando a regra é salva de novo; não há migration.
 - O status de cada pessoa pode ser:
   - **Pronta:** tudo preenchido;
   - **Pendente:** falta dado (celular, ramal);

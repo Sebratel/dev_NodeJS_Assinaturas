@@ -1,5 +1,4 @@
 import { CollaboratorLevelEnum } from '../../directory/types/collaborator-level.enum.js';
-import { ContactTypeEnum } from '../../signature-rules/types/contact-type.enum.js';
 import { SignatureIssueCodeEnum } from './signature-issue-code.enum.js';
 import { DecisionSlot, PhraseOriginKind } from './signature-evaluation.types.js';
 import { SignatureStatusEnum } from './signature-status.enum.js';
@@ -15,7 +14,8 @@ export interface CoverageReport {
   generatedAt: string;
   totalCollaborators: number;
   byStatus: Record<SignatureStatusEnum, number>;
-  byContact: Record<ContactTypeEnum, number>;
+  /** Pessoas por modelo decidido nas regras (null = nenhuma regra escolheu: modelo padrão). */
+  byTemplate: Array<{ templateId: string | null; count: number }>;
   onlyGeneralRules: number;
   issues: Array<{ code: SignatureIssueCodeEnum; severity: 'ERROR' | 'WARNING' | 'INFO'; count: number; sample: PersonSample[] }>;
   rules: Array<{ id: string; name: string; priority: number; active: boolean; matched: number; wins: number }>;

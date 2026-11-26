@@ -90,6 +90,8 @@ export function TemplateEditor({
 
   const afterChange = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.templates })
+    // Variável nova no modelo vira campo nas regras.
+    queryClient.invalidateQueries({ queryKey: queryKeys.templateVariables })
     derivedQueryRoots.forEach((queryKey) =>
       queryClient.invalidateQueries({ queryKey })
     )
@@ -269,11 +271,11 @@ export function TemplateEditor({
           {canEdit && (
             <div className="flex flex-wrap items-center gap-1">
               <span className="mr-1 text-xs font-medium">Inserir:</span>
-              {variables.data?.map((v) => (
+              {variables.data?.fields.map((v) => (
                 <button
                   key={v.key}
                   type="button"
-                  title={v.description}
+                  title={`${v.label}: ${v.description}`}
                   onClick={() => codeRef.current?.insert(`{{${v.key}}}`)}
                   className="rounded border border-outline-variant px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant hover:border-primary-ink hover:text-primary-ink"
                 >
@@ -294,6 +296,8 @@ export function TemplateEditor({
             </div>
           )}
           <p className="text-[11px] text-on-surface-variant">
+            Qualquer nome novo (<code className="font-mono">{'{{teste}}'}</code>
+            ) vira um campo nas regras.{' '}
             <code className="font-mono">{'{{#frase}}…{{/frase}}'}</code> só
             aparece se houver frase;{' '}
             <code className="font-mono">{'{{^frase}}…{{/frase}}'}</code> só se

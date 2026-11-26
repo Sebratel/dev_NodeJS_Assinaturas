@@ -18,12 +18,6 @@ import { signatureRuleService } from '../../services/signature-rule.service'
 import { signatureTemplateService } from '../../services/signature-template.service'
 import type { SignatureRule } from '../../types/api'
 import {
-  CONTACT_LABELS,
-  PHONE0800_MODE_LABELS,
-  PHRASE_MODE_LABELS,
-  SECTOR_LABELS,
-} from '../../utils/labels'
-import {
   emptyRuleForm,
   formToInput,
   ruleFormSchema,
@@ -230,113 +224,31 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
             <div>
               <h3 className="text-sm font-semibold">Define</h3>
               <p className="text-xs text-on-surface-variant">
-                Deixe “não muda” no que esta regra não decide. As variáveis do
-                modelo valem por último.
+                O modelo e o que entra em cada variável dele.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field
-                label="0800"
-                htmlFor="out-0800-mode"
-                error={errors.outputs?.phone0800?.message}
-              >
-                <div className="flex gap-1.5">
-                  <Select
-                    id="out-0800-mode"
-                    {...register('outputs.phone0800Mode')}
-                    className={
-                      values.outputs?.phone0800Mode === 'FIXED'
-                        ? 'w-36 shrink-0'
-                        : ''
-                    }
-                  >
-                    <option value="">não muda</option>
-                    {Object.entries(PHONE0800_MODE_LABELS).map(
-                      ([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      )
-                    )}
-                  </Select>
-                  {values.outputs?.phone0800Mode === 'FIXED' && (
-                    <Input
-                      aria-label="Número do 0800"
-                      {...register('outputs.phone0800')}
-                      placeholder="0800 365 8000"
-                      aria-invalid={Boolean(errors.outputs?.phone0800)}
-                    />
-                  )}
-                </div>
-              </Field>
-              <Field label="Contato" htmlFor="out-contact">
-                <Select id="out-contact" {...register('outputs.contact')}>
-                  <option value="">não muda</option>
-                  {Object.entries(CONTACT_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Antes do cargo, mostrar" htmlFor="out-sector">
-                <Select id="out-sector" {...register('outputs.sectorLabel')}>
-                  <option value="">não muda</option>
-                  {Object.entries(SECTOR_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Frase" htmlFor="out-phrase">
-                <Select id="out-phrase" {...register('outputs.phraseMode')}>
-                  <option value="">não muda</option>
-                  {Object.entries(PHRASE_MODE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {values.outputs?.phraseMode === 'FIXED' && (
-                <Field
-                  label="Texto da frase"
-                  htmlFor="out-phrase-text"
-                  hint="até 140"
-                  error={errors.outputs?.phraseText?.message}
-                  className="sm:col-span-2"
-                >
-                  <Input
-                    id="out-phrase-text"
-                    maxLength={140}
-                    {...register('outputs.phraseText')}
-                  />
-                </Field>
-              )}
-              <Field
-                label="Modelo"
-                htmlFor="out-template"
-                hint="layout da assinatura"
-                className="sm:col-span-2"
-              >
-                <Select id="out-template" {...register('outputs.templateId')}>
-                  <option value="">não muda</option>
-                  {templates.data?.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                      {t.isDefault ? ' (padrão)' : ''}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
+            <Field
+              label="Modelo"
+              htmlFor="out-template"
+              hint="layout da assinatura"
+            >
+              <Select id="out-template" {...register('outputs.templateId')}>
+                <option value="">não muda</option>
+                {templates.data?.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.isDefault ? ' (padrão)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Controller
               control={control}
               name="outputs.variables"
               render={({ field }) => (
                 <VariablesEditor
-                  rows={field.value ?? []}
+                  value={field.value ?? {}}
+                  templateId={values.outputs?.templateId ?? ''}
                   onChange={(next) =>
                     form.setValue('outputs.variables', next, {
                       shouldValidate: true,
@@ -344,10 +256,9 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
                     })
                   }
                   errors={Object.fromEntries(
-                    (field.value ?? []).map((_, i) => [
-                      i,
-                      errors.outputs?.variables?.[i]?.key?.message ??
-                        errors.outputs?.variables?.[i]?.text?.message,
+                    Object.keys(field.value ?? {}).map((key) => [
+                      key,
+                      errors.outputs?.variables?.[key]?.text?.message,
                     ])
                   )}
                 />

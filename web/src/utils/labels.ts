@@ -1,17 +1,13 @@
 import type { BadgeTone } from '../components/ui/Badge'
 import type {
-  ContactType,
   DecisionSlot,
   IssueCode,
   Level,
-  PhraseMode,
   RuleField,
   RuleOperator,
-  SectorLabel,
-  SignatureSlot,
   SignatureStatus,
   SourceField,
-  VariableMode,
+  VariableChoice,
 } from '../types/api'
 
 export const LEVEL_LABELS: Record<Level, string> = {
@@ -38,30 +34,6 @@ export const STATUS_TONES: Record<SignatureStatus, BadgeTone> = {
   NO_RULE: 'neutral',
 }
 
-export const CONTACT_LABELS: Record<ContactType, string> = {
-  NONE: 'Sem contato',
-  CORPORATE_MOBILE: 'Celular corporativo',
-  INFORMED_MOBILE: 'Celular informado',
-  EXTENSION: 'Ramal',
-}
-
-export const SECTOR_LABELS: Record<SectorLabel, string> = {
-  AREA: 'Área',
-  TEAM: 'Time',
-  NONE: 'Nada (só o cargo)',
-}
-
-export const PHONE0800_MODE_LABELS = {
-  DIRECTORY: 'Do AD (Telephone number)',
-  FIXED: 'Número fixo',
-} as const
-
-export const PHRASE_MODE_LABELS: Record<PhraseMode, string> = {
-  TEAM: 'Pela tela Frases',
-  FIXED: 'Frase fixa',
-  NONE: 'Sem frase',
-}
-
 export const PHRASE_ORIGIN_LABELS: Record<
   import('../types/api').PhraseOriginKind,
   string
@@ -69,7 +41,7 @@ export const PHRASE_ORIGIN_LABELS: Record<
   PROFILE: 'Perfil de frase',
   TEAM: 'Frase do time',
   DEFAULT: 'Frase padrão',
-  FIXED: 'Frase fixa da regra',
+  FIXED: 'Definida pela regra',
   NONE: 'Sem frase',
 }
 
@@ -101,24 +73,22 @@ export const OPERATOR_LABELS: Record<RuleOperator, string> = {
   IS_NOT_EMPTY: 'está preenchido',
 }
 
-export const SLOT_LABELS: Record<SignatureSlot, string> = {
-  phone0800: '0800',
-  contact: 'Contato',
-  sectorLabel: 'Área ou time',
-  phrase: 'Frase',
-  template: 'Modelo',
-}
-
-/** "Frase", "Modelo"… ou "{{cargo}}" para variável do modelo. */
+/** "Modelo" ou "{{cargo}}" para variável do modelo. */
 export function slotLabel(slot: DecisionSlot): string {
-  return slot.startsWith('var:')
-    ? `{{${slot.slice(4)}}}`
-    : SLOT_LABELS[slot as SignatureSlot]
+  return slot === 'template' ? 'Modelo' : `{{${slot.slice(4)}}}`
 }
 
-export const VARIABLE_MODE_LABELS: Record<VariableMode, string> = {
-  HIDE: 'Ocultar',
-  TEXT: 'Trocar por',
+/** Texto curto do que a regra pôs na variável: "Vazio", "Cargo", "“0800 365 8000”". */
+export function choiceLabel(
+  choice: Pick<VariableChoice, 'source'> & {
+    field?: string | null
+    text?: string | null
+  },
+  fieldLabels: Map<string, string>
+): string {
+  if (choice.source === 'EMPTY') return 'Vazio'
+  if (choice.source === 'TEXT') return `“${choice.text ?? ''}”`
+  return fieldLabels.get(choice.field ?? '') ?? choice.field ?? '—'
 }
 
 export const APPLICATION_STATUS_LABELS: Record<

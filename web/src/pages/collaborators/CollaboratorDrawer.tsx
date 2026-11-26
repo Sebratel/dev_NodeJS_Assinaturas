@@ -119,7 +119,7 @@ export function CollaboratorDrawer({
               </ul>
             )}
 
-            {evaluation.content.contactType === 'INFORMED_MOBILE' && (
+            {evaluation.content.fieldsUsed.includes('celular_informado') && (
               <InformedMobileForm
                 collaboratorId={person.id}
                 current={person.informedMobile}
@@ -132,6 +132,7 @@ export function CollaboratorDrawer({
               </h3>
               <DecisionList
                 evaluation={evaluation}
+                variables={data.template.variables}
                 templateName={
                   data.template.fallback
                     ? `${data.template.name} (o da regra foi excluído)`

@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { ErrorState, LoadingState } from '../../components/ui/States'
 import { Switch } from '../../components/ui/Switch'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useTemplateVariables } from '../../hooks/useTemplateVariables'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { reportService } from '../../services/report.service'
 import { signatureRuleService } from '../../services/signature-rule.service'
@@ -87,6 +88,7 @@ export function RulesPage() {
   const templateNames = new Map(
     (templates.data ?? []).map((t) => [t.id, t.name])
   )
+  const { fieldLabels } = useTemplateVariables()
 
   return (
     <div className="grid gap-4">
@@ -183,11 +185,13 @@ export function RulesPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex max-w-80 flex-wrap gap-1">
-                          {describeOutputs(rule.outputs, templateNames).map(
-                            (part) => (
-                              <Badge key={part}>{part}</Badge>
-                            )
-                          )}
+                          {describeOutputs(
+                            rule.outputs,
+                            templateNames,
+                            fieldLabels
+                          ).map((part) => (
+                            <Badge key={part}>{part}</Badge>
+                          ))}
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">

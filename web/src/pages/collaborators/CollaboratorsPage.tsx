@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/States'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useTemplateName } from '../../hooks/useTemplateName'
 import {
   collaboratorService,
   type CollaboratorFilters,
@@ -26,12 +27,7 @@ import type {
   SignatureStatus,
 } from '../../types/api'
 import { formatNumber } from '../../utils/format'
-import {
-  CONTACT_LABELS,
-  ISSUE_LABELS,
-  LEVEL_LABELS,
-  STATUS_LABELS,
-} from '../../utils/labels'
+import { ISSUE_LABELS, LEVEL_LABELS, STATUS_LABELS } from '../../utils/labels'
 import { CollaboratorDrawer } from './CollaboratorDrawer'
 
 const PAGE_SIZE = 25
@@ -73,6 +69,7 @@ export function CollaboratorsPage() {
     queryFn: googleIntegrationService.status,
     enabled: canApply,
   })
+  const templateName = useTemplateName()
   const list = useQuery({
     queryKey: queryKeys.collaborators(filters),
     queryFn: () => collaboratorService.list(filters),
@@ -284,7 +281,7 @@ export function CollaboratorsPage() {
                   <th className="px-3 py-2 font-semibold">Colaborador</th>
                   <th className="px-3 py-2 font-semibold">Time</th>
                   <th className="px-3 py-2 font-semibold">Cargo</th>
-                  <th className="px-3 py-2 font-semibold">Contato</th>
+                  <th className="px-3 py-2 font-semibold">Modelo</th>
                   <th className="px-3 py-2 font-semibold">Assinatura</th>
                 </tr>
               </thead>
@@ -342,7 +339,7 @@ export function CollaboratorsPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-on-surface-variant">
-                        {CONTACT_LABELS[person.contactType]}
+                        {templateName(person.templateId)}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">

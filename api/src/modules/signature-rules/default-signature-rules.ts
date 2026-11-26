@@ -1,10 +1,18 @@
 import { CollaboratorLevelEnum } from '../directory/types/collaborator-level.enum.js';
-import { ContactTypeEnum } from './types/contact-type.enum.js';
-import { Phone0800ModeEnum } from './types/phone0800-mode.enum.js';
-import { PhraseModeEnum } from './types/phrase-mode.enum.js';
 import { RuleOperatorEnum } from './types/rule-operator.enum.js';
-import { SectorLabelEnum } from './types/sector-label.enum.js';
-import { SignatureRule } from './types/signature-rule.types.js';
+import { RuleVariable, SignatureRule } from './types/signature-rule.types.js';
+import { VariableSourceEnum } from './types/variable-source.enum.js';
+
+const field = (key: string, fieldKey: string): RuleVariable => ({ key, source: VariableSourceEnum.FIELD, field: fieldKey, text: null });
+const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, field: null, text: value });
+const empty = (key: string): RuleVariable => ({ key, source: VariableSourceEnum.EMPTY, field: null, text: null });
+
+/** Contato do modelo padrão: {{contato_celular}} (ícone de WhatsApp) ou {{contato_ramal}}. */
+const mobile = (fieldKey: string): RuleVariable[] => [
+  field('contato', fieldKey),
+  field('contato_celular', fieldKey),
+  empty('contato_ramal'),
+];
 
 /**
  * Regras do pedido de 20/11/2026, gravadas só na primeira subida (banco vazio).
@@ -18,10 +26,14 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     active: true,
     conditions: [],
     outputs: {
-      phone0800Mode: Phone0800ModeEnum.DIRECTORY,
-      contact: ContactTypeEnum.NONE,
-      sectorLabel: SectorLabelEnum.TEAM,
-      phraseMode: PhraseModeEnum.TEAM,
+      variables: [
+        field('telefone_0800', 'telefone_0800'),
+        empty('contato'),
+        empty('contato_celular'),
+        empty('contato_ramal'),
+        field('setor', 'time'),
+        field('frase', 'frase'),
+      ],
     },
   },
   {
@@ -30,12 +42,7 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     priority: 10,
     active: true,
     conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
-    outputs: {
-      phone0800Mode: Phone0800ModeEnum.FIXED,
-      phone0800: '0800 365 8000',
-      contact: ContactTypeEnum.CORPORATE_MOBILE,
-      sectorLabel: SectorLabelEnum.TEAM,
-    },
+    outputs: { variables: [text('telefone_0800', '0800 365 8000'), ...mobile('celular_corporativo'), field('setor', 'time')] },
   },
   {
     name: 'Direção e Gerência',
@@ -45,7 +52,7 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     conditions: [
       { field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR, CollaboratorLevelEnum.MANAGER] },
     ],
-    outputs: { contact: ContactTypeEnum.INFORMED_MOBILE, sectorLabel: SectorLabelEnum.AREA },
+    outputs: { variables: [...mobile('celular_informado'), field('setor', 'area')] },
   },
   {
     name: 'Coordenação, Supervisão e Auxiliar',
@@ -59,7 +66,7 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
         values: [CollaboratorLevelEnum.COORDINATOR, CollaboratorLevelEnum.SUPERVISOR, CollaboratorLevelEnum.AUXILIARY],
       },
     ],
-    outputs: { contact: ContactTypeEnum.CORPORATE_MOBILE, sectorLabel: SectorLabelEnum.TEAM },
+    outputs: { variables: [...mobile('celular_corporativo'), field('setor', 'time')] },
   },
   {
     name: 'Time DHO',
@@ -67,7 +74,7 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     priority: 20,
     active: true,
     conditions: [{ field: 'team', operator: RuleOperatorEnum.IN, values: ['Dho'] }],
-    outputs: { contact: ContactTypeEnum.CORPORATE_MOBILE, sectorLabel: SectorLabelEnum.TEAM },
+    outputs: { variables: [...mobile('celular_corporativo'), field('setor', 'time')] },
   },
   {
     name: 'Atendimento: ramal',
@@ -78,6 +85,13 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
       { field: 'team', operator: RuleOperatorEnum.IN, values: ['Suporte Técnico', 'Atendimento', 'Vendas Interno'] },
       { field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.MEMBER] },
     ],
-    outputs: { contact: ContactTypeEnum.EXTENSION, sectorLabel: SectorLabelEnum.TEAM },
+    outputs: {
+      variables: [
+        text('contato', 'Ramal {{ramal}}'),
+        empty('contato_celular'),
+        text('contato_ramal', 'Ramal {{ramal}}'),
+        field('setor', 'time'),
+      ],
+    },
   },
 ];
