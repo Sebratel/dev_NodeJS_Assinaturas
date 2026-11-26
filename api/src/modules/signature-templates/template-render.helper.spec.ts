@@ -15,9 +15,10 @@ describe('TemplateRenderHelper', () => {
     expect(TemplateRenderHelper.render(tpl, { setor: '', cargo: 'Operador', frase: 'Oi' })).toBe('Operador');
   });
 
-  it('variável que não existe vira vazio na renderização e problema na validação', () => {
-    expect(TemplateRenderHelper.render('[{{xpto}}]', {})).toBe('[]');
-    expect(TemplateRenderHelper.validate('{{xpto}}')).toEqual(['Variável desconhecida: {{xpto}}.']);
+  it('qualquer nome de variável vale; sem valor vira vazio; variablesOf lista as do modelo sem {{img}}', () => {
+    expect(TemplateRenderHelper.render('[{{TESTE}}]', {})).toBe('[]');
+    expect(TemplateRenderHelper.validate('{{TESTE}} {{#cargo}}{{cargo}}{{/cargo}}')).toEqual([]);
+    expect(TemplateRenderHelper.variablesOf('<img src="{{img}}x.png">{{#cargo}}{{cargo}}{{/cargo}} {{TESTE}}')).toEqual(['cargo', 'TESTE']);
   });
 
   it('acusa bloco aberto sem fechar e fechamento trocado', () => {
@@ -28,13 +29,6 @@ describe('TemplateRenderHelper', () => {
   it('recusa script e eventos', () => {
     expect(TemplateRenderHelper.validate('<img src=x onerror=alert(1)>').length).toBe(1);
     expect(TemplateRenderHelper.validate('<script>alert(1)</script>').length).toBe(1);
-  });
-
-  it('texto de variável trocada: valores crus, espaços recolhidos; só {{variavel}} conhecida', () => {
-    expect(TemplateRenderHelper.renderText('{{time}}  {{empresa}} ', { time: '', empresa: 'Sebratel' })).toBe('Sebratel');
-    expect(TemplateRenderHelper.validateText('{{cargo}} · {{empresa}}')).toEqual([]);
-    expect(TemplateRenderHelper.validateText('{{xpto}}')).toEqual(['Variável desconhecida: {{xpto}}.']);
-    expect(TemplateRenderHelper.validateText('{{#cargo}}x{{/cargo}}')).toHaveLength(2);
   });
 
   it('o modelo padrão é válido e não deixa marcação sobrando', () => {

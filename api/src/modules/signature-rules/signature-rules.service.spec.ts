@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { BusinessException } from '../../common/exceptions/business.exception.js';
 import { CreateSignatureRuleDTO } from './dto/create-signature-rule.dto.js';
 import { SignatureRulesService } from './signature-rules.service.js';
-import { VariableModeEnum } from './types/variable-mode.enum.js';
+import { VariableSourceEnum } from './types/variable-source.enum.js';
 
-const draft = (variables: CreateSignatureRuleDTO['outputs']['variables']): CreateSignatureRuleDTO => ({
+const draft = (variables: CreateSignatureRuleDTO['outputs']['variables'], templateId?: string): CreateSignatureRuleDTO => ({
   name: ' B2B ',
   priority: 40,
   active: true,
   conditions: [],
-  outputs: { variables },
+  outputs: { templateId, variables },
 });
 
 const problemsOf = (dto: CreateSignatureRuleDTO): string[] => {
@@ -22,31 +22,41 @@ const problemsOf = (dto: CreateSignatureRuleDTO): string[] => {
 };
 
 describe('SignatureRulesService: variáveis do modelo na regra', () => {
-  it('regra que só esconde ou troca variável é válida e fica normalizada', () => {
+  it('regra com campo, texto e vazio é válida; o que não é da fonte escolhida é descartado', () => {
     const dto = draft([
-      { key: 'cargo', mode: VariableModeEnum.HIDE, text: 'ignorado' },
-      { key: 'setor', mode: VariableModeEnum.TEXT, text: '  {{empresa}}  ' },
+      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: 'cargo', text: 'sobra' },
+      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', text: 'sobra' },
+      { key: 'contato', source: VariableSourceEnum.TEXT, field: 'ramal', text: '  Ramal {{ramal}}  ' },
     ]);
     expect(problemsOf(dto)).toEqual([]);
     expect(SignatureRulesService.clean(dto).outputs.variables).toEqual([
-      { key: 'cargo', mode: VariableModeEnum.HIDE, text: null },
-      { key: 'setor', mode: VariableModeEnum.TEXT, text: '{{empresa}}' },
+      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: null, text: null },
+      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', text: null },
+      { key: 'contato', source: VariableSourceEnum.TEXT, field: null, text: 'Ramal {{ramal}}' },
     ]);
     expect(SignatureRulesService.clean(draft([])).outputs.variables).toBeNull();
   });
 
-  it('recusa regra vazia, variável repetida, texto vazio, bloco e variável desconhecida no texto', () => {
-    expect(problemsOf(draft([]))).toEqual(['a regra precisa definir pelo menos uma parte da assinatura.']);
+  it('regra só com modelo é válida; sem modelo nem variável, não', () => {
+    expect(problemsOf(draft([], '7d1b0f44-0e7f-4a49-9b8a-0b9b7f7f0a11'))).toEqual([]);
+    expect(problemsOf(draft([]))).toEqual(['a regra precisa definir o modelo ou pelo menos uma variável.']);
+  });
+
+  it('recusa {{img}}, variável repetida, campo inexistente, texto vazio, bloco e campo desconhecido no texto', () => {
     const problems = problemsOf(
       draft([
-        { key: 'cargo', mode: VariableModeEnum.HIDE },
-        { key: 'cargo', mode: VariableModeEnum.TEXT, text: ' ' },
-        { key: 'frase', mode: VariableModeEnum.TEXT, text: '{{#time}}x{{/time}} {{xpto}}' },
+        { key: 'img', source: VariableSourceEnum.EMPTY },
+        { key: 'cargo', source: VariableSourceEnum.EMPTY },
+        { key: 'cargo', source: VariableSourceEnum.FIELD, field: 'xpto' },
+        { key: 'frase', source: VariableSourceEnum.TEXT, text: ' ' },
+        { key: 'setor', source: VariableSourceEnum.TEXT, text: '{{#time}}x{{/time}} {{xpto}}' },
       ]),
-    );
-    expect(problems[0]).toContain('duas vezes');
-    expect(problems[1]).toContain('Ocultar');
-    expect(problems.slice(2).join(' ')).toContain('Blocos');
-    expect(problems.slice(2).join(' ')).toContain('{{xpto}}');
+    ).join(' | ');
+    expect(problems).toContain('{{img}} é técnica');
+    expect(problems).toContain('{{cargo}} aparece duas vezes');
+    expect(problems).toContain('campo válido para {{cargo}}');
+    expect(problems).toContain('escreva o texto de {{frase}}');
+    expect(problems).toContain('Blocos');
+    expect(problems).toContain('Campo desconhecido no texto: {{xpto}}');
   });
 });

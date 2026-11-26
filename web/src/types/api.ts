@@ -9,11 +9,6 @@ export type Level =
   | 'AUXILIARY'
   | 'MEMBER'
 export type SignatureStatus = 'READY' | 'PENDING' | 'CONFLICT' | 'NO_RULE'
-export type ContactType =
-  'NONE' | 'CORPORATE_MOBILE' | 'INFORMED_MOBILE' | 'EXTENSION'
-export type SectorLabel = 'AREA' | 'TEAM' | 'NONE'
-export type PhraseMode = 'TEAM' | 'FIXED' | 'NONE'
-export type Phone0800Mode = 'DIRECTORY' | 'FIXED'
 export type RuleOperator =
   'IN' | 'NOT_IN' | 'CONTAINS' | 'IS_EMPTY' | 'IS_NOT_EMPTY'
 export type RuleField =
@@ -25,11 +20,10 @@ export type RuleField =
   | 'segment'
   | 'state'
   | 'office'
-export type SignatureSlot =
-  'phone0800' | 'contact' | 'sectorLabel' | 'phrase' | 'template'
-/** Parte fixa ou variável do modelo decidida por regra ("var:cargo"). */
-export type DecisionSlot = SignatureSlot | `var:${string}`
-export type VariableMode = 'HIDE' | 'TEXT'
+/** Parte decidida por regra: o modelo ou uma variável do modelo ("var:cargo"). */
+export type DecisionSlot = 'template' | `var:${string}`
+/** De onde a regra tira o valor da variável: um campo, um texto fixo ou vazio. */
+export type VariableSource = 'FIELD' | 'TEXT' | 'EMPTY'
 export type IssueCode =
   | 'NO_RULE'
   | 'RULE_CONFLICT'
@@ -80,7 +74,8 @@ export interface CollaboratorListItem {
   team: string
   level: Level
   status: SignatureStatus
-  contactType: ContactType
+  /** Modelo decidido pelas regras; null = modelo padrão. */
+  templateId: string | null
   issueCodes: IssueCode[]
 }
 
@@ -127,34 +122,30 @@ export interface SignatureEvaluation {
     general: boolean
   }>
   decisions: {
-    phone0800: SlotDecision<{ mode: Phone0800Mode; text: string | null }> | null
-    contact: SlotDecision<ContactType> | null
-    sectorLabel: SlotDecision<SectorLabel> | null
-    phrase: SlotDecision<{ mode: PhraseMode; text: string | null }> | null
     template: SlotDecision<string> | null
-    variables: Record<
-      string,
-      SlotDecision<{ mode: VariableMode; text: string | null }>
-    >
+    variables: Record<string, SlotDecision<VariableChoice>>
   }
   conflicts: Array<{ slot: DecisionSlot; ruleNames: string[] }>
   issues: Array<{ code: IssueCode; severity: IssueSeverity; message: string }>
   content: {
-    name: string
-    email: string
-    sectorText: string
-    title: string
-    contactType: ContactType
-    contactText: string
-    phrase: string
-    phone0800: string
+    /** Variável → texto final (campos pelo nome + o que as regras decidiram). */
+    values: Record<string, string>
+    /** Campos que as regras puseram em alguma variável. */
+    fieldsUsed: string[]
   }
+}
+
+export interface VariableChoice {
+  source: VariableSource
+  field: string | null
+  text: string | null
 }
 
 export interface CollaboratorSignature {
   collaborator: Collaborator
   evaluation: SignatureEvaluation
-  template: { id: string; name: string; fallback: boolean }
+  /** `variables`: as que o modelo usa, na ordem em que aparecem. */
+  template: { id: string; name: string; fallback: boolean; variables: string[] }
   html: string
   htmlLength: number
   gmailLimit: number
@@ -166,29 +157,38 @@ export interface RuleCondition {
   values: string[]
 }
 
+/** O modelo e, para cada variável do modelo, de onde vem o valor. Variável fora da lista: a regra não mexe. */
 export interface RuleOutputs {
-  phone0800Mode?: Phone0800Mode | null
-  phone0800?: string | null
-  contact?: ContactType | null
-  sectorLabel?: SectorLabel | null
-  phraseMode?: PhraseMode | null
-  phraseText?: string | null
   templateId?: string | null
   variables?: RuleVariable[] | null
 }
 
-/** Variável do modelo que a regra esconde (HIDE) ou troca por texto (TEXT). */
 export interface RuleVariable {
   key: string
-  mode: VariableMode
+  source: VariableSource
+  /** Só em FIELD: chave do campo (cargo, celular_corporativo…). */
+  field?: string | null
+  /** Só em TEXT; pode citar campos: "Ramal {{ramal}}". */
   text?: string | null
 }
 
-export interface TemplateVariable {
+/** Campo que a regra pode pôr numa variável. A chave também é o nome padrão da variável. */
+export interface SignatureField {
   key: string
+  label: string
+  group: 'AD' | 'SISTEMA'
   description: string
-  /** Regra pode esconder ou trocar. */
-  overridable: boolean
+}
+
+/** Campos disponíveis e as variáveis que os modelos usam. */
+export interface TemplateVariables {
+  fields: SignatureField[]
+  variables: Array<{
+    key: string
+    /** O que a variável mostra quando nenhuma regra decide ("Cargo", "Vazio"). */
+    defaultLabel: string
+    templates: Array<{ id: string; name: string }>
+  }>
 }
 
 export interface SignatureRule {
@@ -221,7 +221,8 @@ export interface CoverageReport {
   generatedAt: string
   totalCollaborators: number
   byStatus: StatusCount
-  byContact: Record<ContactType, number>
+  /** Pessoas por modelo (templateId null = nenhuma regra escolheu: padrão). */
+  byTemplate: Array<{ templateId: string | null; count: number }>
   onlyGeneralRules: number
   issues: Array<{
     code: IssueCode

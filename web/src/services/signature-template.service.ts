@@ -2,7 +2,7 @@ import type {
   SignatureTemplate,
   SignatureTemplateInput,
   TemplatePreview,
-  TemplateVariable,
+  TemplateVariables,
 } from '../types/api'
 import { httpClient, unwrap } from './api-client'
 
@@ -10,7 +10,7 @@ export const signatureTemplateService = {
   list: () =>
     unwrap<SignatureTemplate[]>(httpClient.get('/v1/signature-templates')),
   variables: () =>
-    unwrap<TemplateVariable[]>(
+    unwrap<TemplateVariables>(
       httpClient.get('/v1/signature-templates/variables')
     ),
   create: (input: SignatureTemplateInput) =>

@@ -3,34 +3,28 @@ import { TextHelper } from '../../common/helpers/text.helper.js';
 import { Collaborator } from '../directory/types/collaborator.js';
 import { PhraseProfile } from '../phrase-profiles/types/phrase-profile.types.js';
 import { TeamPhrases } from '../settings/types/settings-values.js';
-import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
-import { Phone0800ModeEnum } from '../signature-rules/types/phone0800-mode.enum.js';
-import { PhraseModeEnum } from '../signature-rules/types/phrase-mode.enum.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
-import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
-import { VariableModeEnum } from '../signature-rules/types/variable-mode.enum.js';
-import { RuleCondition, SignatureRule } from '../signature-rules/types/signature-rule.types.js';
+import { RuleCondition, RuleVariable, SignatureRule } from '../signature-rules/types/signature-rule.types.js';
+import { VariableSourceEnum } from '../signature-rules/types/variable-source.enum.js';
+import { SignatureFieldsHelper } from '../signature-templates/signature-fields.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
 import {
   DecisionSlot,
-  Phone0800Choice,
-  PhraseChoice,
   PhraseOrigin,
   SignatureConflict,
   SignatureDecisions,
   SignatureEvaluation,
   SignatureIssue,
-  SignatureSlot,
   SlotDecision,
   VariableChoice,
 } from './types/signature-evaluation.types.js';
 
 /**
- * Motor em cascata: todas as regras ativas que casam se aplicam em ordem de prioridade (menor → maior);
- * cada parte da assinatura fica com o valor da regra de maior prioridade que a definiu.
- * Empate de prioridade com valores diferentes na parte vencedora = conflito.
- * Variável do modelo escondida ou trocada por regra segue a mesma cascata, uma variável por vez.
+ * Motor em cascata: todas as regras ativas que casam se aplicam em ordem de prioridade (menor → maior).
+ * O modelo e cada variável do modelo ficam com a regra de maior prioridade que os definiu.
+ * Variável que nenhuma regra decide mostra o campo de mesmo nome ({{cargo}} → Cargo) ou fica vazia.
+ * Empate de prioridade com valores diferentes no que venceu = conflito.
  * Sem estado e sem I/O: recebe tudo por parâmetro.
  */
 @Injectable()
@@ -40,35 +34,13 @@ export class SignatureEngineService {
       .filter((rule) => rule.active && this.matches(collaborator, rule))
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'pt-BR'));
 
-    const decisions: SignatureDecisions = {
-      phone0800: null,
-      contact: null,
-      sectorLabel: null,
-      phrase: null,
-      template: null,
-      variables: {},
-    };
+    const decisions: SignatureDecisions = { template: null, variables: {} };
     const ties: Array<SignatureConflict & { priority: number }> = [];
 
     for (const rule of matched) {
-      const o = rule.outputs;
-      const phrase: PhraseChoice | null = o.phraseMode
-        ? { mode: o.phraseMode, text: o.phraseMode === PhraseModeEnum.FIXED ? (o.phraseText ?? '') : null }
-        : null;
-      const phoneMode = o.phone0800Mode ?? (o.phone0800 ? Phone0800ModeEnum.FIXED : null);
-      const phone: Phone0800Choice | null = phoneMode
-        ? { mode: phoneMode, text: phoneMode === Phone0800ModeEnum.FIXED ? (o.phone0800 ?? '') : null }
-        : null;
       const proposals: Array<[DecisionSlot, unknown]> = [
-        ['phone0800', phone],
-        ['contact', o.contact ?? null],
-        ['sectorLabel', o.sectorLabel ?? null],
-        ['phrase', phrase],
-        ['template', o.templateId || null],
-        ...(o.variables ?? []).map((v): [DecisionSlot, VariableChoice] => [
-          `var:${v.key}`,
-          { mode: v.mode, text: v.mode === VariableModeEnum.TEXT ? (v.text ?? '') : null },
-        ]),
+        ['template', rule.outputs.templateId || null],
+        ...(rule.outputs.variables ?? []).map((v): [DecisionSlot, VariableChoice] => [`var:${v.key}`, SignatureEngineService.choiceOf(v)]),
       ];
       for (const [slot, value] of proposals) {
         if (value === null) continue;
@@ -82,9 +54,16 @@ export class SignatureEngineService {
 
     // Empate só importa se nenhuma regra de prioridade maior decidiu a mesma parte depois.
     const conflicts = this.mergeTies(ties.filter((t) => SignatureEngineService.decisionOf(decisions, t.slot)?.priority === t.priority));
-    const phrase = this.resolvePhrase(collaborator, decisions.phrase, phrases, profiles);
-    const content = this.buildContent(collaborator, decisions, phrase.text);
-    const issues = this.collectIssues(matched, decisions, conflicts, content, phrase.origin, collaborator);
+    const phrase = this.resolvePhrase(collaborator, phrases, profiles);
+    const fields = SignatureFieldsHelper.values(collaborator, { phrase: phrase.text });
+    const values: Record<string, string> = { ...fields };
+    for (const key of ['setor', 'contato', 'contato_celular', 'contato_ramal'])
+      values[key] = SignatureFieldsHelper.defaultValue(key, fields);
+    for (const [key, decision] of Object.entries(decisions.variables)) values[key] = SignatureEngineService.valueOf(decision.value, fields);
+
+    const fieldsUsed = [...new Set(Object.values(decisions.variables).flatMap((d) => SignatureEngineService.fieldsOf(d.value)))];
+    const phraseOrigin = this.phraseOriginOf(decisions.variables.frase, phrase.origin);
+    const issues = this.collectIssues(matched, decisions, conflicts, collaborator, fields, phraseOrigin);
 
     let status = SignatureStatusEnum.READY;
     if (!matched.length) status = SignatureStatusEnum.NO_RULE;
@@ -94,28 +73,57 @@ export class SignatureEngineService {
     return {
       collaboratorId: collaborator.id,
       status,
-      phraseOrigin: phrase.origin,
+      phraseOrigin,
       matchedRules: matched.map((r) => ({ id: r.id, name: r.name, priority: r.priority, general: r.conditions.length === 0 })),
       decisions,
       conflicts,
       issues,
-      content,
+      content: { values, fieldsUsed },
     };
-  }
-
-  /** Decisão de uma parte fixa ou de uma variável (`var:cargo`). */
-  static decisionOf(decisions: SignatureDecisions, slot: DecisionSlot): SlotDecision<unknown> | null {
-    if (slot.startsWith('var:')) return decisions.variables[slot.slice(4)] ?? null;
-    return decisions[slot as SignatureSlot];
-  }
-
-  private static setDecision(decisions: SignatureDecisions, slot: DecisionSlot, decision: SlotDecision<unknown>): void {
-    if (slot.startsWith('var:')) decisions.variables[slot.slice(4)] = decision as SlotDecision<VariableChoice>;
-    else (decisions as unknown as Record<SignatureSlot, SlotDecision<unknown>>)[slot as SignatureSlot] = decision;
   }
 
   matches(collaborator: Collaborator, rule: Pick<SignatureRule, 'conditions'>): boolean {
     return rule.conditions.every((condition) => this.conditionMatches(collaborator, condition));
+  }
+
+  /** Decisão do modelo ou de uma variável (`var:cargo`). */
+  static decisionOf(decisions: SignatureDecisions, slot: DecisionSlot): SlotDecision<unknown> | null {
+    return slot === 'template' ? decisions.template : (decisions.variables[slot.slice(4)] ?? null);
+  }
+
+  /** Partes que a regra venceu: 'template' e/ou `var:<variável>`. */
+  static slotsDecidedBy(decisions: SignatureDecisions, ruleId: string): DecisionSlot[] {
+    return [
+      ...(decisions.template?.ruleId === ruleId ? (['template'] as DecisionSlot[]) : []),
+      ...Object.entries(decisions.variables)
+        .filter(([, decision]) => decision.ruleId === ruleId)
+        .map(([key]): DecisionSlot => `var:${key}`),
+    ];
+  }
+
+  private static setDecision(decisions: SignatureDecisions, slot: DecisionSlot, decision: SlotDecision<unknown>): void {
+    if (slot === 'template') decisions.template = decision as SlotDecision<string>;
+    else decisions.variables[slot.slice(4)] = decision as SlotDecision<VariableChoice>;
+  }
+
+  private static choiceOf(variable: RuleVariable): VariableChoice {
+    return {
+      source: variable.source,
+      field: variable.source === VariableSourceEnum.FIELD ? (variable.field ?? null) : null,
+      text: variable.source === VariableSourceEnum.TEXT ? (variable.text ?? '') : null,
+    };
+  }
+
+  private static valueOf(choice: VariableChoice, fields: Record<string, string>): string {
+    if (choice.source === VariableSourceEnum.FIELD) return fields[choice.field ?? ''] ?? '';
+    if (choice.source === VariableSourceEnum.TEXT) return SignatureFieldsHelper.renderText(choice.text ?? '', fields);
+    return '';
+  }
+
+  private static fieldsOf(choice: VariableChoice): string[] {
+    if (choice.source === VariableSourceEnum.FIELD) return choice.field ? [choice.field] : [];
+    if (choice.source === VariableSourceEnum.TEXT) return SignatureFieldsHelper.fieldsIn(choice.text ?? '');
+    return [];
   }
 
   private conditionMatches(collaborator: Collaborator, condition: RuleCondition): boolean {
@@ -147,75 +155,30 @@ export class SignatureEngineService {
     return [...bySlot.entries()].map(([slot, names]) => ({ slot, ruleNames: [...names].sort((a, b) => a.localeCompare(b, 'pt-BR')) }));
   }
 
-  private buildContent(collaborator: Collaborator, decisions: SignatureDecisions, phraseText: string) {
-    const label = decisions.sectorLabel?.value ?? SectorLabelEnum.TEAM;
-    const sectorText =
-      label === SectorLabelEnum.NONE
-        ? ''
-        : (label === SectorLabelEnum.AREA ? collaborator.area : collaborator.team) || collaborator.team || collaborator.area;
-
-    const contactType = decisions.contact?.value ?? ContactTypeEnum.NONE;
-    let contactText = '';
-    if (contactType === ContactTypeEnum.CORPORATE_MOBILE && collaborator.corporateMobile)
-      contactText = TextHelper.formatPhone(collaborator.corporateMobile);
-    if (contactType === ContactTypeEnum.INFORMED_MOBILE && collaborator.informedMobile)
-      contactText = TextHelper.formatPhone(collaborator.informedMobile);
-    if (contactType === ContactTypeEnum.EXTENSION && collaborator.extension) contactText = `Ramal ${collaborator.extension}`;
-
-    return {
-      name: collaborator.name,
-      email: collaborator.email,
-      sectorText,
-      area: collaborator.area,
-      team: collaborator.team,
-      title: collaborator.title,
-      contactType,
-      contactText,
-      phrase: phraseText,
-      phone0800: this.resolvePhone0800(collaborator, decisions.phone0800?.value ?? null),
-      company: collaborator.company,
-      department: collaborator.department,
-      segment: collaborator.segment,
-      state: collaborator.state,
-      office: collaborator.office,
-      overrides: Object.fromEntries(Object.entries(decisions.variables).map(([key, decision]) => [key, decision.value])),
-    };
-  }
-
-  /** Do AD só sai se for um 0800 de verdade; número errado no AD não vai para a assinatura. */
-  private resolvePhone0800(collaborator: Collaborator, choice: Phone0800Choice | null): string {
-    if (!choice) return '';
-    if (choice.mode === Phone0800ModeEnum.FIXED) return choice.text ?? '';
-    return SignatureEngineService.format0800(collaborator.phone0800) ?? '';
-  }
-
-  /** "08006551000" / "0800 655 1000" → "0800 655 1000"; outro formato → null. */
-  static format0800(raw: string): string | null {
-    const digits = String(raw ?? '').replace(/\D/g, '');
-    return /^0800\d{7}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : null;
-  }
-
   /**
-   * Frase final. Regra com frase fixa vence. Regra com "pela tela Frases" segue a ordem:
-   * perfil de frase que casa (prioridade maior; empate: mais condições, depois nome) › frase do time › frase padrão.
+   * Frase da tela Frases para a pessoa: perfil de frase que casa (prioridade maior; empate: mais condições, depois nome)
+   * › frase do time › frase padrão. Só aparece na assinatura se a variável {{frase}} (ou outra) usar o campo Frase.
    */
   private resolvePhrase(
     collaborator: Collaborator,
-    decision: SlotDecision<PhraseChoice> | null,
     phrases: TeamPhrases,
     profiles: PhraseProfile[],
   ): { text: string; origin: PhraseOrigin } {
-    const choice = decision?.value;
-    if (!choice || choice.mode === PhraseModeEnum.NONE) return { text: '', origin: { kind: 'NONE', label: 'Sem frase', id: null } };
-    if (choice.mode === PhraseModeEnum.FIXED)
-      return { text: choice.text ?? '', origin: { kind: 'FIXED', label: decision.ruleName, id: null } };
-
     const profile = this.pickProfile(collaborator, profiles);
     if (profile) return { text: profile.phrase, origin: { kind: 'PROFILE', label: profile.name, id: profile.id } };
     const team = this.teamPhrase(collaborator, phrases);
     if (team)
       return { text: team, origin: { kind: 'TEAM', label: [collaborator.team, collaborator.area].filter(Boolean).join(' · '), id: null } };
     return { text: phrases.defaultPhrase, origin: { kind: 'DEFAULT', label: 'Frase padrão', id: null } };
+  }
+
+  /** De onde saiu o que está em {{frase}}: a tela Frases, uma regra (texto ou outro campo) ou nada. */
+  private phraseOriginOf(decision: SlotDecision<VariableChoice> | undefined, fromScreen: PhraseOrigin): PhraseOrigin {
+    if (!decision) return fromScreen;
+    const { source, field } = decision.value;
+    if (source === VariableSourceEnum.FIELD && field === 'frase') return fromScreen;
+    if (source === VariableSourceEnum.EMPTY) return { kind: 'NONE', label: 'Sem frase', id: null };
+    return { kind: 'FIXED', label: decision.ruleName, id: null };
   }
 
   pickProfile(collaborator: Collaborator, profiles: PhraseProfile[]): PhraseProfile | null {
@@ -240,9 +203,9 @@ export class SignatureEngineService {
     matched: SignatureRule[],
     decisions: SignatureDecisions,
     conflicts: SignatureConflict[],
-    content: { contactType: ContactTypeEnum; contactText: string; phone0800: string },
-    phraseOrigin: PhraseOrigin,
     collaborator: Collaborator,
+    fields: Record<string, string>,
+    phraseOrigin: PhraseOrigin,
   ): SignatureIssue[] {
     const issues: SignatureIssue[] = [];
     if (!matched.length) {
@@ -256,37 +219,15 @@ export class SignatureEngineService {
         message: `Empate em "${slotLabel(conflict.slot)}": ${conflict.ruleNames.join(' × ')}. Ajuste a prioridade de uma delas.`,
       });
     }
-    if (!content.contactText) {
-      const missing: Partial<Record<ContactTypeEnum, SignatureIssue>> = {
-        [ContactTypeEnum.CORPORATE_MOBILE]: {
-          code: SignatureIssueCodeEnum.MISSING_CORPORATE_MOBILE,
-          severity: 'ERROR',
-          message: 'Celular corporativo vazio no AD.',
-        },
-        [ContactTypeEnum.INFORMED_MOBILE]: {
-          code: SignatureIssueCodeEnum.MISSING_INFORMED_MOBILE,
-          severity: 'ERROR',
-          message: 'Aguardando a pessoa informar o celular.',
-        },
-        [ContactTypeEnum.EXTENSION]: { code: SignatureIssueCodeEnum.MISSING_EXTENSION, severity: 'ERROR', message: 'Ramal vazio no AD.' },
-      };
-      const issue = missing[content.contactType];
-      if (issue) issues.push(issue);
+    // Campo escolhido por regra (direto ou dentro de um texto) e vazio na pessoa: celular, ramal, 0800.
+    const missing = new Map<SignatureIssueCodeEnum, SignatureIssue>();
+    for (const decision of Object.values(decisions.variables)) {
+      for (const key of SignatureEngineService.fieldsOf(decision.value)) {
+        const issue = SignatureFieldsHelper.missingIssue(key, collaborator, fields);
+        if (issue && !missing.has(issue.code)) missing.set(issue.code, { ...issue, severity: 'ERROR' });
+      }
     }
-    const phone = decisions.phone0800?.value;
-    if (!phone) {
-      issues.push({ code: SignatureIssueCodeEnum.MISSING_PHONE_0800, severity: 'WARNING', message: 'Nenhuma regra definiu o 0800.' });
-    } else if (phone.mode === Phone0800ModeEnum.DIRECTORY && !content.phone0800) {
-      issues.push(
-        collaborator.phone0800.trim()
-          ? {
-              code: SignatureIssueCodeEnum.INVALID_PHONE_0800,
-              severity: 'ERROR',
-              message: `Telephone number do AD não é um 0800: "${collaborator.phone0800}".`,
-            }
-          : { code: SignatureIssueCodeEnum.MISSING_PHONE_0800, severity: 'ERROR', message: 'Telephone number (0800) vazio no AD.' },
-      );
-    }
+    issues.push(...missing.values());
     if (matched.every((r) => r.conditions.length === 0)) {
       issues.push({
         code: SignatureIssueCodeEnum.ONLY_GENERAL_RULES,
@@ -305,15 +246,7 @@ export class SignatureEngineService {
   }
 }
 
-export const SLOT_LABELS: Record<SignatureSlot, string> = {
-  phone0800: '0800',
-  contact: 'Contato',
-  sectorLabel: 'Área ou time',
-  phrase: 'Frase',
-  template: 'Modelo',
-};
-
-/** "Frase", "Modelo"… ou "{{cargo}}" para variável do modelo. */
+/** "Modelo" ou "{{cargo}}" para variável do modelo. */
 export function slotLabel(slot: DecisionSlot): string {
-  return slot.startsWith('var:') ? `{{${slot.slice(4)}}}` : SLOT_LABELS[slot as SignatureSlot];
+  return slot === 'template' ? 'Modelo' : `{{${slot.slice(4)}}}`;
 }

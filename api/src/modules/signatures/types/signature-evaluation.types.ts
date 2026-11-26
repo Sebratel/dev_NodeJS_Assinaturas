@@ -1,28 +1,14 @@
-import { ContactTypeEnum } from '../../signature-rules/types/contact-type.enum.js';
-import { Phone0800ModeEnum } from '../../signature-rules/types/phone0800-mode.enum.js';
-import { PhraseModeEnum } from '../../signature-rules/types/phrase-mode.enum.js';
-import { SectorLabelEnum } from '../../signature-rules/types/sector-label.enum.js';
-import { VariableModeEnum } from '../../signature-rules/types/variable-mode.enum.js';
+import { VariableSourceEnum } from '../../signature-rules/types/variable-source.enum.js';
 import { SignatureIssueCodeEnum } from './signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './signature-status.enum.js';
 
-export type SignatureSlot = 'phone0800' | 'contact' | 'sectorLabel' | 'phrase' | 'template';
+/** Parte decidida por regra: o modelo ou uma variável do modelo (`var:cargo`). */
+export type DecisionSlot = 'template' | `var:${string}`;
 
-/** Parte decidida por regra: uma das fixas ou uma variável do modelo (`var:cargo`). */
-export type DecisionSlot = SignatureSlot | `var:${string}`;
-
+/** De onde a regra vencedora tirou o valor de uma variável. */
 export interface VariableChoice {
-  mode: VariableModeEnum;
-  text: string | null;
-}
-
-export interface Phone0800Choice {
-  mode: Phone0800ModeEnum;
-  text: string | null;
-}
-
-export interface PhraseChoice {
-  mode: PhraseModeEnum;
+  source: VariableSourceEnum;
+  field: string | null;
   text: string | null;
 }
 
@@ -35,13 +21,9 @@ export interface SlotDecision<T> {
 }
 
 export interface SignatureDecisions {
-  phone0800: SlotDecision<Phone0800Choice> | null;
-  contact: SlotDecision<ContactTypeEnum> | null;
-  sectorLabel: SlotDecision<SectorLabelEnum> | null;
-  phrase: SlotDecision<PhraseChoice> | null;
   /** Id do modelo; nulo = modelo padrão. */
   template: SlotDecision<string> | null;
-  /** Variável do modelo → regra que a escondeu ou trocou. Só as que alguma regra decidiu. */
+  /** Variável do modelo → regra que decidiu de onde vem o valor. Só as que alguma regra decidiu. */
   variables: Record<string, SlotDecision<VariableChoice>>;
 }
 
@@ -56,25 +38,12 @@ export interface SignatureConflict {
   ruleNames: string[];
 }
 
-/** Texto final de cada parte da assinatura. */
+/** Valores prontos para o modelo. */
 export interface SignatureContent {
-  name: string;
-  email: string;
-  sectorText: string;
-  area: string;
-  team: string;
-  title: string;
-  contactType: ContactTypeEnum;
-  contactText: string;
-  phrase: string;
-  phone0800: string;
-  company: string;
-  department: string;
-  segment: string;
-  state: string;
-  office: string;
-  /** Variáveis que as regras esconderam ou trocaram; aplicadas por último na renderização. */
-  overrides: Record<string, VariableChoice>;
+  /** Variável → texto final. Tem todos os campos (pelo nome), os padrões antigos e o que as regras decidiram. */
+  values: Record<string, string>;
+  /** Campos que as regras puseram em alguma variável (ex.: celular_informado pede o formulário do celular). */
+  fieldsUsed: string[];
 }
 
 /** De onde saiu a frase: perfil da tela Frases, frase do time, padrão, frase fixa de uma regra ou nenhuma. */

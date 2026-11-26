@@ -1,7 +1,22 @@
 import { z } from 'zod'
-import type { SignatureRule, SignatureRuleInput } from '../../types/api'
+import type {
+  RuleVariable,
+  SignatureRule,
+  SignatureRuleInput,
+} from '../../types/api'
 
 const VALUELESS = ['IS_EMPTY', 'IS_NOT_EMPTY']
+
+/**
+ * Escolha de uma variável na tela: '' = a regra não mexe; 'EMPTY' = vazio;
+ * 'TEXT' = texto fixo; 'FIELD:cargo' = campo.
+ */
+export type VariableChoiceValue = '' | 'EMPTY' | 'TEXT' | `FIELD:${string}`
+
+export interface VariableFormValue {
+  choice: VariableChoiceValue
+  text: string
+}
 
 export const ruleFormSchema = z
   .object({
@@ -40,23 +55,12 @@ export const ruleFormSchema = z
       })
     ),
     outputs: z.object({
-      phone0800Mode: z.enum(['', 'DIRECTORY', 'FIXED']),
-      phone0800: z.string().max(20, 'Até 20 caracteres.'),
       templateId: z.string(),
-      contact: z.enum([
-        '',
-        'NONE',
-        'CORPORATE_MOBILE',
-        'INFORMED_MOBILE',
-        'EXTENSION',
-      ]),
-      sectorLabel: z.enum(['', 'AREA', 'TEAM', 'NONE']),
-      phraseMode: z.enum(['', 'TEAM', 'FIXED', 'NONE']),
-      phraseText: z.string().max(140, 'Até 140 caracteres.'),
-      variables: z.array(
+      /** Variável do modelo → escolha. */
+      variables: z.record(
+        z.string(),
         z.object({
-          key: z.string().min(1, 'Escolha a variável.'),
-          mode: z.enum(['HIDE', 'TEXT']),
+          choice: z.custom<VariableChoiceValue>((v) => typeof v === 'string'),
           text: z.string().max(200, 'Até 200 caracteres.'),
         })
       ),
@@ -75,55 +79,23 @@ export const ruleFormSchema = z
         })
       }
     })
-    const o = form.outputs
-    if (
-      ![
-        o.phone0800Mode,
-        o.contact,
-        o.sectorLabel,
-        o.phraseMode,
-        o.templateId,
-      ].some(Boolean) &&
-      !o.variables.length
-    ) {
+    const { templateId, variables } = form.outputs
+    if (!templateId && !Object.values(variables).some((v) => v.choice)) {
       ctx.addIssue({
         code: 'custom',
         path: ['outputs'],
-        message: 'A regra precisa definir pelo menos uma parte da assinatura.',
+        message: 'A regra precisa definir o modelo ou pelo menos uma variável.',
       })
     }
-    if (o.phone0800Mode === 'FIXED' && !o.phone0800.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['outputs', 'phone0800'],
-        message: 'Informe o 0800.',
-      })
-    }
-    if (o.phraseMode === 'FIXED' && !o.phraseText.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['outputs', 'phraseText'],
-        message: 'Escreva a frase.',
-      })
-    }
-    const seen = new Set<string>()
-    o.variables.forEach((v, i) => {
-      if (v.key && seen.has(v.key)) {
+    for (const [key, v] of Object.entries(variables)) {
+      if (v.choice === 'TEXT' && !v.text.trim()) {
         ctx.addIssue({
           code: 'custom',
-          path: ['outputs', 'variables', i, 'key'],
-          message: 'Essa variável já está na lista.',
+          path: ['outputs', 'variables', key, 'text'],
+          message: 'Escreva o texto ou escolha Vazio.',
         })
       }
-      seen.add(v.key)
-      if (v.mode === 'TEXT' && !v.text.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['outputs', 'variables', i, 'text'],
-          message: 'Escreva o texto ou escolha Ocultar.',
-        })
-      }
-    })
+    }
   })
 
 export type RuleFormValues = z.infer<typeof ruleFormSchema>
@@ -135,21 +107,17 @@ export function emptyRuleForm(priority = 20): RuleFormValues {
     priority,
     active: true,
     conditions: [{ field: 'team', operator: 'IN', values: [] }],
-    outputs: {
-      phone0800Mode: '',
-      phone0800: '',
-      templateId: '',
-      contact: '',
-      sectorLabel: '',
-      phraseMode: '',
-      phraseText: '',
-      variables: [],
-    },
+    outputs: { templateId: '', variables: {} },
   }
 }
 
+export function variableToForm(v: RuleVariable): VariableFormValue {
+  if (v.source === 'FIELD')
+    return { choice: `FIELD:${v.field ?? ''}`, text: '' }
+  return { choice: v.source, text: v.text ?? '' }
+}
+
 export function ruleToForm(rule: SignatureRule): RuleFormValues {
-  const o = rule.outputs
   return {
     name: rule.name,
     description: rule.description ?? '',
@@ -157,25 +125,29 @@ export function ruleToForm(rule: SignatureRule): RuleFormValues {
     active: rule.active,
     conditions: rule.conditions.map((c) => ({ ...c, values: [...c.values] })),
     outputs: {
-      phone0800Mode: o.phone0800Mode ?? (o.phone0800 ? 'FIXED' : ''),
-      phone0800: o.phone0800 ?? '',
-      templateId: o.templateId ?? '',
-      contact: o.contact ?? '',
-      sectorLabel: o.sectorLabel ?? '',
-      phraseMode: o.phraseMode ?? '',
-      phraseText: o.phraseText ?? '',
-      variables: (o.variables ?? []).map((v) => ({
-        key: v.key,
-        mode: v.mode,
-        text: v.text ?? '',
-      })),
+      templateId: rule.outputs.templateId ?? '',
+      variables: Object.fromEntries(
+        (rule.outputs.variables ?? []).map((v) => [v.key, variableToForm(v)])
+      ),
     },
   }
 }
 
-/** '' na tela = "esta regra não mexe nessa parte" = null na API. */
+function formToVariable(
+  key: string,
+  v: VariableFormValue
+): RuleVariable | null {
+  if (!v.choice) return null
+  if (v.choice === 'EMPTY') return { key, source: 'EMPTY' }
+  if (v.choice === 'TEXT') return { key, source: 'TEXT', text: v.text.trim() }
+  return { key, source: 'FIELD', field: v.choice.slice('FIELD:'.length) }
+}
+
+/** '' na tela = "esta regra não mexe nisso" = fora da lista na API. */
 export function formToInput(form: RuleFormValues): SignatureRuleInput {
-  const o = form.outputs
+  const variables = Object.entries(form.outputs?.variables ?? {})
+    .map(([key, v]) => formToVariable(key, v))
+    .filter((v): v is RuleVariable => v !== null)
   return {
     name: form.name.trim(),
     description: form.description.trim(),
@@ -186,21 +158,8 @@ export function formToInput(form: RuleFormValues): SignatureRuleInput {
       values: VALUELESS.includes(c.operator) ? [] : c.values,
     })),
     outputs: {
-      phone0800Mode: o.phone0800Mode || null,
-      phone0800:
-        o.phone0800Mode === 'FIXED' ? o.phone0800.trim() || null : null,
-      templateId: o.templateId || null,
-      contact: o.contact || null,
-      sectorLabel: o.sectorLabel || null,
-      phraseMode: o.phraseMode || null,
-      phraseText: o.phraseMode === 'FIXED' ? o.phraseText.trim() || null : null,
-      variables: o.variables?.length
-        ? o.variables.map((v) => ({
-            key: v.key,
-            mode: v.mode,
-            text: v.mode === 'TEXT' ? v.text.trim() : null,
-          }))
-        : null,
+      templateId: form.outputs?.templateId || null,
+      variables: variables.length ? variables : null,
     },
   }
 }

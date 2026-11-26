@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useTemplateName } from '../../hooks/useTemplateName'
 import {
   EmptyState,
   ErrorState,
@@ -13,11 +14,10 @@ import {
 } from '../../components/ui/States'
 import { queryKeys } from '../../services/query-keys'
 import { reportService } from '../../services/report.service'
-import type { ContactType, SignatureStatus } from '../../types/api'
+import type { SignatureStatus } from '../../types/api'
 import { cn } from '../../utils/cn'
 import { formatNumber, formatPercent } from '../../utils/format'
 import {
-  CONTACT_LABELS,
   ISSUE_LABELS,
   LEVEL_LABELS,
   slotLabel,
@@ -38,6 +38,7 @@ const GROUPS_PREVIEW = 12
 export function CoveragePage() {
   const navigate = useNavigate()
   const { canEdit } = usePermissions()
+  const templateName = useTemplateName()
   const coverage = useQuery({
     queryKey: queryKeys.coverage,
     queryFn: reportService.coverage,
@@ -123,27 +124,32 @@ export function CoveragePage() {
           )}
         </Card>
 
-        <Card title="Contato que sai na assinatura">
+        <Card title="Modelo usado">
           <ul className="grid gap-2">
-            {(Object.keys(CONTACT_LABELS) as ContactType[]).map((type) => {
-              const count = report.byContact[type]
-              return (
-                <li key={type} className="grid gap-1">
-                  <div className="flex justify-between text-sm">
-                    <span>{CONTACT_LABELS[type]}</span>
-                    <span className="tabular-nums text-on-surface-variant">
-                      {formatNumber(count)} · {formatPercent(count, total)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-low">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: formatPercent(count, total) }}
-                    />
-                  </div>
-                </li>
-              )
-            })}
+            {report.byTemplate.map(({ templateId, count }) => (
+              <li key={templateId ?? 'padrao'} className="grid gap-1">
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {templateName(templateId)}
+                    {!templateId && (
+                      <span className="text-on-surface-variant">
+                        {' '}
+                        (nenhuma regra escolheu)
+                      </span>
+                    )}
+                  </span>
+                  <span className="tabular-nums text-on-surface-variant">
+                    {formatNumber(count)} · {formatPercent(count, total)}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-low">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: formatPercent(count, total) }}
+                  />
+                </div>
+              </li>
+            ))}
           </ul>
         </Card>
       </div>

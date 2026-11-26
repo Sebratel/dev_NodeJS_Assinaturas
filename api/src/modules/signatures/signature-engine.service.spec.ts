@@ -3,12 +3,10 @@ import { Collaborator } from '../directory/types/collaborator.js';
 import { CollaboratorLevelEnum } from '../directory/types/collaborator-level.enum.js';
 import { PhraseProfile } from '../phrase-profiles/types/phrase-profile.types.js';
 import { DEFAULT_SIGNATURE_RULES } from '../signature-rules/default-signature-rules.js';
-import { PhraseModeEnum } from '../signature-rules/types/phrase-mode.enum.js';
-import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
+import { RuleOutputsHelper } from '../signature-rules/rule-outputs.helper.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
-import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
-import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
-import { VariableModeEnum } from '../signature-rules/types/variable-mode.enum.js';
+import { RuleVariable, SignatureRule } from '../signature-rules/types/signature-rule.types.js';
+import { VariableSourceEnum } from '../signature-rules/types/variable-source.enum.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
@@ -16,6 +14,16 @@ import { SignatureStatusEnum } from './types/signature-status.enum.js';
 const engine = new SignatureEngineService();
 const rules: SignatureRule[] = DEFAULT_SIGNATURE_RULES.map((r, i) => ({ ...r, id: `r${i}` }));
 const phrases = { defaultPhrase: 'Fico à disposição.', byTeam: [{ team: 'Suporte Técnico', phrase: 'Suporte que resolve.' }] };
+
+const field = (key: string, fieldKey: string): RuleVariable => ({ key, source: VariableSourceEnum.FIELD, field: fieldKey });
+const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, text: value });
+const empty = (key: string): RuleVariable => ({ key, source: VariableSourceEnum.EMPTY });
+
+function rule(name: string, priority: number, variables: RuleVariable[], conditions: SignatureRule['conditions'] = []): SignatureRule {
+  return { id: name, name, description: '', priority, active: true, conditions, outputs: { variables } };
+}
+
+const empresas: SignatureRule['conditions'] = [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }];
 
 function person(overrides: Partial<Collaborator>): Collaborator {
   return {
@@ -44,177 +52,122 @@ function person(overrides: Partial<Collaborator>): Collaborator {
 
 describe('SignatureEngineService', () => {
   it('0800 vem do AD (Telephone number), formatado; valor que não é 0800 não vai para a assinatura', () => {
-    expect(engine.evaluate(person({ phone0800: '08006551000' }), rules, phrases).content.phone0800).toBe('0800 655 1000');
+    expect(engine.evaluate(person({ phone0800: '08006551000' }), rules, phrases).content.values.telefone_0800).toBe('0800 655 1000');
 
     const celularNoCampo = engine.evaluate(person({ phone0800: '55996651254' }), rules, phrases);
-    expect(celularNoCampo.content.phone0800).toBe('');
+    expect(celularNoCampo.content.values.telefone_0800).toBe('');
     expect(celularNoCampo.status).toBe(SignatureStatusEnum.PENDING);
     expect(celularNoCampo.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.INVALID_PHONE_0800);
-
-    const trocado = engine.evaluate(person({ phone0800: '655 0800 1000' }), rules, phrases);
-    expect(trocado.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.INVALID_PHONE_0800);
 
     const vazio = engine.evaluate(person({ phone0800: '' }), rules, phrases);
     expect(vazio.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.MISSING_PHONE_0800);
     expect(vazio.status).toBe(SignatureStatusEnum.PENDING);
   });
 
-  it('B2B (Company "Sebratel Empresas", sem ligar para maiúscula/acento) usa o 0800 fixo da regra', () => {
-    const result = engine.evaluate(person({ company: 'SEBRATEL EMPRESAS', corporateMobile: '51988887777' }), rules, phrases);
-    expect(result.content.phone0800).toBe('0800 365 8000');
-    expect(result.content.contactText).toBe('(51) 98888-7777');
-    expect(engine.evaluate(person({ company: 'Sebratel' }), rules, phrases).content.phone0800).toBe('0800 655 1000');
-  });
-
-  it('membro sem regra específica fica só com a regra geral: 0800, frase padrão, sem contato', () => {
+  it('variável sem regra mostra o campo de mesmo nome; regra geral põe 0800, frase e contato vazio', () => {
     const result = engine.evaluate(person({}), rules, phrases);
     expect(result.status).toBe(SignatureStatusEnum.READY);
-    expect(result.content.phone0800).toBe('0800 655 1000');
-    expect(result.content.contactType).toBe(ContactTypeEnum.NONE);
-    expect(result.content.phrase).toBe('Fico à disposição.');
+    expect(result.content.values).toMatchObject({
+      nome: 'Fulano',
+      cargo: 'Analista',
+      empresa: 'Sebratel',
+      setor: 'Operacional',
+      telefone_0800: '0800 655 1000',
+      contato: '',
+      frase: 'Fico à disposição.',
+    });
     expect(result.issues.map((i) => i.code)).toEqual(
       expect.arrayContaining([SignatureIssueCodeEnum.ONLY_GENERAL_RULES, SignatureIssueCodeEnum.DEFAULT_PHRASE]),
     );
   });
 
-  it('membro do Suporte mostra o ramal e a frase do time; sem ramal no AD fica pendente', () => {
+  it('B2B (Company "Sebratel Empresas", sem ligar para maiúscula/acento): 0800 em texto fixo e celular corporativo', () => {
+    const result = engine.evaluate(person({ company: 'SEBRATEL EMPRESAS', corporateMobile: '51988887777' }), rules, phrases);
+    expect(result.content.values.telefone_0800).toBe('0800 365 8000');
+    expect(result.content.values.contato_celular).toBe('(51) 98888-7777');
+    expect(result.decisions.variables.telefone_0800.value).toEqual({ source: VariableSourceEnum.TEXT, field: null, text: '0800 365 8000' });
+  });
+
+  it('membro do Suporte mostra "Ramal 4021" e a frase do time; sem ramal no AD fica pendente e o texto some', () => {
     const semRamal = engine.evaluate(person({ team: 'Suporte Técnico' }), rules, phrases);
     expect(semRamal.status).toBe(SignatureStatusEnum.PENDING);
-    expect(semRamal.decisions.contact?.ruleName).toBe('Atendimento: ramal');
-    expect(semRamal.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.MISSING_EXTENSION);
+    expect(semRamal.decisions.variables.contato_ramal.ruleName).toBe('Atendimento: ramal');
+    expect(semRamal.content.values.contato_ramal).toBe('');
+    expect(semRamal.issues.filter((i) => i.code === SignatureIssueCodeEnum.MISSING_EXTENSION)).toHaveLength(1);
 
     const comRamal = engine.evaluate(person({ team: 'suporte tecnico', extension: '4021' }), rules, phrases);
     expect(comRamal.status).toBe(SignatureStatusEnum.READY);
-    expect(comRamal.content.contactText).toBe('Ramal 4021');
-    expect(comRamal.content.phrase).toBe('Suporte que resolve.');
+    expect(comRamal.content.values.contato_ramal).toBe('Ramal 4021');
+    expect(comRamal.content.values.frase).toBe('Suporte que resolve.');
   });
 
-  it('gerente mostra a área e o celular informado; auxiliar do Suporte fica com o celular corporativo (prioridade 20 < 30 não se aplica a não-membro)', () => {
+  it('gerente mostra a área e o celular informado; o campo usado pede o formulário do celular', () => {
     const gerente = engine.evaluate(person({ level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }), rules, phrases);
-    expect(gerente.content.sectorText).toBe('Técnica');
-    expect(gerente.decisions.sectorLabel?.value).toBe(SectorLabelEnum.AREA);
-    expect(gerente.content.contactText).toBe('(51) 99999-0000');
+    expect(gerente.content.values.setor).toBe('Técnica');
+    expect(gerente.content.values.contato_celular).toBe('(51) 99999-0000');
+    expect(gerente.content.fieldsUsed).toContain('celular_informado');
 
-    const aux = engine.evaluate(
-      person({ level: CollaboratorLevelEnum.AUXILIARY, team: 'Suporte Técnico', corporateMobile: '51988887777' }),
-      rules,
-      phrases,
-    );
-    expect(aux.decisions.contact?.value).toBe(ContactTypeEnum.CORPORATE_MOBILE);
-    expect(aux.content.contactText).toBe('(51) 98888-7777');
+    const semCelular = engine.evaluate(person({ level: CollaboratorLevelEnum.MANAGER }), rules, phrases);
+    expect(semCelular.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.MISSING_INFORMED_MOBILE);
   });
 
-  it('B2B troca o 0800 e mantém o resto das regras de prioridade maior', () => {
-    const result = engine.evaluate(person({ company: 'Sebratel Empresas', level: CollaboratorLevelEnum.MANAGER }), rules, phrases);
-    expect(result.content.phone0800).toBe('0800 365 8000');
-    expect(result.decisions.contact?.value).toBe(ContactTypeEnum.INFORMED_MOBILE);
-  });
-
-  it('"Nada" antes do cargo deixa o setor vazio (o modelo mostra só o cargo)', () => {
-    const soCargo: SignatureRule = {
-      id: 'sc',
-      name: 'Sebratel Empresas: só o cargo',
-      description: '',
-      priority: 15,
-      active: true,
-      conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
-      outputs: { sectorLabel: SectorLabelEnum.NONE },
-    };
-    // celular preenchido: a regra B2B pede o corporativo (sem ele, ficaria Pendente por outro motivo)
-    const result = engine.evaluate(person({ company: 'Sebratel Empresas', corporateMobile: '47999990000' }), [...rules, soCargo], phrases);
-    expect(result.decisions.sectorLabel?.value).toBe(SectorLabelEnum.NONE);
-    expect(result.content.sectorText).toBe('');
-    expect(result.status).toBe(SignatureStatusEnum.READY);
-  });
-
-  it('aponta conflito quando duas regras de mesma prioridade decidem diferente a mesma parte', () => {
+  it('qualquer variável do modelo: campo do AD, texto com campo, vazio; vence a prioridade maior, variável por variável', () => {
     const result = engine.evaluate(
-      person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }),
-      rules,
+      person({ company: 'Sebratel Empresas', corporateMobile: '51988887777', segment: 'Corporativo' }),
+      [
+        ...rules,
+        rule('Empresas p40', 40, [empty('cargo'), field('teste', 'segmento'), empty('frase')], empresas),
+        rule('Empresas p50', 50, [text('cargo', '{{cargo}} · {{empresa}}')], empresas),
+      ],
       phrases,
     );
+    expect(result.status).toBe(SignatureStatusEnum.READY);
+    expect(result.content.values).toMatchObject({ cargo: 'Analista · Sebratel Empresas', teste: 'Corporativo', frase: '' });
+    expect(result.decisions.variables.cargo.ruleName).toBe('Empresas p50');
+    expect(result.decisions.variables.teste.ruleName).toBe('Empresas p40');
+    expect(result.phraseOrigin).toMatchObject({ kind: 'NONE' });
+  });
+
+  it('texto que cita campo vazio deixa a variável vazia', () => {
+    const result = engine.evaluate(person({}), [...rules, rule('Seg', 40, [text('teste', 'Segmento {{segmento}}')])], phrases);
+    expect(result.content.values.teste).toBe('');
+  });
+
+  it('empate na mesma variável com valores diferentes vira conflito "{{cargo}}"; a de prioridade maior desfaz', () => {
+    const tie = [rule('A', 40, [empty('cargo')]), rule('B', 40, [field('cargo', 'departamento')])];
+    const result = engine.evaluate(person({}), [...rules, ...tie], phrases);
     expect(result.status).toBe(SignatureStatusEnum.CONFLICT);
-    expect(result.conflicts.map((c) => c.slot).sort()).toEqual(['contact', 'sectorLabel']);
-  });
+    expect(result.conflicts).toEqual([{ slot: 'var:cargo', ruleNames: ['A', 'B'] }]);
+    expect(result.issues.find((i) => i.code === SignatureIssueCodeEnum.RULE_CONFLICT)?.message).toContain('{{cargo}}');
 
-  it('conflito some quando uma regra de prioridade maior decide a parte', () => {
-    const tieBreaker: SignatureRule = {
-      id: 'tb',
-      name: 'DHO: desempate',
-      description: '',
-      priority: 25,
-      active: true,
-      conditions: [{ field: 'team', operator: RuleOperatorEnum.IN, values: ['Dho'] }],
-      outputs: { contact: ContactTypeEnum.INFORMED_MOBILE, sectorLabel: SectorLabelEnum.AREA },
-    };
-    const result = engine.evaluate(
-      person({ team: 'Dho', level: CollaboratorLevelEnum.MANAGER, informedMobile: '51999990000' }),
-      [...rules, tieBreaker],
-      phrases,
-    );
-    expect(result.status).toBe(SignatureStatusEnum.READY);
-    expect(result.conflicts).toEqual([]);
-  });
-
-  describe('variáveis do modelo', () => {
-    const b2b = (priority: number, variables: SignatureRule['outputs']['variables'], name = `B2B p${priority}`): SignatureRule => ({
-      id: name,
-      name,
-      description: '',
-      priority,
-      active: true,
-      conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
-      outputs: { variables },
-    });
-
-    it('regra esconde ou troca qualquer variável; a de prioridade maior vence, variável por variável', () => {
-      const result = engine.evaluate(
-        person({ company: 'Sebratel Empresas', corporateMobile: '51988887777' }),
-        [
-          ...rules,
-          b2b(40, [
-            { key: 'cargo', mode: VariableModeEnum.HIDE },
-            { key: 'frase', mode: VariableModeEnum.HIDE },
-          ]),
-          b2b(50, [{ key: 'cargo', mode: VariableModeEnum.TEXT, text: '{{cargo}} · {{empresa}}' }]),
-        ],
-        phrases,
-      );
-      expect(result.status).toBe(SignatureStatusEnum.READY);
-      expect(result.content.overrides).toEqual({
-        cargo: { mode: VariableModeEnum.TEXT, text: '{{cargo}} · {{empresa}}' },
-        frase: { mode: VariableModeEnum.HIDE, text: null },
-      });
-      expect(result.decisions.variables.cargo.ruleName).toBe('B2B p50');
-      expect(result.decisions.variables.frase.ruleName).toBe('B2B p40');
-      expect(result.content.company).toBe('Sebratel Empresas');
-    });
-
-    it('empate na mesma variável com valores diferentes vira conflito "{{cargo}}"', () => {
-      const result = engine.evaluate(
-        person({ company: 'Sebratel Empresas', corporateMobile: '51988887777' }),
-        [
-          ...rules,
-          b2b(40, [{ key: 'cargo', mode: VariableModeEnum.HIDE }], 'A'),
-          b2b(40, [{ key: 'cargo', mode: VariableModeEnum.TEXT, text: 'Consultor' }], 'B'),
-        ],
-        phrases,
-      );
-      expect(result.status).toBe(SignatureStatusEnum.CONFLICT);
-      expect(result.conflicts).toEqual([{ slot: 'var:cargo', ruleNames: ['A', 'B'] }]);
-      expect(result.issues.find((i) => i.code === SignatureIssueCodeEnum.RULE_CONFLICT)?.message).toContain('{{cargo}}');
-    });
-
-    it('quem não é pego pela regra não tem troca', () => {
-      const result = engine.evaluate(person({}), [...rules, b2b(40, [{ key: 'cargo', mode: VariableModeEnum.HIDE }])], phrases);
-      expect(result.content.overrides).toEqual({});
-      expect(result.decisions.variables).toEqual({});
-    });
+    const solved = engine.evaluate(person({}), [...rules, ...tie, rule('C', 41, [field('cargo', 'cargo')])], phrases);
+    expect(solved.status).toBe(SignatureStatusEnum.READY);
+    expect(solved.conflicts).toEqual([]);
   });
 
   it('regra inativa não vale e sem nenhuma regra o status é NO_RULE', () => {
     const inactive = rules.map((r) => ({ ...r, active: false }));
     expect(engine.evaluate(person({}), inactive, phrases).status).toBe(SignatureStatusEnum.NO_RULE);
+  });
+
+  it('regra gravada no formato antigo (partes fixas) é lida como variáveis e dá o mesmo resultado', () => {
+    const legacy = RuleOutputsHelper.normalize({
+      phone0800Mode: 'FIXED',
+      phone0800: '0800 1',
+      contact: 'EXTENSION',
+      sectorLabel: 'NONE',
+      phraseMode: 'NONE',
+    });
+    expect(legacy.variables).toEqual(
+      expect.arrayContaining([
+        { key: 'telefone_0800', source: VariableSourceEnum.TEXT, field: null, text: '0800 1' },
+        { key: 'contato_ramal', source: VariableSourceEnum.TEXT, field: null, text: 'Ramal {{ramal}}' },
+        { key: 'setor', source: VariableSourceEnum.EMPTY, field: null, text: null },
+        { key: 'frase', source: VariableSourceEnum.EMPTY, field: null, text: null },
+      ]),
+    );
+    const result = engine.evaluate(person({ extension: '77' }), [rule('Antiga', 0, legacy.variables ?? [])], phrases);
+    expect(result.content.values).toMatchObject({ telefone_0800: '0800 1', contato: 'Ramal 77', setor: '', frase: '' });
   });
 
   describe('perfis de frase', () => {
@@ -241,7 +194,7 @@ describe('SignatureEngineService', () => {
 
     it('perfil que casa vence a frase do time; o de prioridade maior vence o de menor', () => {
       const diretor = engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR, team: 'Suporte Técnico' }), rules, phrases, profiles);
-      expect(diretor.content.phrase).toBe('A rede inteira a gente garante.');
+      expect(diretor.content.values.frase).toBe('A rede inteira a gente garante.');
       expect(diretor.phraseOrigin).toEqual({ kind: 'PROFILE', label: 'Direção da Técnica', id: 'pf1' });
 
       const membro = engine.evaluate(person({ team: 'Suporte Técnico', extension: '4021' }), rules, phrases, profiles);
@@ -251,29 +204,24 @@ describe('SignatureEngineService', () => {
     it('sem perfil: frase do time; sem time: padrão — e a origem diz qual foi', () => {
       const suporte = engine.evaluate(person({ area: 'Comercial', team: 'Suporte Técnico', extension: '1' }), rules, phrases, profiles);
       expect(suporte.phraseOrigin).toMatchObject({ kind: 'TEAM' });
-      expect(suporte.content.phrase).toBe('Suporte que resolve.');
+      expect(suporte.content.values.frase).toBe('Suporte que resolve.');
       const outro = engine.evaluate(person({ area: 'Comercial' }), rules, phrases, profiles);
       expect(outro.phraseOrigin.kind).toBe('DEFAULT');
       expect(outro.issues.map((i) => i.code)).toContain(SignatureIssueCodeEnum.DEFAULT_PHRASE);
     });
 
-    it('perfil inativo não vale; regra com frase fixa passa por cima do perfil', () => {
+    it('perfil inativo não vale; regra com frase em texto fixo passa por cima do perfil', () => {
       const inactive = [{ ...direcaoTecnica, active: false }];
       expect(engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), rules, phrases, inactive).phraseOrigin.kind).toBe(
         'DEFAULT',
       );
 
-      const fixed: SignatureRule = {
-        id: 'fx',
-        name: 'Frase fixa da diretoria',
-        description: '',
-        priority: 50,
-        active: true,
-        conditions: [{ field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] }],
-        outputs: { phraseMode: PhraseModeEnum.FIXED, phraseText: 'Fixa.' },
-      };
+      const diretoria: SignatureRule['conditions'] = [
+        { field: 'level', operator: RuleOperatorEnum.IN, values: [CollaboratorLevelEnum.DIRECTOR] },
+      ];
+      const fixed = rule('Frase fixa da diretoria', 50, [text('frase', 'Fixa.')], diretoria);
       const result = engine.evaluate(person({ level: CollaboratorLevelEnum.DIRECTOR }), [...rules, fixed], phrases, profiles);
-      expect(result.content.phrase).toBe('Fixa.');
+      expect(result.content.values.frase).toBe('Fixa.');
       expect(result.phraseOrigin).toMatchObject({ kind: 'FIXED', label: 'Frase fixa da diretoria' });
     });
   });

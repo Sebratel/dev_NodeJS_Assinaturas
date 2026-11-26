@@ -4,7 +4,6 @@ import { RequireRole } from '../auth/auth.decorators.js';
 import { ApiResponseHelper } from '../../common/helpers/api-response.helper.js';
 import { SaveSignatureTemplateDTO } from './dto/save-signature-template.dto.js';
 import { SignatureTemplatesService } from './signature-templates.service.js';
-import { TEMPLATE_VARIABLES } from './template-render.helper.js';
 import { UserRoleEnum } from '../users/types/user-role.enum.js';
 
 @Controller('v1/signature-templates')
@@ -16,10 +15,10 @@ export class SignatureTemplatesController {
     return ApiResponseHelper.ok(await this.signatureTemplatesService.findAll());
   }
 
-  /** Declarada antes de ':id'. */
+  /** Campos que a regra pode pôr nas variáveis e as variáveis que os modelos usam. Declarada antes de ':id'. */
   @Get('variables')
-  getVariables() {
-    return ApiResponseHelper.ok(TEMPLATE_VARIABLES);
+  async getVariables() {
+    return ApiResponseHelper.ok(await this.signatureTemplatesService.getVariables());
   }
 
   @Get(':id')

@@ -3,15 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BusinessException } from '../../common/exceptions/business.exception.js';
 import { SignatureTemplatesService } from '../signature-templates/signature-templates.service.js';
-import { TemplateRenderHelper } from '../signature-templates/template-render.helper.js';
+import { SignatureFieldsHelper } from '../signature-templates/signature-fields.js';
+import { IMAGE_VARIABLE } from '../signature-templates/template-render.helper.js';
 import { DEFAULT_SIGNATURE_RULES } from './default-signature-rules.js';
 import { CreateSignatureRuleDTO } from './dto/create-signature-rule.dto.js';
 import { SignatureRuleEntity } from './entities/signature-rule.entity.js';
-import { Phone0800ModeEnum } from './types/phone0800-mode.enum.js';
-import { PhraseModeEnum } from './types/phrase-mode.enum.js';
 import { VALUELESS_OPERATORS } from './types/rule-operator.enum.js';
 import { SignatureRule } from './types/signature-rule.types.js';
-import { VariableModeEnum } from './types/variable-mode.enum.js';
+import { VariableSourceEnum } from './types/variable-source.enum.js';
 
 @Injectable()
 export class SignatureRulesService implements OnModuleInit {
@@ -67,34 +66,36 @@ export class SignatureRulesService implements OnModuleInit {
       }
     });
     const o = dto.outputs;
-    const definesSomething =
-      [o.phone0800Mode, o.phone0800, o.contact, o.sectorLabel, o.phraseMode, o.templateId].some(
-        (v) => v !== undefined && v !== null && v !== '',
-      ) || Boolean(o.variables?.length);
-    if (!definesSomething) problems.push({ field: 'outputs', message: 'a regra precisa definir pelo menos uma parte da assinatura.' });
-    if (o.phone0800Mode === Phone0800ModeEnum.FIXED && !o.phone0800?.trim()) {
-      problems.push({ field: 'outputs.phone0800', message: '0800 fixo precisa do número.' });
-    }
-    if (o.phraseMode === PhraseModeEnum.FIXED && !o.phraseText?.trim()) {
-      problems.push({ field: 'outputs.phraseText', message: 'frase fixa precisa do texto.' });
+    if (!o.templateId && !o.variables?.length) {
+      problems.push({ field: 'outputs', message: 'a regra precisa definir o modelo ou pelo menos uma variável.' });
     }
     const seen = new Set<string>();
     (o.variables ?? []).forEach((variable, i) => {
       const field = `outputs.variables[${i}]`;
-      if (seen.has(variable.key)) problems.push({ field, message: `{{${variable.key}}} aparece duas vezes na mesma regra.` });
+      const name = `{{${variable.key}}}`;
+      if (variable.key === IMAGE_VARIABLE)
+        problems.push({ field, message: `${name} é técnica (endereço das imagens) e não sai por regra.` });
+      if (seen.has(variable.key)) problems.push({ field, message: `${name} aparece duas vezes na mesma regra.` });
       seen.add(variable.key);
-      if (variable.mode !== VariableModeEnum.TEXT) return;
-      if (!variable.text?.trim()) problems.push({ field, message: `escreva o texto de {{${variable.key}}} ou escolha "Ocultar".` });
-      else TemplateRenderHelper.validateText(variable.text).forEach((message) => problems.push({ field, message }));
+      if (variable.source === VariableSourceEnum.FIELD && !SignatureFieldsHelper.isField(variable.field ?? '')) {
+        problems.push({ field, message: `escolha um campo válido para ${name}.` });
+      }
+      if (variable.source === VariableSourceEnum.TEXT) {
+        if (!variable.text?.trim()) problems.push({ field, message: `escreva o texto de ${name} ou escolha "Vazio".` });
+        else SignatureFieldsHelper.validateText(variable.text).forEach((message) => problems.push({ field, message }));
+      }
     });
     if (problems.length) throw new BusinessException('SIGNATURE_RULE_INVALID', 'Regra inconsistente.', HttpStatus.BAD_REQUEST, problems);
   }
 
-  /** Normaliza o que vem da tela: tira valores vazios e campos que a regra não define. */
+  /** Normaliza o que vem da tela: só o que a regra define, sem sobra de campo/texto de outra fonte. */
   static clean(dto: CreateSignatureRuleDTO): Omit<SignatureRule, 'id'> {
-    const blankToNull = <T>(v: T | null | undefined): T | null => (v === undefined || v === '' ? null : v);
-    // Regra antiga (só o número, sem modo) vira FIXED.
-    const phoneMode = dto.outputs.phone0800Mode ?? (dto.outputs.phone0800?.trim() ? Phone0800ModeEnum.FIXED : null);
+    const variables = (dto.outputs.variables ?? []).map((v) => ({
+      key: v.key,
+      source: v.source,
+      field: v.source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
+      text: v.source === VariableSourceEnum.TEXT ? (v.text?.trim() ?? '') : null,
+    }));
     return {
       name: dto.name.trim(),
       description: dto.description?.trim() ?? '',
@@ -105,22 +106,7 @@ export class SignatureRulesService implements OnModuleInit {
         operator: c.operator,
         values: VALUELESS_OPERATORS.includes(c.operator) ? [] : c.values.map((v) => v.trim()).filter(Boolean),
       })),
-      outputs: {
-        phone0800Mode: phoneMode,
-        phone0800: phoneMode === Phone0800ModeEnum.FIXED ? blankToNull(dto.outputs.phone0800?.trim()) : null,
-        contact: blankToNull(dto.outputs.contact),
-        sectorLabel: blankToNull(dto.outputs.sectorLabel),
-        phraseMode: blankToNull(dto.outputs.phraseMode),
-        phraseText: dto.outputs.phraseMode === PhraseModeEnum.FIXED ? blankToNull(dto.outputs.phraseText?.trim()) : null,
-        templateId: blankToNull(dto.outputs.templateId),
-        variables: dto.outputs.variables?.length
-          ? dto.outputs.variables.map((v) => ({
-              key: v.key,
-              mode: v.mode,
-              text: v.mode === VariableModeEnum.TEXT ? (v.text?.trim() ?? '') : null,
-            }))
-          : null,
-      },
+      outputs: { templateId: dto.outputs.templateId || null, variables: variables.length ? variables : null },
     };
   }
 }

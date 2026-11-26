@@ -9,7 +9,6 @@ import { SettingKeyEnum } from '../settings/types/setting-key.enum.js';
 import { TeamPhrases } from '../settings/types/settings-values.js';
 import { SignatureRuleEntity } from '../signature-rules/entities/signature-rule.entity.js';
 import { SignatureRulesService } from '../signature-rules/signature-rules.service.js';
-import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
 import { SignatureTemplatesService } from '../signature-templates/signature-templates.service.js';
 import { SavePhraseProfileDTO } from '../phrase-profiles/dto/save-phrase-profile.dto.js';
@@ -22,7 +21,7 @@ import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { GMAIL_SIGNATURE_MAX_LENGTH, SignatureTemplateHelper } from './signature-template.helper.js';
 import { CoverageReport, PhraseProfileSimulation, RulePreview, RuleSimulation } from './types/coverage-report.types.js';
-import { DecisionSlot, SignatureDecisions, SignatureEvaluation, SignatureSlot } from './types/signature-evaluation.types.js';
+import { SignatureEvaluation } from './types/signature-evaluation.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
 
@@ -35,14 +34,16 @@ export interface CollaboratorListItem {
   team: string;
   level: CollaboratorLevelEnum;
   status: SignatureStatusEnum;
-  contactType: ContactTypeEnum;
+  /** Modelo decidido pelas regras; null = modelo padrão. */
+  templateId: string | null;
   issueCodes: SignatureIssueCodeEnum[];
 }
 
 export interface CollaboratorSignature {
   collaborator: Collaborator;
   evaluation: SignatureEvaluation;
-  template: { id: string; name: string; fallback: boolean };
+  /** `variables`: variáveis que o modelo usa, na ordem em que aparecem (para "Por que saiu assim"). */
+  template: { id: string; name: string; fallback: boolean; variables: string[] };
   html: string;
   htmlLength: number;
   gmailLimit: number;
@@ -88,7 +89,7 @@ export class SignaturesService {
         team: c.team,
         level: c.level,
         status: e.status,
-        contactType: e.content.contactType,
+        templateId: e.decisions.template?.value ?? null,
         issueCodes: e.issues.filter((i) => i.severity !== 'INFO').map((i) => i.code),
       }));
   }
@@ -134,7 +135,12 @@ export class SignaturesService {
     return {
       collaborator,
       evaluation,
-      template: { id: template.id, name: template.name, fallback: template.fallback },
+      template: {
+        id: template.id,
+        name: template.name,
+        fallback: template.fallback,
+        variables: TemplateRenderHelper.variablesOf(template.html),
+      },
       html,
       htmlLength: html.length,
       gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
@@ -210,7 +216,9 @@ export class SignaturesService {
       wins: winners.length,
       /** Quem casa mas não recebe: regra com frase fixa/sem frase, ou outro perfil de prioridade maior. */
       overridden: matched.length - winners.length,
-      sample: winners.slice(0, 8).map(({ c, before }) => ({ ...CoverageReportBuilder.sample(c), phraseBefore: before.content.phrase })),
+      sample: winners
+        .slice(0, 8)
+        .map(({ c, before }) => ({ ...CoverageReportBuilder.sample(c), phraseBefore: before.content.values.frase ?? '' })),
     };
   }
 
@@ -270,21 +278,8 @@ export class SignaturesService {
       gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
       matched: this.signatureEngine.matches(person, draftRule),
       changed: html !== render(current[index]),
-      decidedHere: this.slotsDecidedBy(evaluation.decisions, draftRule.id),
+      decidedHere: SignatureEngineService.slotsDecidedBy(evaluation.decisions, draftRule.id),
     };
-  }
-
-  /** Partes e variáveis (`var:cargo`) em que a regra venceu. */
-  private slotsDecidedBy(decisions: SignatureDecisions, ruleId: string): DecisionSlot[] {
-    const { variables, ...fixed } = decisions;
-    return [
-      ...Object.entries(fixed)
-        .filter(([, decision]) => decision?.ruleId === ruleId)
-        .map(([slot]) => slot as SignatureSlot),
-      ...Object.entries(variables)
-        .filter(([, decision]) => decision.ruleId === ruleId)
-        .map(([key]): DecisionSlot => `var:${key}`),
-    ];
   }
 
   private async evaluateAll(): Promise<{

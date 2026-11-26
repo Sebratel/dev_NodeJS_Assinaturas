@@ -1,7 +1,7 @@
 import { Collaborator } from '../directory/types/collaborator.js';
-import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
 import { CoverageReport, PersonSample } from './types/coverage-report.types.js';
+import { SignatureEngineService } from './signature-engine.service.js';
 import { SignatureEvaluation } from './types/signature-evaluation.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
@@ -24,14 +24,14 @@ export class CoverageReportBuilder {
     return { id: person.id, name: person.name, team: person.team, level: person.level };
   }
 
-  /** Quantas pessoas têm pelo menos uma parte da assinatura decidida por esta regra. */
+  /** Quantas pessoas têm o modelo ou pelo menos uma variável decidida por esta regra. */
   static winsOf(ruleId: string, evaluations: SignatureEvaluation[]): number {
-    return evaluations.filter((e) => Object.values(e.decisions).some((d) => d?.ruleId === ruleId)).length;
+    return evaluations.filter((e) => SignatureEngineService.slotsDecidedBy(e.decisions, ruleId).length > 0).length;
   }
 
   static build(collaborators: Collaborator[], evaluations: SignatureEvaluation[], rules: SignatureRule[]): CoverageReport {
     const byId = new Map(collaborators.map((c) => [c.id, c]));
-    const byContact = Object.fromEntries(Object.values(ContactTypeEnum).map((t) => [t, 0])) as Record<ContactTypeEnum, number>;
+    const byTemplate = new Map<string | null, number>();
     const issues = new Map<SignatureIssueCodeEnum, CoverageReport['issues'][number]>();
     const conflicts = new Map<string, CoverageReport['conflicts'][number]>();
     const onlyGeneral = new Map<string, CoverageReport['groupsOnlyGeneral'][number]>();
@@ -40,7 +40,8 @@ export class CoverageReportBuilder {
     for (const evaluation of evaluations) {
       const person = byId.get(evaluation.collaboratorId);
       if (!person) continue;
-      byContact[evaluation.content.contactType]++;
+      const templateId = evaluation.decisions.template?.value ?? null;
+      byTemplate.set(templateId, (byTemplate.get(templateId) ?? 0) + 1);
 
       for (const issue of evaluation.issues) {
         const entry = issues.get(issue.code) ?? { code: issue.code, severity: issue.severity, count: 0, sample: [] };
@@ -70,7 +71,7 @@ export class CoverageReportBuilder {
       generatedAt: new Date().toISOString(),
       totalCollaborators: collaborators.length,
       byStatus: CoverageReportBuilder.countByStatus(evaluations),
-      byContact,
+      byTemplate: [...byTemplate.entries()].map(([templateId, count]) => ({ templateId, count })).sort((a, b) => b.count - a.count),
       onlyGeneralRules,
       issues: [...issues.values()].sort((a, b) => b.count - a.count),
       rules: rules.map((rule) => ({
