@@ -35,10 +35,30 @@ export interface PhraseProfileSimulation {
   sample: Array<PersonSample & { phraseBefore: string }>;
 }
 
+/** Assinatura de uma pessoa como ficaria com a regra do rascunho (prévia no editor de regra). */
+export interface RulePreview {
+  collaboratorId: string;
+  name: string;
+  team: string;
+  title: string;
+  status: SignatureStatusEnum;
+  templateName: string;
+  html: string;
+  htmlLength: number;
+  gmailLimit: number;
+  /** A regra do rascunho pega esta pessoa. */
+  matched: boolean;
+  /** A assinatura muda em relação à de hoje (com as regras salvas). */
+  changed: boolean;
+  /** Partes da assinatura desta pessoa que a regra do rascunho decide. */
+  decidedHere: string[];
+}
+
 export interface RuleSimulation {
   matched: number;
   wins: number;
   sample: PersonSample[];
   before: Record<SignatureStatusEnum, number>;
   after: Record<SignatureStatusEnum, number>;
+  preview: RulePreview | null;
 }

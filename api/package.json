@@ -1,6 +1,6 @@
 {
   "name": "assinaturas-gmail-api",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "description": "API do sistema de assinaturas corporativas do Gmail: lê o AD, aplica regras e grava no Gmail.",

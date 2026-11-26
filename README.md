@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.5.0)
+## Estado (1.6.0)
 
 | Parte | Situação |
 |---|---|
@@ -57,7 +57,7 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
   - **Pendente:** falta dado (celular, ramal);
   - **Conflito;**
   - **Sem regra.**
-- A simulação (`POST /api/v1/simulations`) mostra quem a regra pega e como os status mudam, antes de salvar.
+- A simulação (`POST /api/v1/simulations`) mostra quem a regra pega e como os status mudam, antes de salvar. No editor de regra, o Efeito traz também a **prévia da assinatura** de uma pessoa já com a regra do rascunho (clique num nome para trocar), atualizada enquanto se edita.
 
 As regras de 20/11/2026 vêm cadastradas na primeira subida (`api/src/modules/signature-rules/default-signature-rules.ts`).
 

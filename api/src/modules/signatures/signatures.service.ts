@@ -21,7 +21,7 @@ import { ListCollaboratorsQueryDTO } from './dto/list-collaborators-query.dto.js
 import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { GMAIL_SIGNATURE_MAX_LENGTH, SignatureTemplateHelper } from './signature-template.helper.js';
-import { CoverageReport, PhraseProfileSimulation, RuleSimulation } from './types/coverage-report.types.js';
+import { CoverageReport, PhraseProfileSimulation, RulePreview, RuleSimulation } from './types/coverage-report.types.js';
 import { SignatureEvaluation } from './types/signature-evaluation.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
@@ -229,6 +229,50 @@ export class SignaturesService {
       sample: matchedPeople.slice(0, 8).map(CoverageReportBuilder.sample),
       before: CoverageReportBuilder.countByStatus(evaluations),
       after: CoverageReportBuilder.countByStatus(nextEvaluations),
+      preview: await this.previewOf(draft.previewCollaboratorId, draftRule, collaborators, evaluations, nextEvaluations),
+    };
+  }
+
+  /**
+   * Assinatura renderizada de uma pessoa com a regra do rascunho: a pedida ou, sem ela, a primeira que a regra pega.
+   * Compara com a de hoje para dizer se muda. Nada é gravado.
+   */
+  private async previewOf(
+    collaboratorId: string | undefined,
+    draftRule: SignatureRule,
+    collaborators: Collaborator[],
+    current: SignatureEvaluation[],
+    next: SignatureEvaluation[],
+  ): Promise<RulePreview | null> {
+    let index = collaboratorId ? collaborators.findIndex((c) => c.id === collaboratorId) : -1;
+    if (index < 0) index = collaborators.findIndex((c) => this.signatureEngine.matches(c, draftRule));
+    if (index < 0) return null;
+
+    const templates = await this.signatureTemplatesService.findAll();
+    const byId = new Map(templates.map((t) => [t.id, t]));
+    const fallback = templates.find((t) => t.isDefault) ?? (await this.signatureTemplatesService.findDefault());
+    const templateOf = (evaluation: SignatureEvaluation) => byId.get(evaluation.decisions.template?.value ?? '') ?? fallback;
+    const render = (evaluation: SignatureEvaluation) =>
+      SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), templateOf(evaluation).html);
+
+    const person = collaborators[index];
+    const evaluation = next[index];
+    const html = render(evaluation);
+    return {
+      collaboratorId: person.id,
+      name: person.name,
+      team: person.team,
+      title: person.title,
+      status: evaluation.status,
+      templateName: templateOf(evaluation).name,
+      html,
+      htmlLength: html.length,
+      gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
+      matched: this.signatureEngine.matches(person, draftRule),
+      changed: html !== render(current[index]),
+      decidedHere: Object.entries(evaluation.decisions)
+        .filter(([, decision]) => decision?.ruleId === draftRule.id)
+        .map(([slot]) => slot),
     };
   }
 

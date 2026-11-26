@@ -318,12 +318,32 @@ export interface AutomationOverview {
   recentApplications: SignatureApplication[]
 }
 
+/** Assinatura de uma pessoa como ficaria com a regra do rascunho. */
+export interface RulePreview {
+  collaboratorId: string
+  name: string
+  team: string
+  title: string
+  status: SignatureStatus
+  templateName: string
+  html: string
+  htmlLength: number
+  gmailLimit: number
+  /** A regra do rascunho pega esta pessoa. */
+  matched: boolean
+  /** Muda em relação à assinatura de hoje. */
+  changed: boolean
+  /** Partes que a regra do rascunho decide para esta pessoa. */
+  decidedHere: SignatureSlot[]
+}
+
 export interface RuleSimulation {
   matched: number
   wins: number
   sample: PersonSample[]
   before: StatusCount
   after: StatusCount
+  preview: RulePreview | null
 }
 
 export interface DirectoryStatus {
