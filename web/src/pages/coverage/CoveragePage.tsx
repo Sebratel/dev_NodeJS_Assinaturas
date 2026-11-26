@@ -20,7 +20,7 @@ import {
   CONTACT_LABELS,
   ISSUE_LABELS,
   LEVEL_LABELS,
-  SLOT_LABELS,
+  slotLabel,
   STATUS_LABELS,
   STATUS_TONES,
 } from '../../utils/labels'
@@ -161,8 +161,7 @@ export function CoveragePage() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {SLOT_LABELS[conflict.slot]}:{' '}
-                    {conflict.ruleNames.join(' × ')}
+                    {slotLabel(conflict.slot)}: {conflict.ruleNames.join(' × ')}
                   </p>
                   <p className="truncate text-xs text-on-surface-variant">
                     {conflict.sample.map((s) => s.name).join(', ')}

@@ -14,6 +14,7 @@ export const signatureRuleService = {
   remove: (id: string) =>
     httpClient.delete(`/v1/signature-rules/${id}`).then(() => undefined),
   /** Efeito da regra antes de salvar (não grava nada). */
-  simulate: (input: SignatureRuleInput & { id?: string }) =>
-    unwrap<RuleSimulation>(httpClient.post('/v1/simulations', input)),
+  simulate: (
+    input: SignatureRuleInput & { id?: string; previewCollaboratorId?: string }
+  ) => unwrap<RuleSimulation>(httpClient.post('/v1/simulations', input)),
 }

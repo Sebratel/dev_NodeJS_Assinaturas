@@ -30,6 +30,13 @@ describe('TemplateRenderHelper', () => {
     expect(TemplateRenderHelper.validate('<script>alert(1)</script>').length).toBe(1);
   });
 
+  it('texto de variável trocada: valores crus, espaços recolhidos; só {{variavel}} conhecida', () => {
+    expect(TemplateRenderHelper.renderText('{{time}}  {{empresa}} ', { time: '', empresa: 'Sebratel' })).toBe('Sebratel');
+    expect(TemplateRenderHelper.validateText('{{cargo}} · {{empresa}}')).toEqual([]);
+    expect(TemplateRenderHelper.validateText('{{xpto}}')).toEqual(['Variável desconhecida: {{xpto}}.']);
+    expect(TemplateRenderHelper.validateText('{{#cargo}}x{{/cargo}}')).toHaveLength(2);
+  });
+
   it('o modelo padrão é válido e não deixa marcação sobrando', () => {
     expect(TemplateRenderHelper.validate(DEFAULT_TEMPLATE.html)).toEqual([]);
     const html = TemplateRenderHelper.render(DEFAULT_TEMPLATE.html, {

@@ -1,8 +1,10 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsEnum, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from 'class-validator';
 import { ContactTypeEnum } from '../types/contact-type.enum.js';
 import { Phone0800ModeEnum } from '../types/phone0800-mode.enum.js';
 import { PhraseModeEnum } from '../types/phrase-mode.enum.js';
 import { SectorLabelEnum } from '../types/sector-label.enum.js';
+import { RuleVariableDTO } from './rule-variable.dto.js';
 
 export class RuleOutputsDTO {
   @IsOptional()
@@ -34,4 +36,11 @@ export class RuleOutputsDTO {
   @IsOptional()
   @IsUUID('all')
   templateId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => RuleVariableDTO)
+  variables?: RuleVariableDTO[] | null;
 }

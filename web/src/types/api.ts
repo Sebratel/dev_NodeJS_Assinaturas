@@ -27,6 +27,9 @@ export type RuleField =
   | 'office'
 export type SignatureSlot =
   'phone0800' | 'contact' | 'sectorLabel' | 'phrase' | 'template'
+/** Parte fixa ou variável do modelo decidida por regra ("var:cargo"). */
+export type DecisionSlot = SignatureSlot | `var:${string}`
+export type VariableMode = 'HIDE' | 'TEXT'
 export type IssueCode =
   | 'NO_RULE'
   | 'RULE_CONFLICT'
@@ -129,8 +132,12 @@ export interface SignatureEvaluation {
     sectorLabel: SlotDecision<SectorLabel> | null
     phrase: SlotDecision<{ mode: PhraseMode; text: string | null }> | null
     template: SlotDecision<string> | null
+    variables: Record<
+      string,
+      SlotDecision<{ mode: VariableMode; text: string | null }>
+    >
   }
-  conflicts: Array<{ slot: SignatureSlot; ruleNames: string[] }>
+  conflicts: Array<{ slot: DecisionSlot; ruleNames: string[] }>
   issues: Array<{ code: IssueCode; severity: IssueSeverity; message: string }>
   content: {
     name: string
@@ -167,6 +174,21 @@ export interface RuleOutputs {
   phraseMode?: PhraseMode | null
   phraseText?: string | null
   templateId?: string | null
+  variables?: RuleVariable[] | null
+}
+
+/** Variável do modelo que a regra esconde (HIDE) ou troca por texto (TEXT). */
+export interface RuleVariable {
+  key: string
+  mode: VariableMode
+  text?: string | null
+}
+
+export interface TemplateVariable {
+  key: string
+  description: string
+  /** Regra pode esconder ou trocar. */
+  overridable: boolean
 }
 
 export interface SignatureRule {
@@ -216,7 +238,7 @@ export interface CoverageReport {
     wins: number
   }>
   conflicts: Array<{
-    slot: SignatureSlot
+    slot: DecisionSlot
     ruleNames: string[]
     count: number
     sample: PersonSample[]
@@ -318,12 +340,32 @@ export interface AutomationOverview {
   recentApplications: SignatureApplication[]
 }
 
+/** Assinatura de uma pessoa como ficaria com a regra do rascunho. */
+export interface RulePreview {
+  collaboratorId: string
+  name: string
+  team: string
+  title: string
+  status: SignatureStatus
+  templateName: string
+  html: string
+  htmlLength: number
+  gmailLimit: number
+  /** A regra do rascunho pega esta pessoa. */
+  matched: boolean
+  /** Muda em relação à assinatura de hoje. */
+  changed: boolean
+  /** Partes que a regra do rascunho decide para esta pessoa. */
+  decidedHere: DecisionSlot[]
+}
+
 export interface RuleSimulation {
   matched: number
   wins: number
   sample: PersonSample[]
   before: StatusCount
   after: StatusCount
+  preview: RulePreview | null
 }
 
 export interface DirectoryStatus {

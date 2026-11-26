@@ -42,5 +42,12 @@ export function describeOutputs(
   }
   if (outputs.templateId)
     parts.push(`Modelo: ${templateNames.get(outputs.templateId) ?? 'excluído'}`)
+  for (const v of outputs.variables ?? []) {
+    parts.push(
+      v.mode === 'HIDE'
+        ? `Oculta {{${v.key}}}`
+        : `{{${v.key}}}: "${v.text ?? ''}"`
+    )
+  }
   return parts
 }

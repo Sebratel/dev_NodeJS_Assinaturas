@@ -8,6 +8,7 @@ import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
 import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
 import { SignatureRule } from '../signature-rules/types/signature-rule.types.js';
+import { VariableModeEnum } from '../signature-rules/types/variable-mode.enum.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
@@ -153,6 +154,62 @@ describe('SignatureEngineService', () => {
     );
     expect(result.status).toBe(SignatureStatusEnum.READY);
     expect(result.conflicts).toEqual([]);
+  });
+
+  describe('variáveis do modelo', () => {
+    const b2b = (priority: number, variables: SignatureRule['outputs']['variables'], name = `B2B p${priority}`): SignatureRule => ({
+      id: name,
+      name,
+      description: '',
+      priority,
+      active: true,
+      conditions: [{ field: 'company', operator: RuleOperatorEnum.IN, values: ['Sebratel Empresas'] }],
+      outputs: { variables },
+    });
+
+    it('regra esconde ou troca qualquer variável; a de prioridade maior vence, variável por variável', () => {
+      const result = engine.evaluate(
+        person({ company: 'Sebratel Empresas', corporateMobile: '51988887777' }),
+        [
+          ...rules,
+          b2b(40, [
+            { key: 'cargo', mode: VariableModeEnum.HIDE },
+            { key: 'frase', mode: VariableModeEnum.HIDE },
+          ]),
+          b2b(50, [{ key: 'cargo', mode: VariableModeEnum.TEXT, text: '{{cargo}} · {{empresa}}' }]),
+        ],
+        phrases,
+      );
+      expect(result.status).toBe(SignatureStatusEnum.READY);
+      expect(result.content.overrides).toEqual({
+        cargo: { mode: VariableModeEnum.TEXT, text: '{{cargo}} · {{empresa}}' },
+        frase: { mode: VariableModeEnum.HIDE, text: null },
+      });
+      expect(result.decisions.variables.cargo.ruleName).toBe('B2B p50');
+      expect(result.decisions.variables.frase.ruleName).toBe('B2B p40');
+      expect(result.content.company).toBe('Sebratel Empresas');
+    });
+
+    it('empate na mesma variável com valores diferentes vira conflito "{{cargo}}"', () => {
+      const result = engine.evaluate(
+        person({ company: 'Sebratel Empresas', corporateMobile: '51988887777' }),
+        [
+          ...rules,
+          b2b(40, [{ key: 'cargo', mode: VariableModeEnum.HIDE }], 'A'),
+          b2b(40, [{ key: 'cargo', mode: VariableModeEnum.TEXT, text: 'Consultor' }], 'B'),
+        ],
+        phrases,
+      );
+      expect(result.status).toBe(SignatureStatusEnum.CONFLICT);
+      expect(result.conflicts).toEqual([{ slot: 'var:cargo', ruleNames: ['A', 'B'] }]);
+      expect(result.issues.find((i) => i.code === SignatureIssueCodeEnum.RULE_CONFLICT)?.message).toContain('{{cargo}}');
+    });
+
+    it('quem não é pego pela regra não tem troca', () => {
+      const result = engine.evaluate(person({}), [...rules, b2b(40, [{ key: 'cargo', mode: VariableModeEnum.HIDE }])], phrases);
+      expect(result.content.overrides).toEqual({});
+      expect(result.decisions.variables).toEqual({});
+    });
   });
 
   it('regra inativa não vale e sem nenhuma regra o status é NO_RULE', () => {

@@ -2,7 +2,7 @@
 
 Gestão das assinaturas de e-mail corporativas do Gmail. O sistema lê os colaboradores do AD, aplica as regras criadas pelos admins (por nível, área, time, cargo) e monta a assinatura padronizada de cada pessoa. Depois grava essa assinatura no Gmail, pela tela ou automaticamente quando alguém entra ou muda no AD.
 
-## Estado (1.5.0)
+## Estado (1.6.0)
 
 | Parte | Situação |
 |---|---|
@@ -50,6 +50,11 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
 
 - Toda regra ativa cujas condições casam com a pessoa **se aplica**. As condições dentro de uma regra se combinam com "E"; os valores dentro de uma condição, com "OU".
 - A assinatura tem 4 partes: **0800**, **contato** (celular corporativo, celular informado, ramal ou nenhum), **área ou time** antes do cargo (ou nada, só o cargo) e **frase**. O que a pessoa não deve ter na assinatura sai pela regra ("Sem contato", "Sem frase", "Nada") ou pelo modelo, que esconde a parte vazia com `{{#parte}}…{{/parte}}`.
+- **Variáveis do modelo:** além das 4 partes, a regra pode mexer em qualquer variável do modelo (`{{cargo}}`, `{{setor}}`, `{{email}}`, `{{empresa}}`…, menos `{{img}}`):
+  - **Ocultar:** a variável fica vazia, e some junto o bloco `{{#variavel}}…{{/variavel}}` do modelo;
+  - **Trocar por:** um texto, que pode usar outras variáveis (`{{cargo}} · {{empresa}}`). Valem os valores de antes de qualquer troca, então a ordem não importa.
+  - A troca é aplicada por último, depois das 4 partes, e segue a mesma cascata: em cada variável, vence a regra de prioridade maior; empate com valores diferentes vira Conflito em `{{variavel}}`.
+  - Variáveis só de leitura, vindas do AD, para usar no modelo ou no texto: `{{empresa}}`, `{{departamento}}`, `{{segmento}}`, `{{estado}}`, `{{escritorio}}`.
 - Em cada parte, vence a regra de **prioridade maior**. Uma regra só mexe no que define: o resto vem das regras de prioridade menor.
 - Se duas regras com a **mesma prioridade** decidirem diferente a mesma parte, o status fica **Conflito** e a tela aponta quais são as regras.
 - O status de cada pessoa pode ser:
@@ -57,7 +62,7 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
   - **Pendente:** falta dado (celular, ramal);
   - **Conflito;**
   - **Sem regra.**
-- A simulação (`POST /api/v1/simulations`) mostra quem a regra pega e como os status mudam, antes de salvar.
+- A simulação (`POST /api/v1/simulations`) mostra quem a regra pega e como os status mudam, antes de salvar. No editor de regra, o Efeito traz também a **prévia da assinatura** de uma pessoa já com a regra do rascunho (clique num nome para trocar), atualizada enquanto se edita.
 
 As regras de 20/11/2026 vêm cadastradas na primeira subida (`api/src/modules/signature-rules/default-signature-rules.ts`).
 

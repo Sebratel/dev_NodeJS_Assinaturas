@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { ConditionsEditor } from '../../components/rules/ConditionsEditor'
+import { VariablesEditor } from '../../components/rules/VariablesEditor'
 import { Button } from '../../components/ui/Button'
 import { Drawer } from '../../components/ui/Drawer'
 import { ReadOnlyNote } from '../../components/ui/ReadOnlyNote'
@@ -229,7 +230,8 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
             <div>
               <h3 className="text-sm font-semibold">Define</h3>
               <p className="text-xs text-on-surface-variant">
-                Deixe “não muda” no que esta regra não decide.
+                Deixe “não muda” no que esta regra não decide. As variáveis do
+                modelo valem por último.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -329,6 +331,28 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
                 </Select>
               </Field>
             </div>
+            <Controller
+              control={control}
+              name="outputs.variables"
+              render={({ field }) => (
+                <VariablesEditor
+                  rows={field.value ?? []}
+                  onChange={(next) =>
+                    form.setValue('outputs.variables', next, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                  errors={Object.fromEntries(
+                    (field.value ?? []).map((_, i) => [
+                      i,
+                      errors.outputs?.variables?.[i]?.key?.message ??
+                        errors.outputs?.variables?.[i]?.text?.message,
+                    ])
+                  )}
+                />
+              )}
+            />
             {errors.outputs?.root?.message && (
               <p className="text-xs text-rose-700 dark:text-rose-300">
                 {errors.outputs.root.message}

@@ -8,10 +8,12 @@ import { Phone0800ModeEnum } from '../signature-rules/types/phone0800-mode.enum.
 import { PhraseModeEnum } from '../signature-rules/types/phrase-mode.enum.js';
 import { RuleOperatorEnum } from '../signature-rules/types/rule-operator.enum.js';
 import { SectorLabelEnum } from '../signature-rules/types/sector-label.enum.js';
+import { VariableModeEnum } from '../signature-rules/types/variable-mode.enum.js';
 import { RuleCondition, SignatureRule } from '../signature-rules/types/signature-rule.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
 import {
+  DecisionSlot,
   Phone0800Choice,
   PhraseChoice,
   PhraseOrigin,
@@ -21,12 +23,14 @@ import {
   SignatureIssue,
   SignatureSlot,
   SlotDecision,
+  VariableChoice,
 } from './types/signature-evaluation.types.js';
 
 /**
  * Motor em cascata: todas as regras ativas que casam se aplicam em ordem de prioridade (menor → maior);
  * cada parte da assinatura fica com o valor da regra de maior prioridade que a definiu.
  * Empate de prioridade com valores diferentes na parte vencedora = conflito.
+ * Variável do modelo escondida ou trocada por regra segue a mesma cascata, uma variável por vez.
  * Sem estado e sem I/O: recebe tudo por parâmetro.
  */
 @Injectable()
@@ -36,8 +40,14 @@ export class SignatureEngineService {
       .filter((rule) => rule.active && this.matches(collaborator, rule))
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name, 'pt-BR'));
 
-    const decisions: SignatureDecisions = { phone0800: null, contact: null, sectorLabel: null, phrase: null, template: null };
-    const bySlot = decisions as unknown as Record<SignatureSlot, SlotDecision<unknown> | null>;
+    const decisions: SignatureDecisions = {
+      phone0800: null,
+      contact: null,
+      sectorLabel: null,
+      phrase: null,
+      template: null,
+      variables: {},
+    };
     const ties: Array<SignatureConflict & { priority: number }> = [];
 
     for (const rule of matched) {
@@ -49,25 +59,29 @@ export class SignatureEngineService {
       const phone: Phone0800Choice | null = phoneMode
         ? { mode: phoneMode, text: phoneMode === Phone0800ModeEnum.FIXED ? (o.phone0800 ?? '') : null }
         : null;
-      const proposals: Array<[SignatureSlot, unknown]> = [
+      const proposals: Array<[DecisionSlot, unknown]> = [
         ['phone0800', phone],
         ['contact', o.contact ?? null],
         ['sectorLabel', o.sectorLabel ?? null],
         ['phrase', phrase],
         ['template', o.templateId || null],
+        ...(o.variables ?? []).map((v): [DecisionSlot, VariableChoice] => [
+          `var:${v.key}`,
+          { mode: v.mode, text: v.mode === VariableModeEnum.TEXT ? (v.text ?? '') : null },
+        ]),
       ];
       for (const [slot, value] of proposals) {
         if (value === null) continue;
-        const current = bySlot[slot];
+        const current = SignatureEngineService.decisionOf(decisions, slot);
         if (current && current.priority === rule.priority && JSON.stringify(current.value) !== JSON.stringify(value)) {
           ties.push({ slot, ruleNames: [current.ruleName, rule.name], priority: rule.priority });
         }
-        bySlot[slot] = { value, ruleId: rule.id, ruleName: rule.name, priority: rule.priority };
+        SignatureEngineService.setDecision(decisions, slot, { value, ruleId: rule.id, ruleName: rule.name, priority: rule.priority });
       }
     }
 
     // Empate só importa se nenhuma regra de prioridade maior decidiu a mesma parte depois.
-    const conflicts = this.mergeTies(ties.filter((t) => decisions[t.slot]?.priority === t.priority));
+    const conflicts = this.mergeTies(ties.filter((t) => SignatureEngineService.decisionOf(decisions, t.slot)?.priority === t.priority));
     const phrase = this.resolvePhrase(collaborator, decisions.phrase, phrases, profiles);
     const content = this.buildContent(collaborator, decisions, phrase.text);
     const issues = this.collectIssues(matched, decisions, conflicts, content, phrase.origin, collaborator);
@@ -87,6 +101,17 @@ export class SignatureEngineService {
       issues,
       content,
     };
+  }
+
+  /** Decisão de uma parte fixa ou de uma variável (`var:cargo`). */
+  static decisionOf(decisions: SignatureDecisions, slot: DecisionSlot): SlotDecision<unknown> | null {
+    if (slot.startsWith('var:')) return decisions.variables[slot.slice(4)] ?? null;
+    return decisions[slot as SignatureSlot];
+  }
+
+  private static setDecision(decisions: SignatureDecisions, slot: DecisionSlot, decision: SlotDecision<unknown>): void {
+    if (slot.startsWith('var:')) decisions.variables[slot.slice(4)] = decision as SlotDecision<VariableChoice>;
+    else (decisions as unknown as Record<SignatureSlot, SlotDecision<unknown>>)[slot as SignatureSlot] = decision;
   }
 
   matches(collaborator: Collaborator, rule: Pick<SignatureRule, 'conditions'>): boolean {
@@ -113,7 +138,7 @@ export class SignatureEngineService {
   }
 
   private mergeTies(ties: Array<SignatureConflict & { priority: number }>): SignatureConflict[] {
-    const bySlot = new Map<SignatureSlot, Set<string>>();
+    const bySlot = new Map<DecisionSlot, Set<string>>();
     for (const tie of ties) {
       const names = bySlot.get(tie.slot) ?? new Set<string>();
       tie.ruleNames.forEach((n) => names.add(n));
@@ -148,6 +173,12 @@ export class SignatureEngineService {
       contactText,
       phrase: phraseText,
       phone0800: this.resolvePhone0800(collaborator, decisions.phone0800?.value ?? null),
+      company: collaborator.company,
+      department: collaborator.department,
+      segment: collaborator.segment,
+      state: collaborator.state,
+      office: collaborator.office,
+      overrides: Object.fromEntries(Object.entries(decisions.variables).map(([key, decision]) => [key, decision.value])),
     };
   }
 
@@ -222,7 +253,7 @@ export class SignatureEngineService {
       issues.push({
         code: SignatureIssueCodeEnum.RULE_CONFLICT,
         severity: 'ERROR',
-        message: `Empate em "${SLOT_LABELS[conflict.slot]}": ${conflict.ruleNames.join(' × ')}. Ajuste a prioridade de uma delas.`,
+        message: `Empate em "${slotLabel(conflict.slot)}": ${conflict.ruleNames.join(' × ')}. Ajuste a prioridade de uma delas.`,
       });
     }
     if (!content.contactText) {
@@ -281,3 +312,8 @@ export const SLOT_LABELS: Record<SignatureSlot, string> = {
   phrase: 'Frase',
   template: 'Modelo',
 };
+
+/** "Frase", "Modelo"… ou "{{cargo}}" para variável do modelo. */
+export function slotLabel(slot: DecisionSlot): string {
+  return slot.startsWith('var:') ? `{{${slot.slice(4)}}}` : SLOT_LABELS[slot as SignatureSlot];
+}

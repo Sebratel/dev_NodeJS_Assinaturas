@@ -1,6 +1,7 @@
 import type { BadgeTone } from '../components/ui/Badge'
 import type {
   ContactType,
+  DecisionSlot,
   IssueCode,
   Level,
   PhraseMode,
@@ -10,6 +11,7 @@ import type {
   SignatureSlot,
   SignatureStatus,
   SourceField,
+  VariableMode,
 } from '../types/api'
 
 export const LEVEL_LABELS: Record<Level, string> = {
@@ -105,6 +107,18 @@ export const SLOT_LABELS: Record<SignatureSlot, string> = {
   sectorLabel: 'Área ou time',
   phrase: 'Frase',
   template: 'Modelo',
+}
+
+/** "Frase", "Modelo"… ou "{{cargo}}" para variável do modelo. */
+export function slotLabel(slot: DecisionSlot): string {
+  return slot.startsWith('var:')
+    ? `{{${slot.slice(4)}}}`
+    : SLOT_LABELS[slot as SignatureSlot]
+}
+
+export const VARIABLE_MODE_LABELS: Record<VariableMode, string> = {
+  HIDE: 'Ocultar',
+  TEXT: 'Trocar por',
 }
 
 export const APPLICATION_STATUS_LABELS: Record<
