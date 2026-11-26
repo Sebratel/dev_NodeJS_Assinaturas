@@ -138,6 +138,8 @@ export interface SignatureEvaluation {
 export interface VariableChoice {
   source: VariableSource
   field: string | null
+  /** Só em FIELD: texto antes do valor ("Time:"). */
+  prefix: string | null
   text: string | null
 }
 
@@ -168,6 +170,8 @@ export interface RuleVariable {
   source: VariableSource
   /** Só em FIELD: chave do campo (cargo, celular_corporativo…). */
   field?: string | null
+  /** Só em FIELD, opcional: vem antes do valor ("Time:" → "Time: Suporte"). */
+  prefix?: string | null
   /** Só em TEXT; pode citar campos: "Ramal {{ramal}}". */
   text?: string | null
 }

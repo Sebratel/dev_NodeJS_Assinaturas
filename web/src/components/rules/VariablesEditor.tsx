@@ -16,7 +16,7 @@ interface VariablesEditorProps {
   errors?: Record<string, string | undefined>
 }
 
-const EMPTY_VALUE: VariableFormValue = { choice: '', text: '' }
+const EMPTY_VALUE: VariableFormValue = { choice: '', text: '', prefix: '' }
 
 /**
  * Uma linha por variável dos modelos ({{cargo}}, {{teste}}…), cada uma com um seletor:
@@ -129,6 +129,17 @@ export function VariablesEditor({
                 aria-invalid={Boolean(error)}
               />
             )}
+            {current.choice.startsWith('FIELD:') && (
+              <Input
+                aria-label={`Prefixo de {{${key}}}`}
+                title="Vem antes do valor, só quando o campo tem valor. Em branco: só o valor."
+                className="min-h-9 w-40 shrink-0 py-1.5"
+                maxLength={40}
+                value={current.prefix ?? ''}
+                onChange={(e) => set(key, { prefix: e.target.value })}
+                placeholder="Prefixo (opcional)"
+              />
+            )}
           </div>
           {error && (
             <p className="text-xs text-rose-700 dark:text-rose-300">{error}</p>
@@ -144,8 +155,9 @@ export function VariablesEditor({
         <div>
           <h4 className="text-sm font-medium">Variáveis do modelo</h4>
           <p className="text-xs text-on-surface-variant">
-            “Não muda” deixa a variável para a regra de prioridade menor. No
-            texto fixo dá para usar campos: <code>{'{{ramal}}'}</code>.
+            “Não muda” deixa a variável para a regra de prioridade menor. Campo
+            aceita prefixo opcional (<code>Time:</code>); texto fixo aceita
+            campos (<code>{'{{ramal}}'}</code>).
           </p>
         </div>
         {templateId && (

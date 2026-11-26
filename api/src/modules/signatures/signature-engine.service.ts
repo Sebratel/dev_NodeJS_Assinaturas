@@ -111,12 +111,17 @@ export class SignatureEngineService {
     return {
       source: variable.source,
       field: variable.source === VariableSourceEnum.FIELD ? (variable.field ?? null) : null,
+      prefix: variable.source === VariableSourceEnum.FIELD ? variable.prefix?.trim() || null : null,
       text: variable.source === VariableSourceEnum.TEXT ? (variable.text ?? '') : null,
     };
   }
 
   private static valueOf(choice: VariableChoice, fields: Record<string, string>): string {
-    if (choice.source === VariableSourceEnum.FIELD) return fields[choice.field ?? ''] ?? '';
+    if (choice.source === VariableSourceEnum.FIELD) {
+      // Prefixo só aparece junto do valor: campo vazio na pessoa = variável vazia.
+      const value = fields[choice.field ?? ''] ?? '';
+      return value && choice.prefix ? `${choice.prefix} ${value}` : value;
+    }
     if (choice.source === VariableSourceEnum.TEXT) return SignatureFieldsHelper.renderText(choice.text ?? '', fields);
     return '';
   }

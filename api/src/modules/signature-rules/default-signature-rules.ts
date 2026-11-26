@@ -3,7 +3,13 @@ import { RuleOperatorEnum } from './types/rule-operator.enum.js';
 import { RuleVariable, SignatureRule } from './types/signature-rule.types.js';
 import { VariableSourceEnum } from './types/variable-source.enum.js';
 
-const field = (key: string, fieldKey: string): RuleVariable => ({ key, source: VariableSourceEnum.FIELD, field: fieldKey, text: null });
+const field = (key: string, fieldKey: string, prefix: string | null = null): RuleVariable => ({
+  key,
+  source: VariableSourceEnum.FIELD,
+  field: fieldKey,
+  prefix,
+  text: null,
+});
 const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, field: null, text: value });
 const empty = (key: string): RuleVariable => ({ key, source: VariableSourceEnum.EMPTY, field: null, text: null });
 
@@ -87,9 +93,9 @@ export const DEFAULT_SIGNATURE_RULES: Array<Omit<SignatureRule, 'id'>> = [
     ],
     outputs: {
       variables: [
-        text('contato', 'Ramal {{ramal}}'),
+        field('contato', 'ramal', 'Ramal'),
         empty('contato_celular'),
-        text('contato_ramal', 'Ramal {{ramal}}'),
+        field('contato_ramal', 'ramal', 'Ramal'),
         field('setor', 'time'),
       ],
     },

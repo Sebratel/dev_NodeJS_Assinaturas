@@ -94,6 +94,7 @@ export class SignatureRulesService implements OnModuleInit {
       key: v.key,
       source: v.source,
       field: v.source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
+      prefix: v.source === VariableSourceEnum.FIELD ? v.prefix?.trim() || null : null,
       text: v.source === VariableSourceEnum.TEXT ? (v.text?.trim() ?? '') : null,
     }));
     return {

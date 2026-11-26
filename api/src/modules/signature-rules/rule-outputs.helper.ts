@@ -17,7 +17,13 @@ interface LegacyRuleOutputs {
   variables?: Array<Partial<RuleVariable> & { key: string; mode?: 'HIDE' | 'TEXT' }> | null;
 }
 
-const field = (key: string, fieldKey: string): RuleVariable => ({ key, source: VariableSourceEnum.FIELD, field: fieldKey, text: null });
+const field = (key: string, fieldKey: string, prefix: string | null = null): RuleVariable => ({
+  key,
+  source: VariableSourceEnum.FIELD,
+  field: fieldKey,
+  prefix,
+  text: null,
+});
 const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, field: null, text: value });
 const empty = (key: string): RuleVariable => ({ key, source: VariableSourceEnum.EMPTY, field: null, text: null });
 
@@ -40,9 +46,9 @@ export class RuleOutputsHelper {
       put(empty('contato_ramal'));
     }
     if (o.contact === 'EXTENSION') {
-      put(text('contato', 'Ramal {{ramal}}'));
+      put(field('contato', 'ramal', 'Ramal'));
       put(empty('contato_celular'));
-      put(text('contato_ramal', 'Ramal {{ramal}}'));
+      put(field('contato_ramal', 'ramal', 'Ramal'));
     }
 
     if (o.sectorLabel === 'AREA') put(field('setor', 'area'));
@@ -61,6 +67,7 @@ export class RuleOutputsHelper {
         key: v.key,
         source,
         field: source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
+        prefix: source === VariableSourceEnum.FIELD ? (v.prefix ?? null) : null,
         text: source === VariableSourceEnum.TEXT ? (v.text ?? '') : null,
       });
     }

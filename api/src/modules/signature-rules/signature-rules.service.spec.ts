@@ -25,14 +25,16 @@ describe('SignatureRulesService: variáveis do modelo na regra', () => {
   it('regra com campo, texto e vazio é válida; o que não é da fonte escolhida é descartado', () => {
     const dto = draft([
       { key: 'cargo', source: VariableSourceEnum.EMPTY, field: 'cargo', text: 'sobra' },
-      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', text: 'sobra' },
-      { key: 'contato', source: VariableSourceEnum.TEXT, field: 'ramal', text: '  Ramal {{ramal}}  ' },
+      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', prefix: '  Empresa:  ', text: 'sobra' },
+      { key: 'nome', source: VariableSourceEnum.FIELD, field: 'nome', prefix: '   ' },
+      { key: 'contato', source: VariableSourceEnum.TEXT, field: 'ramal', prefix: 'sobra', text: '  Ramal {{ramal}}  ' },
     ]);
     expect(problemsOf(dto)).toEqual([]);
     expect(SignatureRulesService.clean(dto).outputs.variables).toEqual([
-      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: null, text: null },
-      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', text: null },
-      { key: 'contato', source: VariableSourceEnum.TEXT, field: null, text: 'Ramal {{ramal}}' },
+      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: null, prefix: null, text: null },
+      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', prefix: 'Empresa:', text: null },
+      { key: 'nome', source: VariableSourceEnum.FIELD, field: 'nome', prefix: null, text: null },
+      { key: 'contato', source: VariableSourceEnum.TEXT, field: null, prefix: null, text: 'Ramal {{ramal}}' },
     ]);
     expect(SignatureRulesService.clean(draft([])).outputs.variables).toBeNull();
   });

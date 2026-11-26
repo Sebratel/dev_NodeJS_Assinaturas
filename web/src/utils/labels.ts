@@ -82,13 +82,15 @@ export function slotLabel(slot: DecisionSlot): string {
 export function choiceLabel(
   choice: Pick<VariableChoice, 'source'> & {
     field?: string | null
+    prefix?: string | null
     text?: string | null
   },
   fieldLabels: Map<string, string>
 ): string {
   if (choice.source === 'EMPTY') return 'Vazio'
   if (choice.source === 'TEXT') return `“${choice.text ?? ''}”`
-  return fieldLabels.get(choice.field ?? '') ?? choice.field ?? '—'
+  const label = fieldLabels.get(choice.field ?? '') ?? choice.field ?? '—'
+  return choice.prefix ? `“${choice.prefix}” + ${label}` : label
 }
 
 export const APPLICATION_STATUS_LABELS: Record<

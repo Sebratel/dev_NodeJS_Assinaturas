@@ -16,6 +16,8 @@ export type VariableChoiceValue = '' | 'EMPTY' | 'TEXT' | `FIELD:${string}`
 export interface VariableFormValue {
   choice: VariableChoiceValue
   text: string
+  /** Só com campo: texto antes do valor ("Time:"). Vazio = só o valor. */
+  prefix: string
 }
 
 export const ruleFormSchema = z
@@ -62,6 +64,7 @@ export const ruleFormSchema = z
         z.object({
           choice: z.custom<VariableChoiceValue>((v) => typeof v === 'string'),
           text: z.string().max(200, 'Até 200 caracteres.'),
+          prefix: z.string().max(40, 'Até 40 caracteres.'),
         })
       ),
     }),
@@ -113,8 +116,12 @@ export function emptyRuleForm(priority = 20): RuleFormValues {
 
 export function variableToForm(v: RuleVariable): VariableFormValue {
   if (v.source === 'FIELD')
-    return { choice: `FIELD:${v.field ?? ''}`, text: '' }
-  return { choice: v.source, text: v.text ?? '' }
+    return {
+      choice: `FIELD:${v.field ?? ''}`,
+      text: '',
+      prefix: v.prefix ?? '',
+    }
+  return { choice: v.source, text: v.text ?? '', prefix: '' }
 }
 
 export function ruleToForm(rule: SignatureRule): RuleFormValues {
@@ -140,7 +147,11 @@ function formToVariable(
   if (!v.choice) return null
   if (v.choice === 'EMPTY') return { key, source: 'EMPTY' }
   if (v.choice === 'TEXT') return { key, source: 'TEXT', text: v.text.trim() }
-  return { key, source: 'FIELD', field: v.choice.slice('FIELD:'.length) }
+  const field = v.choice.slice('FIELD:'.length)
+  const prefix = v.prefix?.trim()
+  return prefix
+    ? { key, source: 'FIELD', field, prefix }
+    : { key, source: 'FIELD', field }
 }
 
 /** '' na tela = "esta regra não mexe nisso" = fora da lista na API. */

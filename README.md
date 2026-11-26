@@ -55,6 +55,7 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
   - **Vazio (em branco):** a variável fica vazia, e some junto o bloco `{{#variavel}}…{{/variavel}}` do modelo;
   - **Texto fixo:** por exemplo `0800 365 8000`. Pode citar campos (`Ramal {{ramal}}`); se um campo citado estiver vazio, a variável fica vazia;
   - **Um campo:** nome, e-mail, cargo, área, time, departamento, empresa, segmento, estado, escritório, celular corporativo, ramal, 0800 do AD, celular informado pela pessoa ou a frase da tela Frases (`api/src/modules/signature-templates/signature-fields.ts`).
+    - **Prefixo opcional:** texto antes do valor, como `Time:` (vira "Time: Suporte"). Em branco, sai só o valor, que é o caso do nome. Se o campo estiver vazio na pessoa, o prefixo também não aparece.
 - **Padrão sem regra:** a variável com nome de campo mostra o campo (`{{cargo}}` → Cargo). `{{setor}}` mostra o Time. As demais ficam vazias.
 - Em cada variável, e no modelo, vence a regra de **prioridade maior**. Uma regra só mexe no que define.
 - Se duas regras com a **mesma prioridade** decidirem diferente a mesma variável, o status fica **Conflito em `{{variavel}}`** e a tela aponta quais são as regras.
