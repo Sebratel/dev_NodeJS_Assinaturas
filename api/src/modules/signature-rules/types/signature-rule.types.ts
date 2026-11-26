@@ -25,6 +25,8 @@ export interface RuleVariable {
   source: VariableSourceEnum;
   /** Só em FIELD: chave do campo (cargo, celular_corporativo…). */
   field?: string | null;
+  /** Só em FIELD, opcional: vem antes do valor ("Time:" → "Time: Suporte"). Campo vazio = sem prefixo também. */
+  prefix?: string | null;
   /** Só em TEXT. */
   text?: string | null;
 }

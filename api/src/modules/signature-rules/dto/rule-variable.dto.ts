@@ -17,6 +17,11 @@ export class RuleVariableDTO {
 
   @IsOptional()
   @IsString()
+  @MaxLength(40)
+  prefix?: string | null;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(200)
   text?: string | null;
 }

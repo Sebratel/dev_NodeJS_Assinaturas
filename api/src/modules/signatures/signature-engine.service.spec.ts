@@ -85,7 +85,12 @@ describe('SignatureEngineService', () => {
     const result = engine.evaluate(person({ company: 'SEBRATEL EMPRESAS', corporateMobile: '51988887777' }), rules, phrases);
     expect(result.content.values.telefone_0800).toBe('0800 365 8000');
     expect(result.content.values.contato_celular).toBe('(51) 98888-7777');
-    expect(result.decisions.variables.telefone_0800.value).toEqual({ source: VariableSourceEnum.TEXT, field: null, text: '0800 365 8000' });
+    expect(result.decisions.variables.telefone_0800.value).toEqual({
+      source: VariableSourceEnum.TEXT,
+      field: null,
+      prefix: null,
+      text: '0800 365 8000',
+    });
   });
 
   it('membro do Suporte mostra "Ramal 4021" e a frase do time; sem ramal no AD fica pendente e o texto some', () => {
@@ -128,6 +133,19 @@ describe('SignatureEngineService', () => {
     expect(result.phraseOrigin).toMatchObject({ kind: 'NONE' });
   });
 
+  it('campo com prefixo: "Time: Operacional"; sem prefixo sai só o valor; campo vazio não deixa o prefixo sozinho', () => {
+    const withPrefix = (key: string, fieldKey: string, prefix: string): RuleVariable => ({ ...field(key, fieldKey), prefix });
+    const result = engine.evaluate(
+      person({}),
+      [
+        ...rules,
+        rule('Prefixos', 40, [withPrefix('setor', 'time', ' Time: '), field('nome', 'nome'), withPrefix('teste', 'segmento', 'Seg.:')]),
+      ],
+      phrases,
+    );
+    expect(result.content.values).toMatchObject({ setor: 'Time: Operacional', nome: 'Fulano', teste: '' });
+  });
+
   it('texto que cita campo vazio deixa a variável vazia; texto da 1.7.0 com {{setor}} continua valendo', () => {
     const result = engine.evaluate(person({}), [...rules, rule('Seg', 40, [text('teste', 'Segmento {{segmento}}')])], phrases);
     expect(result.content.values.teste).toBe('');
@@ -165,7 +183,7 @@ describe('SignatureEngineService', () => {
     expect(legacy.variables).toEqual(
       expect.arrayContaining([
         { key: 'telefone_0800', source: VariableSourceEnum.TEXT, field: null, text: '0800 1' },
-        { key: 'contato_ramal', source: VariableSourceEnum.TEXT, field: null, text: 'Ramal {{ramal}}' },
+        { key: 'contato_ramal', source: VariableSourceEnum.FIELD, field: 'ramal', prefix: 'Ramal', text: null },
         { key: 'setor', source: VariableSourceEnum.EMPTY, field: null, text: null },
         { key: 'frase', source: VariableSourceEnum.EMPTY, field: null, text: null },
       ]),

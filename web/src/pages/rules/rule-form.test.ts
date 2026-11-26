@@ -23,10 +23,11 @@ const withVariables = (
 describe('rule-form: variáveis do modelo', () => {
   it('campo, texto e vazio viram a lista da API; "não muda" fica de fora', () => {
     const form = withVariables({
-      cargo: { choice: 'EMPTY', text: 'sobra' },
-      TESTE: { choice: 'FIELD:empresa', text: '' },
-      telefone_0800: { choice: 'TEXT', text: ' 0800 365 8000 ' },
-      setor: { choice: '', text: '' },
+      cargo: { choice: 'EMPTY', text: 'sobra', prefix: 'sobra' },
+      TESTE: { choice: 'FIELD:empresa', text: '', prefix: '' },
+      time: { choice: 'FIELD:time', text: '', prefix: ' Time: ' },
+      telefone_0800: { choice: 'TEXT', text: ' 0800 365 8000 ', prefix: '' },
+      setor: { choice: '', text: '', prefix: '' },
     })
     expect(ruleFormSchema.safeParse(form).success).toBe(true)
     expect(formToInput(form).outputs).toEqual({
@@ -34,6 +35,7 @@ describe('rule-form: variáveis do modelo', () => {
       variables: [
         { key: 'cargo', source: 'EMPTY' },
         { key: 'TESTE', source: 'FIELD', field: 'empresa' },
+        { key: 'time', source: 'FIELD', field: 'time', prefix: 'Time:' },
         { key: 'telefone_0800', source: 'TEXT', text: '0800 365 8000' },
       ],
     })
@@ -52,7 +54,13 @@ describe('rule-form: variáveis do modelo', () => {
         templateId: 't1',
         variables: [
           { key: 'contato', source: 'FIELD', field: 'celular_corporativo' },
-          { key: 'contato_ramal', source: 'TEXT', text: 'Ramal {{ramal}}' },
+          {
+            key: 'contato_ramal',
+            source: 'FIELD',
+            field: 'ramal',
+            prefix: 'Ramal',
+          },
+          { key: 'frase', source: 'TEXT', text: 'Fixa.' },
         ],
       },
       createdAt: '',
@@ -62,19 +70,20 @@ describe('rule-form: variáveis do modelo', () => {
     expect(form.outputs.variables.contato.choice).toBe(
       'FIELD:celular_corporativo'
     )
+    expect(form.outputs.variables.contato_ramal.prefix).toBe('Ramal')
     expect(formToInput(form).outputs).toEqual(rule.outputs)
   })
 
   it('recusa regra vazia e texto fixo em branco', () => {
     const vazia = ruleFormSchema.safeParse(
-      withVariables({ cargo: { choice: '', text: '' } })
+      withVariables({ cargo: { choice: '', text: '', prefix: '' } })
     )
     expect(vazia.error?.issues.map((i) => i.message)).toContain(
       'A regra precisa definir o modelo ou pelo menos uma variável.'
     )
     expect(ruleFormSchema.safeParse(withVariables({}, 't1')).success).toBe(true)
     const semTexto = ruleFormSchema.safeParse(
-      withVariables({ frase: { choice: 'TEXT', text: ' ' } })
+      withVariables({ frase: { choice: 'TEXT', text: ' ', prefix: '' } })
     )
     expect(semTexto.error?.issues.map((i) => i.message)).toContain(
       'Escreva o texto ou escolha Vazio.'
@@ -89,16 +98,21 @@ describe('rule-form: variáveis do modelo', () => {
           variables: [
             { key: 'cargo', source: 'EMPTY' },
             { key: 'contato', source: 'FIELD', field: 'celular_corporativo' },
+            { key: 'setor', source: 'FIELD', field: 'time', prefix: 'Time:' },
             { key: 'telefone_0800', source: 'TEXT', text: '0800 365 8000' },
           ],
         },
         new Map([['t1', 'Sebratel Empresas']]),
-        new Map([['celular_corporativo', 'Celular corporativo']])
+        new Map([
+          ['celular_corporativo', 'Celular corporativo'],
+          ['time', 'Time'],
+        ])
       )
     ).toEqual([
       'Modelo: Sebratel Empresas',
       '{{cargo}}: Vazio',
       '{{contato}}: Celular corporativo',
+      '{{setor}}: “Time:” + Time',
       '{{telefone_0800}}: “0800 365 8000”',
     ])
   })
