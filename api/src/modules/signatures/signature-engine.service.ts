@@ -56,10 +56,11 @@ export class SignatureEngineService {
     const conflicts = this.mergeTies(ties.filter((t) => SignatureEngineService.decisionOf(decisions, t.slot)?.priority === t.priority));
     const phrase = this.resolvePhrase(collaborator, phrases, profiles);
     const fields = SignatureFieldsHelper.values(collaborator, { phrase: phrase.text });
-    const values: Record<string, string> = { ...fields };
-    for (const key of ['setor', 'contato', 'contato_celular', 'contato_ramal'])
-      values[key] = SignatureFieldsHelper.defaultValue(key, fields);
-    for (const [key, decision] of Object.entries(decisions.variables)) values[key] = SignatureEngineService.valueOf(decision.value, fields);
+    // Base = campos + padrões antigos ({{setor}} = Time). Texto fixo lê daqui (texto gravado na 1.7.0 pode citar {{setor}}).
+    const base: Record<string, string> = { ...fields };
+    for (const key of ['setor', 'contato', 'contato_celular', 'contato_ramal']) base[key] = SignatureFieldsHelper.defaultValue(key, fields);
+    const values: Record<string, string> = { ...base };
+    for (const [key, decision] of Object.entries(decisions.variables)) values[key] = SignatureEngineService.valueOf(decision.value, base);
 
     const fieldsUsed = [...new Set(Object.values(decisions.variables).flatMap((d) => SignatureEngineService.fieldsOf(d.value)))];
     const phraseOrigin = this.phraseOriginOf(decisions.variables.frase, phrase.origin);

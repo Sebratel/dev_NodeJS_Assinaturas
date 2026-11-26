@@ -128,9 +128,13 @@ describe('SignatureEngineService', () => {
     expect(result.phraseOrigin).toMatchObject({ kind: 'NONE' });
   });
 
-  it('texto que cita campo vazio deixa a variável vazia', () => {
+  it('texto que cita campo vazio deixa a variável vazia; texto da 1.7.0 com {{setor}} continua valendo', () => {
     const result = engine.evaluate(person({}), [...rules, rule('Seg', 40, [text('teste', 'Segmento {{segmento}}')])], phrases);
     expect(result.content.values.teste).toBe('');
+
+    const v17 = RuleOutputsHelper.normalize({ variables: [{ key: 'cargo', mode: 'TEXT', text: '{{cargo}} · {{setor}}' }] });
+    const antigo = engine.evaluate(person({}), [...rules, rule('1.7.0', 40, v17.variables ?? [])], phrases);
+    expect(antigo.content.values.cargo).toBe('Analista · Operacional');
   });
 
   it('empate na mesma variável com valores diferentes vira conflito "{{cargo}}"; a de prioridade maior desfaz', () => {
