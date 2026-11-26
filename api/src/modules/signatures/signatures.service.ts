@@ -22,7 +22,7 @@ import { SimulateSignatureRuleDTO } from './dto/simulate-signature-rule.dto.js';
 import { SignatureEngineService } from './signature-engine.service.js';
 import { GMAIL_SIGNATURE_MAX_LENGTH, SignatureTemplateHelper } from './signature-template.helper.js';
 import { CoverageReport, PhraseProfileSimulation, RulePreview, RuleSimulation } from './types/coverage-report.types.js';
-import { SignatureEvaluation } from './types/signature-evaluation.types.js';
+import { DecisionSlot, SignatureDecisions, SignatureEvaluation, SignatureSlot } from './types/signature-evaluation.types.js';
 import { SignatureIssueCodeEnum } from './types/signature-issue-code.enum.js';
 import { SignatureStatusEnum } from './types/signature-status.enum.js';
 
@@ -270,10 +270,21 @@ export class SignaturesService {
       gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
       matched: this.signatureEngine.matches(person, draftRule),
       changed: html !== render(current[index]),
-      decidedHere: Object.entries(evaluation.decisions)
-        .filter(([, decision]) => decision?.ruleId === draftRule.id)
-        .map(([slot]) => slot),
+      decidedHere: this.slotsDecidedBy(evaluation.decisions, draftRule.id),
     };
+  }
+
+  /** Partes e variáveis (`var:cargo`) em que a regra venceu. */
+  private slotsDecidedBy(decisions: SignatureDecisions, ruleId: string): DecisionSlot[] {
+    const { variables, ...fixed } = decisions;
+    return [
+      ...Object.entries(fixed)
+        .filter(([, decision]) => decision?.ruleId === ruleId)
+        .map(([slot]) => slot as SignatureSlot),
+      ...Object.entries(variables)
+        .filter(([, decision]) => decision.ruleId === ruleId)
+        .map(([key]): DecisionSlot => `var:${key}`),
+    ];
   }
 
   private async evaluateAll(): Promise<{

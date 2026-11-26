@@ -1,11 +1,11 @@
-import type { SignatureEvaluation, SignatureSlot } from '../../types/api'
+import type { DecisionSlot, SignatureEvaluation } from '../../types/api'
 import {
   CONTACT_LABELS,
   PHONE0800_MODE_LABELS,
   PHRASE_MODE_LABELS,
   PHRASE_ORIGIN_LABELS,
   SECTOR_LABELS,
-  SLOT_LABELS,
+  slotLabel,
 } from '../../utils/labels'
 
 /** "Perfil: Diretoria técnica", "Frase do time (Dp · Administrativo)", "Frase padrão"… */
@@ -26,7 +26,7 @@ export function DecisionList({
 }) {
   const { decisions, content } = evaluation
   const rows: Array<{
-    slot: SignatureSlot
+    slot: DecisionSlot
     value: string
     detail: string
     rule: string | null
@@ -75,6 +75,14 @@ export function DecisionList({
       rule: decisions.template?.ruleName ?? null,
       priority: decisions.template?.priority ?? null,
     },
+    // Variáveis do modelo que alguma regra escondeu ou trocou (aplicadas por último).
+    ...Object.entries(decisions.variables ?? {}).map(([key, decision]) => ({
+      slot: `var:${key}` as DecisionSlot,
+      value: decision.value.mode === 'HIDE' ? 'Oculta' : 'Trocada',
+      detail: decision.value.mode === 'TEXT' ? (decision.value.text ?? '') : '',
+      rule: decision.ruleName,
+      priority: decision.priority,
+    })),
   ]
 
   return (
@@ -90,7 +98,7 @@ export function DecisionList({
         {rows.map((row) => (
           <tr key={row.slot} className="align-top">
             <td className="px-2.5 py-2 text-on-surface-variant">
-              {SLOT_LABELS[row.slot]}
+              {slotLabel(row.slot)}
             </td>
             <td className="px-2.5 py-2">
               <div className="font-medium">{row.value}</div>

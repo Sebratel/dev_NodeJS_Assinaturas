@@ -15,7 +15,7 @@ import { cn } from '../../utils/cn'
 import { formatNumber } from '../../utils/format'
 import {
   LEVEL_LABELS,
-  SLOT_LABELS,
+  slotLabel,
   STATUS_LABELS,
   STATUS_TONES,
 } from '../../utils/labels'
@@ -44,8 +44,7 @@ function PreviewBlock({ preview }: { preview: RulePreview }) {
       )}
       {preview.decidedHere.length > 0 && (
         <p className="text-xs text-on-surface-variant">
-          Esta regra decide:{' '}
-          {preview.decidedHere.map((slot) => SLOT_LABELS[slot]).join(', ')}.
+          Esta regra decide: {preview.decidedHere.map(slotLabel).join(', ')}.
         </p>
       )}
       <SignaturePreview

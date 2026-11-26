@@ -1,5 +1,6 @@
 import { ContactTypeEnum } from '../signature-rules/types/contact-type.enum.js';
-import { TemplateRenderHelper } from '../signature-templates/template-render.helper.js';
+import { VariableModeEnum } from '../signature-rules/types/variable-mode.enum.js';
+import { OVERRIDABLE_VARIABLE_KEYS, TemplateRenderHelper } from '../signature-templates/template-render.helper.js';
 import { SignatureContent } from './types/signature-evaluation.types.js';
 
 /** Limite do Gmail para a assinatura. */
@@ -7,7 +8,19 @@ export const GMAIL_SIGNATURE_MAX_LENGTH = 10_000;
 
 /** Liga o conteúdo decidido pelas regras às variáveis do modelo e gera o HTML final. */
 export class SignatureTemplateHelper {
+  /** Valores das variáveis, já com o que as regras esconderam ou trocaram. */
   static toVariables(content: SignatureContent, imageBaseUrl: string): Record<string, string> {
+    const base = SignatureTemplateHelper.baseVariables(content, imageBaseUrl);
+    const result = { ...base };
+    for (const [key, choice] of Object.entries(content.overrides ?? {})) {
+      if (!OVERRIDABLE_VARIABLE_KEYS.includes(key)) continue;
+      // Texto da regra usa os valores originais: a ordem das trocas não muda o resultado.
+      result[key] = choice.mode === VariableModeEnum.HIDE ? '' : TemplateRenderHelper.renderText(choice.text ?? '', base);
+    }
+    return result;
+  }
+
+  private static baseVariables(content: SignatureContent, imageBaseUrl: string): Record<string, string> {
     const isMobile = content.contactType === ContactTypeEnum.CORPORATE_MOBILE || content.contactType === ContactTypeEnum.INFORMED_MOBILE;
     return {
       nome: content.name,
@@ -21,6 +34,11 @@ export class SignatureTemplateHelper {
       contato_ramal: content.contactType === ContactTypeEnum.EXTENSION ? content.contactText : '',
       frase: content.phrase,
       telefone_0800: content.phone0800,
+      empresa: content.company ?? '',
+      departamento: content.department ?? '',
+      segmento: content.segment ?? '',
+      estado: content.state ?? '',
+      escritorio: content.office ?? '',
       img: imageBaseUrl.replace(/\/?$/, '/'),
     };
   }

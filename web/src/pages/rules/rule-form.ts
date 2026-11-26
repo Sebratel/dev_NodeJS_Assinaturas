@@ -53,6 +53,13 @@ export const ruleFormSchema = z
       sectorLabel: z.enum(['', 'AREA', 'TEAM', 'NONE']),
       phraseMode: z.enum(['', 'TEAM', 'FIXED', 'NONE']),
       phraseText: z.string().max(140, 'Até 140 caracteres.'),
+      variables: z.array(
+        z.object({
+          key: z.string().min(1, 'Escolha a variável.'),
+          mode: z.enum(['HIDE', 'TEXT']),
+          text: z.string().max(200, 'Até 200 caracteres.'),
+        })
+      ),
     }),
   })
   .superRefine((form, ctx) => {
@@ -76,7 +83,8 @@ export const ruleFormSchema = z
         o.sectorLabel,
         o.phraseMode,
         o.templateId,
-      ].some(Boolean)
+      ].some(Boolean) &&
+      !o.variables.length
     ) {
       ctx.addIssue({
         code: 'custom',
@@ -98,6 +106,24 @@ export const ruleFormSchema = z
         message: 'Escreva a frase.',
       })
     }
+    const seen = new Set<string>()
+    o.variables.forEach((v, i) => {
+      if (v.key && seen.has(v.key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['outputs', 'variables', i, 'key'],
+          message: 'Essa variável já está na lista.',
+        })
+      }
+      seen.add(v.key)
+      if (v.mode === 'TEXT' && !v.text.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['outputs', 'variables', i, 'text'],
+          message: 'Escreva o texto ou escolha Ocultar.',
+        })
+      }
+    })
   })
 
 export type RuleFormValues = z.infer<typeof ruleFormSchema>
@@ -117,6 +143,7 @@ export function emptyRuleForm(priority = 20): RuleFormValues {
       sectorLabel: '',
       phraseMode: '',
       phraseText: '',
+      variables: [],
     },
   }
 }
@@ -137,6 +164,11 @@ export function ruleToForm(rule: SignatureRule): RuleFormValues {
       sectorLabel: o.sectorLabel ?? '',
       phraseMode: o.phraseMode ?? '',
       phraseText: o.phraseText ?? '',
+      variables: (o.variables ?? []).map((v) => ({
+        key: v.key,
+        mode: v.mode,
+        text: v.text ?? '',
+      })),
     },
   }
 }
@@ -162,6 +194,13 @@ export function formToInput(form: RuleFormValues): SignatureRuleInput {
       sectorLabel: o.sectorLabel || null,
       phraseMode: o.phraseMode || null,
       phraseText: o.phraseMode === 'FIXED' ? o.phraseText.trim() || null : null,
+      variables: o.variables?.length
+        ? o.variables.map((v) => ({
+            key: v.key,
+            mode: v.mode,
+            text: v.mode === 'TEXT' ? v.text.trim() : null,
+          }))
+        : null,
     },
   }
 }
