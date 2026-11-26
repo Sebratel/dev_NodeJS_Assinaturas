@@ -27,10 +27,13 @@ export class SignatureTemplatesService implements OnModuleInit {
    */
   async getVariables(): Promise<{
     fields: SignatureField[];
-    variables: Array<{ key: string; defaultLabel: string; templates: Array<{ id: string; name: string }> }>;
+    variables: Array<{ key: string; defaultLabel: string; defaultField: string | null; templates: Array<{ id: string; name: string }> }>;
+    /** Cada modelo com as variáveis na ordem em que aparecem (a tela numera as linhas nessa ordem). */
+    templates: Array<{ id: string; name: string; isDefault: boolean; variables: string[] }>;
   }> {
     const variables = new Map<string, Array<{ id: string; name: string }>>();
-    for (const template of await this.findAll()) {
+    const templates = await this.findAll();
+    for (const template of templates) {
       for (const key of TemplateRenderHelper.variablesOf(template.html)) {
         variables.set(key, [...(variables.get(key) ?? []), { id: template.id, name: template.name }]);
       }
@@ -38,8 +41,19 @@ export class SignatureTemplatesService implements OnModuleInit {
     return {
       fields: SignatureFieldsHelper.list(),
       variables: [...variables.entries()]
-        .map(([key, templates]) => ({ key, defaultLabel: SignatureFieldsHelper.defaultLabel(key), templates }))
+        .map(([key, templates]) => ({
+          key,
+          defaultLabel: SignatureFieldsHelper.defaultLabel(key),
+          defaultField: SignatureFieldsHelper.defaultField(key),
+          templates,
+        }))
         .sort((a, b) => a.key.localeCompare(b.key, 'pt-BR')),
+      templates: templates.map((t) => ({
+        id: t.id,
+        name: t.name,
+        isDefault: t.isDefault,
+        variables: TemplateRenderHelper.variablesOf(t.html),
+      })),
     };
   }
 

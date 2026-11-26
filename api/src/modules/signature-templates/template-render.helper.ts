@@ -15,7 +15,12 @@ const ANY_TAG = /\{\{\s*([#^/]?)\s*(\w+)\s*\}\}/g;
  * Qualquer nome vale ({{teste}}): cada variável do modelo vira um campo nas regras.
  */
 export class TemplateRenderHelper {
-  static render(template: string, variables: Record<string, string>): string {
+  /**
+   * `annotate`: cada variável que cai em texto (fora de atributo de tag) vira
+   * `<span data-sig-var="cargo">valor</span>`, e a vazia ganha `data-sig-empty`. Serve para a tela mostrar onde
+   * cada variável está na assinatura. Nunca vai para o Gmail.
+   */
+  static render(template: string, variables: Record<string, string>, options: { annotate?: boolean } = {}): string {
     let output = template;
     for (let guard = 0; guard < 10; guard++) {
       const next = output.replace(SECTION, (_match, kind: string, key: string, inner: string) => {
@@ -25,7 +30,19 @@ export class TemplateRenderHelper {
       if (next === output) break;
       output = next;
     }
-    return output.replace(VARIABLE, (_match, key: string) => TextHelper.escapeHtml(variables[key] ?? ''));
+    const plain = (text: string) => text.replace(VARIABLE, (_match, key: string) => TextHelper.escapeHtml(variables[key] ?? ''));
+    if (!options.annotate) return plain(output);
+    return output
+      .split(/(<[^>]*>)/)
+      .map((part) =>
+        part.startsWith('<')
+          ? plain(part)
+          : part.replace(VARIABLE, (_match, key: string) => {
+              const value = variables[key] ?? '';
+              return `<span data-sig-var="${key}"${value ? '' : ' data-sig-empty="1"'}>${TextHelper.escapeHtml(value)}</span>`;
+            }),
+      )
+      .join('');
   }
 
   /** Variáveis que o modelo usa (inclusive em blocos), na ordem em que aparecem, sem {{img}}. */

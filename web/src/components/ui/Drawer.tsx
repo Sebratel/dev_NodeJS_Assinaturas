@@ -8,7 +8,8 @@ interface DrawerProps {
   subtitle?: string
   onClose: () => void
   footer?: ReactNode
-  width?: 'md' | 'lg'
+  /** xl: tela larga de trabalho (editor de regra com a assinatura ao lado). */
+  width?: 'md' | 'lg' | 'xl'
   children: ReactNode
 }
 
@@ -43,7 +44,11 @@ export function Drawer({
         aria-label={title}
         className={cn(
           'relative flex h-full w-full flex-col border-l border-neutral-200 bg-surface shadow-2xl animate-slide-in-right motion-reduce:animate-none dark:border-white/10',
-          width === 'lg' ? 'sm:max-w-3xl' : 'sm:max-w-xl'
+          width === 'xl'
+            ? 'sm:max-w-[min(1480px,96vw)]'
+            : width === 'lg'
+              ? 'sm:max-w-3xl'
+              : 'sm:max-w-xl'
         )}
       >
         <header className="flex items-start justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-5 py-4">

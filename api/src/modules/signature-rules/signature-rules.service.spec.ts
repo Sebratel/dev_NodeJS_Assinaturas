@@ -27,14 +27,21 @@ describe('SignatureRulesService: variáveis do modelo na regra', () => {
       { key: 'cargo', source: VariableSourceEnum.EMPTY, field: 'cargo', text: 'sobra' },
       { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', prefix: '  Empresa:  ', text: 'sobra' },
       { key: 'nome', source: VariableSourceEnum.FIELD, field: 'nome', prefix: '   ' },
-      { key: 'contato', source: VariableSourceEnum.TEXT, field: 'ramal', prefix: 'sobra', text: '  Ramal {{ramal}}  ' },
+      {
+        key: 'contato',
+        source: VariableSourceEnum.TEXT,
+        field: 'ramal',
+        prefix: ' Tel. ',
+        suffix: ' (comercial) ',
+        text: '  Ramal {{ramal}}  ',
+      },
     ]);
     expect(problemsOf(dto)).toEqual([]);
     expect(SignatureRulesService.clean(dto).outputs.variables).toEqual([
-      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: null, prefix: null, text: null },
-      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', prefix: 'Empresa:', text: null },
-      { key: 'nome', source: VariableSourceEnum.FIELD, field: 'nome', prefix: null, text: null },
-      { key: 'contato', source: VariableSourceEnum.TEXT, field: null, prefix: null, text: 'Ramal {{ramal}}' },
+      { key: 'cargo', source: VariableSourceEnum.EMPTY, field: null, prefix: null, suffix: null, text: null },
+      { key: 'TESTE', source: VariableSourceEnum.FIELD, field: 'empresa', prefix: 'Empresa:', suffix: null, text: null },
+      { key: 'nome', source: VariableSourceEnum.FIELD, field: 'nome', prefix: null, suffix: null, text: null },
+      { key: 'contato', source: VariableSourceEnum.TEXT, field: null, prefix: 'Tel.', suffix: '(comercial)', text: 'Ramal {{ramal}}' },
     ]);
     expect(SignatureRulesService.clean(draft([])).outputs.variables).toBeNull();
   });

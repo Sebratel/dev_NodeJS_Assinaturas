@@ -83,14 +83,23 @@ export function choiceLabel(
   choice: Pick<VariableChoice, 'source'> & {
     field?: string | null
     prefix?: string | null
+    suffix?: string | null
     text?: string | null
   },
   fieldLabels: Map<string, string>
 ): string {
   if (choice.source === 'EMPTY') return 'Vazio'
-  if (choice.source === 'TEXT') return `“${choice.text ?? ''}”`
-  const label = fieldLabels.get(choice.field ?? '') ?? choice.field ?? '—'
-  return choice.prefix ? `“${choice.prefix}” + ${label}` : label
+  const value =
+    choice.source === 'TEXT'
+      ? `“${choice.text ?? ''}”`
+      : (fieldLabels.get(choice.field ?? '') ?? choice.field ?? '—')
+  return [
+    choice.prefix ? `“${choice.prefix}”` : '',
+    value,
+    choice.suffix ? `“${choice.suffix}”` : '',
+  ]
+    .filter(Boolean)
+    .join(' + ')
 }
 
 export const APPLICATION_STATUS_LABELS: Record<

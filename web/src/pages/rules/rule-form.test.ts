@@ -23,11 +23,21 @@ const withVariables = (
 describe('rule-form: variáveis do modelo', () => {
   it('campo, texto e vazio viram a lista da API; "não muda" fica de fora', () => {
     const form = withVariables({
-      cargo: { choice: 'EMPTY', text: 'sobra', prefix: 'sobra' },
-      TESTE: { choice: 'FIELD:empresa', text: '', prefix: '' },
-      time: { choice: 'FIELD:time', text: '', prefix: ' Time: ' },
-      telefone_0800: { choice: 'TEXT', text: ' 0800 365 8000 ', prefix: '' },
-      setor: { choice: '', text: '', prefix: '' },
+      cargo: { choice: 'EMPTY', text: 'sobra', prefix: 'sobra', suffix: '' },
+      TESTE: { choice: 'FIELD:empresa', text: '', prefix: '', suffix: '' },
+      time: {
+        choice: 'FIELD:time',
+        text: '',
+        prefix: ' Time: ',
+        suffix: ' · Sebratel ',
+      },
+      telefone_0800: {
+        choice: 'TEXT',
+        text: ' 0800 365 8000 ',
+        prefix: '',
+        suffix: '',
+      },
+      setor: { choice: '', text: '', prefix: '', suffix: '' },
     })
     expect(ruleFormSchema.safeParse(form).success).toBe(true)
     expect(formToInput(form).outputs).toEqual({
@@ -35,7 +45,13 @@ describe('rule-form: variáveis do modelo', () => {
       variables: [
         { key: 'cargo', source: 'EMPTY' },
         { key: 'TESTE', source: 'FIELD', field: 'empresa' },
-        { key: 'time', source: 'FIELD', field: 'time', prefix: 'Time:' },
+        {
+          key: 'time',
+          source: 'FIELD',
+          field: 'time',
+          prefix: 'Time:',
+          suffix: '· Sebratel',
+        },
         { key: 'telefone_0800', source: 'TEXT', text: '0800 365 8000' },
       ],
     })
@@ -60,7 +76,7 @@ describe('rule-form: variáveis do modelo', () => {
             field: 'ramal',
             prefix: 'Ramal',
           },
-          { key: 'frase', source: 'TEXT', text: 'Fixa.' },
+          { key: 'frase', source: 'TEXT', text: 'Fixa.', suffix: '!' },
         ],
       },
       createdAt: '',
@@ -76,14 +92,16 @@ describe('rule-form: variáveis do modelo', () => {
 
   it('recusa regra vazia e texto fixo em branco', () => {
     const vazia = ruleFormSchema.safeParse(
-      withVariables({ cargo: { choice: '', text: '', prefix: '' } })
+      withVariables({ cargo: { choice: '', text: '', prefix: '', suffix: '' } })
     )
     expect(vazia.error?.issues.map((i) => i.message)).toContain(
       'A regra precisa definir o modelo ou pelo menos uma variável.'
     )
     expect(ruleFormSchema.safeParse(withVariables({}, 't1')).success).toBe(true)
     const semTexto = ruleFormSchema.safeParse(
-      withVariables({ frase: { choice: 'TEXT', text: ' ', prefix: '' } })
+      withVariables({
+        frase: { choice: 'TEXT', text: ' ', prefix: '', suffix: '' },
+      })
     )
     expect(semTexto.error?.issues.map((i) => i.message)).toContain(
       'Escreva o texto ou escolha Vazio.'
@@ -98,7 +116,13 @@ describe('rule-form: variáveis do modelo', () => {
           variables: [
             { key: 'cargo', source: 'EMPTY' },
             { key: 'contato', source: 'FIELD', field: 'celular_corporativo' },
-            { key: 'setor', source: 'FIELD', field: 'time', prefix: 'Time:' },
+            {
+              key: 'setor',
+              source: 'FIELD',
+              field: 'time',
+              prefix: 'Time:',
+              suffix: '|',
+            },
             { key: 'telefone_0800', source: 'TEXT', text: '0800 365 8000' },
           ],
         },
@@ -112,7 +136,7 @@ describe('rule-form: variáveis do modelo', () => {
       'Modelo: Sebratel Empresas',
       '{{cargo}}: Vazio',
       '{{contato}}: Celular corporativo',
-      '{{setor}}: “Time:” + Time',
+      '{{setor}}: “Time:” + Time + “|”',
       '{{telefone_0800}}: “0800 365 8000”',
     ])
   })

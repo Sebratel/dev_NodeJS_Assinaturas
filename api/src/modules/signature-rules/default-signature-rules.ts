@@ -8,6 +8,7 @@ const field = (key: string, fieldKey: string, prefix: string | null = null): Rul
   source: VariableSourceEnum.FIELD,
   field: fieldKey,
   prefix,
+  suffix: null,
   text: null,
 });
 const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, field: null, text: value });

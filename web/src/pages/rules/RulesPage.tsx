@@ -138,96 +138,105 @@ export function RulesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {rules.data.map((rule) => {
-                  const stats = statsById.get(rule.id)
-                  return (
-                    <tr
-                      key={rule.id}
-                      className="cursor-pointer align-top hover:bg-surface-container-low"
-                      onClick={() => setEditor({ rule })}
-                    >
-                      <td className="px-3 py-2">
-                        <Badge tone="brand" className="tabular-nums">
-                          {rule.priority}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div
-                          className={
-                            rule.active
-                              ? 'font-medium'
-                              : 'font-medium text-on-surface-variant line-through'
-                          }
-                        >
-                          {rule.name}
-                        </div>
-                        {rule.description && (
-                          <div className="max-w-72 text-xs text-on-surface-variant">
-                            {rule.description}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {rule.conditions.length === 0 ? (
-                          <span className="text-on-surface-variant">Todos</span>
-                        ) : (
-                          rule.conditions.map((c, i) => (
-                            <div key={i}>
-                              {i > 0 && (
-                                <span className="text-on-surface-variant">
-                                  e{' '}
-                                </span>
-                              )}
-                              {describeCondition(c)}
-                            </div>
-                          ))
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex max-w-80 flex-wrap gap-1">
-                          {describeOutputs(
-                            rule.outputs,
-                            templateNames,
-                            fieldLabels
-                          ).map((part) => (
-                            <Badge key={part}>{part}</Badge>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {stats ? (
-                          <>
-                            {formatNumber(stats.matched)} ·{' '}
-                            <span
-                              className={
-                                stats.matched > 0 && stats.wins === 0
-                                  ? 'text-amber-700 dark:text-amber-300'
-                                  : ''
-                              }
-                            >
-                              {formatNumber(stats.wins)}
-                            </span>
-                          </>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td
-                        className="px-3 py-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Switch
-                          checked={rule.active}
-                          onChange={() => toggle.mutate(rule)}
-                          label={
-                            rule.active ? 'Desativar regra' : 'Ativar regra'
-                          }
-                          disabled={toggle.isPending || !canEdit}
-                        />
-                      </td>
-                    </tr>
+                {/* Prioridade maior primeiro: é a que vence. */}
+                {[...rules.data]
+                  .sort(
+                    (a, b) =>
+                      b.priority - a.priority ||
+                      a.name.localeCompare(b.name, 'pt-BR')
                   )
-                })}
+                  .map((rule) => {
+                    const stats = statsById.get(rule.id)
+                    return (
+                      <tr
+                        key={rule.id}
+                        className="cursor-pointer align-top hover:bg-surface-container-low"
+                        onClick={() => setEditor({ rule })}
+                      >
+                        <td className="px-3 py-2">
+                          <Badge tone="brand" className="tabular-nums">
+                            {rule.priority}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div
+                            className={
+                              rule.active
+                                ? 'font-medium'
+                                : 'font-medium text-on-surface-variant line-through'
+                            }
+                          >
+                            {rule.name}
+                          </div>
+                          {rule.description && (
+                            <div className="max-w-72 text-xs text-on-surface-variant">
+                              {rule.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {rule.conditions.length === 0 ? (
+                            <span className="text-on-surface-variant">
+                              Todos
+                            </span>
+                          ) : (
+                            rule.conditions.map((c, i) => (
+                              <div key={i}>
+                                {i > 0 && (
+                                  <span className="text-on-surface-variant">
+                                    e{' '}
+                                  </span>
+                                )}
+                                {describeCondition(c)}
+                              </div>
+                            ))
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex max-w-80 flex-wrap gap-1">
+                            {describeOutputs(
+                              rule.outputs,
+                              templateNames,
+                              fieldLabels
+                            ).map((part) => (
+                              <Badge key={part}>{part}</Badge>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {stats ? (
+                            <>
+                              {formatNumber(stats.matched)} ·{' '}
+                              <span
+                                className={
+                                  stats.matched > 0 && stats.wins === 0
+                                    ? 'text-amber-700 dark:text-amber-300'
+                                    : ''
+                                }
+                              >
+                                {formatNumber(stats.wins)}
+                              </span>
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td
+                          className="px-3 py-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Switch
+                            checked={rule.active}
+                            onChange={() => toggle.mutate(rule)}
+                            label={
+                              rule.active ? 'Desativar regra' : 'Ativar regra'
+                            }
+                            disabled={toggle.isPending || !canEdit}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>

@@ -21,6 +21,14 @@ describe('TemplateRenderHelper', () => {
     expect(TemplateRenderHelper.variablesOf('<img src="{{img}}x.png">{{#cargo}}{{cargo}}{{/cargo}} {{TESTE}}')).toEqual(['cargo', 'TESTE']);
   });
 
+  it('annotate marca a variável que cai em texto (vazia também) e deixa atributo intacto', () => {
+    const tpl = '<a href="mailto:{{email}}">{{email}}</a>{{#cargo}}<b>{{cargo}}</b>{{/cargo}}<i>{{setor}}</i>';
+    expect(TemplateRenderHelper.render(tpl, { email: 'a@b', cargo: 'Analista', setor: '' }, { annotate: true })).toBe(
+      '<a href="mailto:a@b"><span data-sig-var="email">a@b</span></a><b><span data-sig-var="cargo">Analista</span></b>' +
+        '<i><span data-sig-var="setor" data-sig-empty="1"></span></i>',
+    );
+  });
+
   it('acusa bloco aberto sem fechar e fechamento trocado', () => {
     expect(TemplateRenderHelper.validate('{{#frase}}a')).toContain('Bloco {{#frase}} sem {{/frase}}.');
     expect(TemplateRenderHelper.validate('{{#frase}}{{/nome}}').length).toBeGreaterThan(0);
