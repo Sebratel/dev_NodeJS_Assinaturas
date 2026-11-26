@@ -266,14 +266,21 @@ export class SignaturesService {
     const person = collaborators[index];
     const evaluation = next[index];
     const html = render(evaluation);
+    const template = templateOf(evaluation);
+    const variables = TemplateRenderHelper.variablesOf(template.html);
     return {
       collaboratorId: person.id,
       name: person.name,
       team: person.team,
       title: person.title,
       status: evaluation.status,
-      templateName: templateOf(evaluation).name,
+      templateId: template.id,
+      templateName: template.name,
       html,
+      annotatedHtml: SignatureTemplateHelper.render(evaluation.content, this.imageBaseUrl(), template.html, { annotate: true }),
+      mapHtml: SignatureTemplateHelper.renderMap(this.imageBaseUrl(), template.html),
+      variables,
+      values: Object.fromEntries(variables.map((key) => [key, evaluation.content.values[key] ?? ''])),
       htmlLength: html.length,
       gmailLimit: GMAIL_SIGNATURE_MAX_LENGTH,
       matched: this.signatureEngine.matches(person, draftRule),

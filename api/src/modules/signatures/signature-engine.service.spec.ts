@@ -89,6 +89,7 @@ describe('SignatureEngineService', () => {
       source: VariableSourceEnum.TEXT,
       field: null,
       prefix: null,
+      suffix: null,
       text: '0800 365 8000',
     });
   });
@@ -131,6 +132,29 @@ describe('SignatureEngineService', () => {
     expect(result.decisions.variables.cargo.ruleName).toBe('Empresas p50');
     expect(result.decisions.variables.teste.ruleName).toBe('Empresas p40');
     expect(result.phraseOrigin).toMatchObject({ kind: 'NONE' });
+  });
+
+  it('prefixo e sufixo em campo e em texto fixo, com espaço automático; valor vazio não deixa sobra', () => {
+    const decorated = (v: RuleVariable, prefix: string | null, suffix: string | null): RuleVariable => ({ ...v, prefix, suffix });
+    const result = engine.evaluate(
+      person({ extension: '4021' }),
+      [
+        ...rules,
+        rule('Prefixos e sufixos', 40, [
+          decorated(field('cargo', 'cargo'), null, '· Sebratel'),
+          decorated(field('ramal', 'ramal'), '(', ')'),
+          decorated(text('teste', 'Fixo'), 'Antes:', ', depois'),
+          decorated(field('vazio', 'segmento'), 'Seg.:', '!'),
+        ]),
+      ],
+      phrases,
+    );
+    expect(result.content.values).toMatchObject({
+      cargo: 'Analista · Sebratel',
+      ramal: '(4021)',
+      teste: 'Antes: Fixo, depois',
+      vazio: '',
+    });
   });
 
   it('campo com prefixo: "Time: Operacional"; sem prefixo sai só o valor; campo vazio não deixa o prefixo sozinho', () => {
@@ -183,7 +207,7 @@ describe('SignatureEngineService', () => {
     expect(legacy.variables).toEqual(
       expect.arrayContaining([
         { key: 'telefone_0800', source: VariableSourceEnum.TEXT, field: null, text: '0800 1' },
-        { key: 'contato_ramal', source: VariableSourceEnum.FIELD, field: 'ramal', prefix: 'Ramal', text: null },
+        { key: 'contato_ramal', source: VariableSourceEnum.FIELD, field: 'ramal', prefix: 'Ramal', suffix: null, text: null },
         { key: 'setor', source: VariableSourceEnum.EMPTY, field: null, text: null },
         { key: 'frase', source: VariableSourceEnum.EMPTY, field: null, text: null },
       ]),

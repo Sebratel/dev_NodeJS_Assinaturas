@@ -115,6 +115,12 @@ export class SignatureFieldsHelper {
     return legacy ? (fieldValues[legacy] ?? '') : '';
   }
 
+  /** Campo que a variável mostra quando nenhuma regra decide ({{cargo}} → cargo; {{setor}} → time); null = vazia. */
+  static defaultField(key: string): string | null {
+    if (BY_KEY.has(key)) return key;
+    return LEGACY_DEFAULTS[key] ?? null;
+  }
+
   /** "Cargo", "Time" ou "Vazio": o que a variável mostra quando nenhuma regra decide. */
   static defaultLabel(key: string): string {
     const field = BY_KEY.get(key) ?? BY_KEY.get(LEGACY_DEFAULTS[key] ?? '');
@@ -141,6 +147,19 @@ export class SignatureFieldsHelper {
     const fields = SignatureFieldsHelper.fieldsIn(text);
     if (fields.some((key) => !fieldValues[key])) return '';
     return text.replace(PLACEHOLDER, (_m, _kind: string, key: string) => fieldValues[key] ?? '').trim();
+  }
+
+  /**
+   * Põe prefixo e sufixo em volta do valor, só se houver valor.
+   * Espaço automático: "Time:" + "Suporte" = "Time: Suporte"; sem espaço depois de "(" e antes de ")", ",", "." etc.
+   */
+  static decorate(value: string, prefix?: string | null, suffix?: string | null): string {
+    if (!value) return '';
+    const p = prefix?.trim() ?? '';
+    const s = suffix?.trim() ?? '';
+    const before = p && !/[([{/'"“‘]$/.test(p) ? `${p} ` : p;
+    const after = s && !/^[)\]},.;:!?%/'"”’]/.test(s) ? ` ${s}` : s;
+    return `${before}${value}${after}`;
   }
 
   /** Problemas num texto fixo: só {{campo}} conhecido, sem blocos. */

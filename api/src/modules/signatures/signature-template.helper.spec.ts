@@ -10,6 +10,15 @@ describe('SignatureTemplateHelper.render', () => {
   });
 });
 
+describe('SignatureTemplateHelper.renderMap', () => {
+  it('mostra cada variável pelo nome no lugar dela, com os blocos abertos e as imagens no endereço certo', () => {
+    const tpl = '<img src="{{img}}logo.png">{{nome}}{{#cargo}} | {{cargo}}{{/cargo}}{{^frase}}sem frase{{/frase}}';
+    expect(SignatureTemplateHelper.renderMap('https://x', tpl)).toBe(
+      '<img src="https://x/logo.png"><span data-sig-var="nome">{{nome}}</span> | <span data-sig-var="cargo">{{cargo}}</span>',
+    );
+  });
+});
+
 describe('SignatureTemplateHelper.minify', () => {
   it('modelo indentado gera o mesmo HTML que o compacto', () => {
     const compact = '<table><tr><td style="x">Fulano</td><td><img src="a.png" alt=""><a href="y">site</a></td></tr></table>';

@@ -11,10 +11,20 @@ export class SignatureTemplateHelper {
     return { ...content.values, [IMAGE_VARIABLE]: imageBaseUrl.replace(/\/?$/, '/') };
   }
 
-  static render(content: SignatureContent, imageBaseUrl: string, templateHtml: string): string {
+  /** `annotate`: marca onde cada variável cai (só para a tela; ver TemplateRenderHelper.render). */
+  static render(content: SignatureContent, imageBaseUrl: string, templateHtml: string, options: { annotate?: boolean } = {}): string {
     return SignatureTemplateHelper.minify(
-      TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl)),
+      TemplateRenderHelper.render(templateHtml, SignatureTemplateHelper.toVariables(content, imageBaseUrl), options),
     );
+  }
+
+  /**
+   * Mapa do modelo: cada variável aparece com o próprio nome ({{cargo}}) no lugar onde fica, com todos os blocos
+   * {{#…}} abertos. Mostra a estrutura sem depender de uma pessoa.
+   */
+  static renderMap(imageBaseUrl: string, templateHtml: string): string {
+    const values = Object.fromEntries(TemplateRenderHelper.variablesOf(templateHtml).map((key) => [key, `{{${key}}}`]));
+    return SignatureTemplateHelper.render({ values, fieldsUsed: [] }, imageBaseUrl, templateHtml, { annotate: true });
   }
 
   /**

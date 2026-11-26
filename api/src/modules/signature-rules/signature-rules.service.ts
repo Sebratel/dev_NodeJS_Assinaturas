@@ -26,7 +26,8 @@ export class SignatureRulesService implements OnModuleInit {
   }
 
   findAll(): Promise<SignatureRuleEntity[]> {
-    return this.ruleRepository.find({ order: { priority: 'ASC', name: 'ASC' } });
+    // Prioridade maior primeiro: é a que vence (o motor ordena por conta própria).
+    return this.ruleRepository.find({ order: { priority: 'DESC', name: 'ASC' } });
   }
 
   async findOne(id: string): Promise<SignatureRuleEntity> {
@@ -90,13 +91,17 @@ export class SignatureRulesService implements OnModuleInit {
 
   /** Normaliza o que vem da tela: só o que a regra define, sem sobra de campo/texto de outra fonte. */
   static clean(dto: CreateSignatureRuleDTO): Omit<SignatureRule, 'id'> {
-    const variables = (dto.outputs.variables ?? []).map((v) => ({
-      key: v.key,
-      source: v.source,
-      field: v.source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
-      prefix: v.source === VariableSourceEnum.FIELD ? v.prefix?.trim() || null : null,
-      text: v.source === VariableSourceEnum.TEXT ? (v.text?.trim() ?? '') : null,
-    }));
+    const variables = (dto.outputs.variables ?? []).map((v) => {
+      const hasValue = v.source === VariableSourceEnum.FIELD || v.source === VariableSourceEnum.TEXT;
+      return {
+        key: v.key,
+        source: v.source,
+        field: v.source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
+        prefix: hasValue ? v.prefix?.trim() || null : null,
+        suffix: hasValue ? v.suffix?.trim() || null : null,
+        text: v.source === VariableSourceEnum.TEXT ? (v.text?.trim() ?? '') : null,
+      };
+    });
     return {
       name: dto.name.trim(),
       description: dto.description?.trim() ?? '',

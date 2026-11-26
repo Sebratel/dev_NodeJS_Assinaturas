@@ -138,8 +138,9 @@ export interface SignatureEvaluation {
 export interface VariableChoice {
   source: VariableSource
   field: string | null
-  /** Só em FIELD: texto antes do valor ("Time:"). */
+  /** Em FIELD e TEXT: texto antes e depois do valor. */
   prefix: string | null
+  suffix: string | null
   text: string | null
 }
 
@@ -170,8 +171,10 @@ export interface RuleVariable {
   source: VariableSource
   /** Só em FIELD: chave do campo (cargo, celular_corporativo…). */
   field?: string | null
-  /** Só em FIELD, opcional: vem antes do valor ("Time:" → "Time: Suporte"). */
+  /** Em FIELD e TEXT, opcional: vem antes do valor ("Time:" → "Time: Suporte"). */
   prefix?: string | null
+  /** Em FIELD e TEXT, opcional: vem depois do valor. */
+  suffix?: string | null
   /** Só em TEXT; pode citar campos: "Ramal {{ramal}}". */
   text?: string | null
 }
@@ -191,7 +194,16 @@ export interface TemplateVariables {
     key: string
     /** O que a variável mostra quando nenhuma regra decide ("Cargo", "Vazio"). */
     defaultLabel: string
+    /** Campo que ela mostra sem regra ({{setor}} → time); null = vazia. */
+    defaultField: string | null
     templates: Array<{ id: string; name: string }>
+  }>
+  /** Cada modelo com as variáveis na ordem em que aparecem. */
+  templates: Array<{
+    id: string
+    name: string
+    isDefault: boolean
+    variables: string[]
   }>
 }
 
@@ -352,8 +364,17 @@ export interface RulePreview {
   team: string
   title: string
   status: SignatureStatus
+  templateId: string
   templateName: string
   html: string
+  /** Mesmo HTML com cada variável marcada (`data-sig-var`): a tela mostra onde ela fica. */
+  annotatedHtml: string
+  /** O modelo com o nome de cada variável no lugar ({{cargo}}), marcado igual. */
+  mapHtml: string
+  /** Variáveis do modelo, na ordem em que aparecem. */
+  variables: string[]
+  /** Valor final de cada variável do modelo para esta pessoa. */
+  values: Record<string, string>
   htmlLength: number
   gmailLimit: number
   /** A regra do rascunho pega esta pessoa. */

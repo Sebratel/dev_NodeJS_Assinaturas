@@ -22,6 +22,11 @@ export class RuleVariableDTO {
 
   @IsOptional()
   @IsString()
+  @MaxLength(40)
+  suffix?: string | null;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(200)
   text?: string | null;
 }

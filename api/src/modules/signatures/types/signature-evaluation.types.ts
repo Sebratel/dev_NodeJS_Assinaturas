@@ -9,8 +9,9 @@ export type DecisionSlot = 'template' | `var:${string}`;
 export interface VariableChoice {
   source: VariableSourceEnum;
   field: string | null;
-  /** Só em FIELD: texto antes do valor. */
+  /** Em FIELD e TEXT: texto antes e depois do valor. */
   prefix: string | null;
+  suffix: string | null;
   text: string | null;
 }
 

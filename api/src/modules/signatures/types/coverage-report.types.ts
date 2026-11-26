@@ -42,8 +42,17 @@ export interface RulePreview {
   team: string;
   title: string;
   status: SignatureStatusEnum;
+  templateId: string;
   templateName: string;
   html: string;
+  /** Mesmo HTML, com cada variável marcada (`data-sig-var`) para a tela mostrar onde ela fica. */
+  annotatedHtml: string;
+  /** O modelo com o nome de cada variável no lugar ({{cargo}}), blocos abertos, marcado igual. */
+  mapHtml: string;
+  /** Variáveis do modelo, na ordem em que aparecem. */
+  variables: string[];
+  /** Valor final de cada variável do modelo para esta pessoa. */
+  values: Record<string, string>;
   htmlLength: number;
   gmailLimit: number;
   /** A regra do rascunho pega esta pessoa. */

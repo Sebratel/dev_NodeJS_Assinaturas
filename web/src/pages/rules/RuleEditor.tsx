@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { ConditionsEditor } from '../../components/rules/ConditionsEditor'
 import { VariablesEditor } from '../../components/rules/VariablesEditor'
@@ -12,6 +12,7 @@ import { Field } from '../../components/ui/Field'
 import { Input, Select, Textarea } from '../../components/ui/Input'
 import { Switch } from '../../components/ui/Switch'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useTemplateVariables } from '../../hooks/useTemplateVariables'
 import { ApiError } from '../../services/api-client'
 import { derivedQueryRoots, queryKeys } from '../../services/query-keys'
 import { signatureRuleService } from '../../services/signature-rule.service'
@@ -24,7 +25,8 @@ import {
   ruleToForm,
   type RuleFormValues,
 } from './rule-form'
-import { RuleImpact } from './RuleImpact'
+import { RuleImpact, RuleSignaturePanel } from './RuleImpact'
+import { useRuleSimulation } from './useRuleSimulation'
 
 interface RuleEditorProps {
   rule: SignatureRule | null
@@ -52,6 +54,26 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
   const draftReady =
     parsed.success ||
     (parsed.error?.issues ?? []).every((i) => i.path[0] === 'name')
+
+  // Assinatura ao lado: simulação do rascunho, variável em foco e pedido de foco vindo da assinatura.
+  const sim = useRuleSimulation(formToInput(values), rule?.id, draftReady)
+  const preview = sim.simulation.data?.preview ?? null
+  const info = useTemplateVariables()
+  const [activeVar, setActiveVar] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ key: string; at: number } | null>(null)
+  // Ordem das linhas = ordem no modelo mostrado ao lado (o da prévia; sem prévia, o da regra ou o padrão).
+  const ordered = useMemo(() => {
+    if (preview) return preview.variables
+    const list = info.data?.templates ?? []
+    const chosen =
+      list.find((t) => t.id === values.outputs?.templateId) ??
+      list.find((t) => t.isDefault)
+    return chosen?.variables ?? []
+  }, [preview, info.data, values.outputs?.templateId])
+  const numbers = useMemo(
+    () => Object.fromEntries(ordered.map((key, i) => [key, i + 1])),
+    [ordered]
+  )
 
   const afterChange = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.rules })
@@ -83,7 +105,7 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
   return (
     <Drawer
       open
-      width="lg"
+      width="xl"
       onClose={onClose}
       title={!canEdit ? 'Regra' : rule ? 'Editar regra' : 'Nova regra'}
       subtitle="Todas as regras que valem se somam; em cada parte, vence a de prioridade maior."
@@ -128,7 +150,7 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
       }
     >
       <form
-        className="grid gap-4"
+        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start"
         onSubmit={handleSubmit((data) => canEdit && save.mutate(data))}
       >
         <fieldset
@@ -224,7 +246,8 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
             <div>
               <h3 className="text-sm font-semibold">Define</h3>
               <p className="text-xs text-on-surface-variant">
-                O modelo e o que entra em cada variável dele.
+                O modelo e o que entra em cada variável dele. Passe o mouse numa
+                linha para ver onde ela fica na assinatura.
               </p>
             </div>
             <Field
@@ -248,7 +271,11 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
               render={({ field }) => (
                 <VariablesEditor
                   value={field.value ?? {}}
-                  templateId={values.outputs?.templateId ?? ''}
+                  ordered={ordered}
+                  previewValues={preview?.values ?? null}
+                  activeVar={activeVar}
+                  onActive={setActiveVar}
+                  focus={focus}
                   onChange={(next) =>
                     form.setValue('outputs.variables', next, {
                       shouldValidate: true,
@@ -277,14 +304,20 @@ export function RuleEditor({ rule, initial, onClose }: RuleEditorProps) {
           </section>
         </fieldset>
 
-        <section className="grid gap-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
-          <h3 className="text-sm font-semibold">Efeito</h3>
-          <RuleImpact
-            input={formToInput(values)}
-            ruleId={rule?.id}
-            ready={draftReady}
+        {/* Coluna da assinatura: fica parada enquanto a lista de variáveis rola. */}
+        <div className="grid gap-3 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto lg:pb-1">
+          <RuleSignaturePanel
+            sim={sim}
+            activeVar={activeVar}
+            numbers={numbers}
+            onHoverVar={setActiveVar}
+            onSelectVar={(key) => {
+              setActiveVar(key)
+              setFocus({ key, at: Date.now() })
+            }}
           />
-        </section>
+          <RuleImpact sim={sim} />
+        </div>
       </form>
     </Drawer>
   )

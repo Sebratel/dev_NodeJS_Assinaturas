@@ -22,6 +22,7 @@ const field = (key: string, fieldKey: string, prefix: string | null = null): Rul
   source: VariableSourceEnum.FIELD,
   field: fieldKey,
   prefix,
+  suffix: null,
   text: null,
 });
 const text = (key: string, value: string): RuleVariable => ({ key, source: VariableSourceEnum.TEXT, field: null, text: value });
@@ -67,7 +68,8 @@ export class RuleOutputsHelper {
         key: v.key,
         source,
         field: source === VariableSourceEnum.FIELD ? (v.field ?? null) : null,
-        prefix: source === VariableSourceEnum.FIELD ? (v.prefix ?? null) : null,
+        prefix: source === VariableSourceEnum.FIELD || source === VariableSourceEnum.TEXT ? (v.prefix ?? null) : null,
+        suffix: source === VariableSourceEnum.FIELD || source === VariableSourceEnum.TEXT ? (v.suffix ?? null) : null,
         text: source === VariableSourceEnum.TEXT ? (v.text ?? '') : null,
       });
     }

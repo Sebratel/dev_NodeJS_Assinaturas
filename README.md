@@ -55,7 +55,12 @@ O web usa TypeScript 6.0, não o 7: o typescript-eslint só aceita versões abai
   - **Vazio (em branco):** a variável fica vazia, e some junto o bloco `{{#variavel}}…{{/variavel}}` do modelo;
   - **Texto fixo:** por exemplo `0800 365 8000`. Pode citar campos (`Ramal {{ramal}}`); se um campo citado estiver vazio, a variável fica vazia;
   - **Um campo:** nome, e-mail, cargo, área, time, departamento, empresa, segmento, estado, escritório, celular corporativo, ramal, 0800 do AD, celular informado pela pessoa ou a frase da tela Frases (`api/src/modules/signature-templates/signature-fields.ts`).
-    - **Prefixo opcional:** texto antes do valor, como `Time:` (vira "Time: Suporte"). Em branco, sai só o valor, que é o caso do nome. Se o campo estiver vazio na pessoa, o prefixo também não aparece.
+- **Prefixo e sufixo** (opcionais, em campo e em texto fixo): por exemplo `Time:` antes do valor (vira "Time: Suporte") ou `· Sebratel` depois. Em branco, sai só o valor, que é o caso do nome. Se o valor estiver vazio na pessoa, prefixo e sufixo também não aparecem. O espaço é automático, exceto depois de `(` e antes de `)`, `,`, `.` e pontuação parecida.
+- **Editor de regra:** ocupa a tela, em duas colunas. À esquerda, as variáveis, na ordem em que aparecem no modelo, numeradas, com o valor que sai para a pessoa da prévia. À direita, a assinatura com cada variável contornada no lugar:
+  - **Prévia:** a assinatura de uma pessoa;
+  - **Mapa do modelo:** `{{variavel}}` no lugar de cada valor, com os blocos abertos.
+  - Passar o mouse numa linha destaca a variável na assinatura, e clicar na assinatura leva à linha. A marcação (`data-sig-var`) só existe na tela; o Gmail recebe o HTML limpo.
+- A lista de regras vem da **prioridade maior para a menor**, que é a ordem em que vencem.
 - **Padrão sem regra:** a variável com nome de campo mostra o campo (`{{cargo}}` → Cargo). `{{setor}}` mostra o Time. As demais ficam vazias.
 - Em cada variável, e no modelo, vence a regra de **prioridade maior**. Uma regra só mexe no que define.
 - Se duas regras com a **mesma prioridade** decidirem diferente a mesma variável, o status fica **Conflito em `{{variavel}}`** e a tela aponta quais são as regras.
