@@ -53,7 +53,7 @@ export class UsersService {
     return user?.role ?? UserRoleEnum.VIEWER;
   }
 
-  /** Master da stack (AUTH_ADMIN_EMAILS): com HUB_ONLY, o único que entra direto, sem passar pelo Hub. */
+  /** Master da stack (AUTH_ADMIN_EMAILS). Com HUB_ONLY ele também só entra pelo Hub (sem exceção desde 27/11/2026). */
   isStackMaster(email: string): boolean {
     return this.fixedMasters.has(email.trim().toLowerCase());
   }

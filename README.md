@@ -140,7 +140,7 @@ O que a API confere no token do Hub:
 A sessão é assinada com chave derivada: o token do Hub não vale como sessão e a sessão não vale como token do Hub.
 
 - **Quem entra:** toda a organização, como Visualizador (o card do Hub fica sem restrição). Editor e Master vêm da tela **Usuários**, também para quem entra pelo Hub.
-- **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para todos, menos os masters da stack (`AUTH_ADMIN_EMAILS`). Master dado pela tela Usuários também entra só pelo Hub. A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`). Os masters da stack são a porta de emergência se o Hub cair. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
+- **`HUB_ONLY=true`:** o login com Google na própria página responde 403 `HUB_ONLY` para todos, **sem exceção**: masters da stack (`AUTH_ADMIN_EMAILS`) e masters da tela Usuários também entram só pelo Hub (e seguem masters lá dentro). A tela mostra "Acesse pelo Hub Apps" com o link (`target="_top"`), sem botão do Google. Porta de emergência se o Hub cair: `HUB_ONLY=false` na stack e redeploy. Sem `HUB_SSO_SECRET`/`HUB_APP_ID`, o `HUB_ONLY` é ignorado, para não trancar todo mundo.
 - **Quadro:** o nginx do frontend manda `Content-Security-Policy: frame-ancestors 'self' https://hub-apps.sebratel.net.br https://hub-apps-staging.sebratel.net.br`. Fica no nginx do sistema, porque o NPM ignora `add_header` na aba Advanced.
 - **Rotas públicas:** `GET /api/v1/auth/config` (`hubOnly`, `hubEnabled`, `hubUrl`) e `POST /api/v1/auth/hub`.
 

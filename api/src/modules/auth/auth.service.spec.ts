@@ -228,8 +228,19 @@ describe('AuthService.authenticate (ID token do Firebase)', () => {
       });
     });
 
-    it('master da stack (AUTH_ADMIN_EMAILS) continua entrando direto (porta de emergência se o Hub cair)', async () => {
-      await expect(buildService(HUB).authenticate(bearer(signRs256(claims())))).resolves.toMatchObject({ role: UserRoleEnum.MASTER });
+    it('master da stack (AUTH_ADMIN_EMAILS) também NÃO entra direto: 403 HUB_ONLY, sem exceção', async () => {
+      expect(await rejection(buildService(HUB).authenticate(bearer(signRs256(claims()))))).toEqual({
+        status: HttpStatus.FORBIDDEN,
+        code: 'HUB_ONLY',
+      });
+    });
+
+    it('master da stack que entra pelo Hub continua master', async () => {
+      const session = new HubSsoService(new ConfigServiceStub(HUB) as unknown as ConfigService).issueSession({
+        email: claims().email as string,
+        name: 'Master',
+      });
+      await expect(buildService(HUB).authenticate(bearer(session.token))).resolves.toMatchObject({ role: UserRoleEnum.MASTER });
     });
 
     it('master dado pela tela Usuários NÃO entra direto: só pelo Hub', async () => {

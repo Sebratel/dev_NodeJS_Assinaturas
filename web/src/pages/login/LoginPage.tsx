@@ -45,9 +45,9 @@ function isFramed(): boolean {
 
 /**
  * Login no padrão visual "Operação Sebratel" (o mesmo do Data Hub). Autenticação: Firebase (padrao-login-sso).
- * Com HUB_ONLY, uma entrada pelo Hub recusada, ou dentro do quadro do Hub, a chamada principal é o Hub Apps e o
- * Google fica discreto: é a porta dos masters da stack (AUTH_ADMIN_EMAILS) se o Hub cair. Master dado pela tela
- * Usuários também entra só pelo Hub.
+ * Com HUB_ONLY ninguém entra direto, nem o master da stack: a tela só aponta para o Hub Apps, sem botão do Google.
+ * Sem HUB_ONLY, uma entrada pelo Hub recusada ou a tela dentro do quadro do Hub destacam o Hub e deixam o Google
+ * discreto.
  */
 export function LoginPage() {
   const { signIn, signInError, hubError } = useAuth()
@@ -66,7 +66,11 @@ export function LoginPage() {
     <LoginShell shakeKey={signInError}>
       <LoginCardHeader
         title="Acessar plataforma"
-        text="Acesso com conta Google para controle de permissões por papel."
+        text={
+          hubOnly
+            ? 'A entrada é pelo Hub Apps, com o login que você já usa lá.'
+            : 'Acesso com conta Google para controle de permissões por papel.'
+        }
       />
 
       {showHub ? (
@@ -121,33 +125,29 @@ export function LoginPage() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => void onGoogle()}
-        disabled={busy}
-        aria-busy={busy}
-        className={cn(
-          'group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl px-4 text-sm font-semibold text-[#252423] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-60 motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0',
-          showHub
-            ? 'min-h-[36px] border border-neutral-300 bg-white py-2 hover:bg-neutral-50'
-            : 'min-h-[44px] bg-[#FFB800] py-3.5 shadow-md hover:bg-[#e6a800] hover:shadow-lg'
-        )}
-      >
-        {busy ? (
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-        ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
-            <GoogleMark className="h-5 w-5" />
-          </span>
-        )}
-        <span>
-          {busy
-            ? 'Autenticando…'
-            : showHub
-              ? 'Entrar com Google (administrador)'
-              : 'Entrar com Google'}
-        </span>
-      </button>
+      {!hubOnly && (
+        <button
+          type="button"
+          onClick={() => void onGoogle()}
+          disabled={busy}
+          aria-busy={busy}
+          className={cn(
+            'group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl px-4 text-sm font-semibold text-[#252423] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-60 motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0',
+            showHub
+              ? 'min-h-[36px] border border-neutral-300 bg-white py-2 hover:bg-neutral-50'
+              : 'min-h-[44px] bg-[#FFB800] py-3.5 shadow-md hover:bg-[#e6a800] hover:shadow-lg'
+          )}
+        >
+          {busy ? (
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+              <GoogleMark className="h-5 w-5" />
+            </span>
+          )}
+          <span>{busy ? 'Autenticando…' : 'Entrar com Google'}</span>
+        </button>
+      )}
 
       <LoginHelp />
     </LoginShell>

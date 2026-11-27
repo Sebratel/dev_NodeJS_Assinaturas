@@ -2,7 +2,7 @@ import { httpClient, unwrap } from './api-client'
 
 /** O que a tela de login precisa saber antes do login (GET público). */
 export interface AuthConfig {
-  /** true = só master entra direto; os demais pelo Hub Apps. */
+  /** true = todos entram só pelo Hub Apps, sem exceção (inclusive masters). */
   hubOnly: boolean
   /** A entrada pelo Hub está configurada na API (HUB_SSO_SECRET e HUB_APP_ID). */
   hubEnabled: boolean
